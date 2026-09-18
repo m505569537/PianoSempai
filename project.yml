@@ -1,5 +1,11 @@
 name: PianoSempai
 
+packages:
+  SheetMusic:
+    url: https://github.com/jiyimeta/swift-sheet-music
+    revision: 2a3a6f73977273c12a9405b56e837773e0127525
+    # Spike A 选型（docs/spikes/score-rendering.md）。上游无 tag，pin 到 2026-09-18 的 HEAD。
+
 options:
   bundleIdPrefix: com.eeexu
   deploymentTarget:
@@ -21,6 +27,13 @@ targets:
     platform: iOS
     sources:
       - path: PianoSempai
+    dependencies:
+      - package: SheetMusic
+        products:
+          - SheetMusicUI
+          - SheetMusicLoader
+          - SheetMusicCore
+          - SheetMusicMIDI
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.eeexu.pianosempai
@@ -48,6 +61,10 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: PianoSempai
+      - package: SheetMusic
+        products:
+          - SheetMusicLoader
+          - SheetMusicCore
 
 schemes:
   PianoSempai:
