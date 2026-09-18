@@ -46,6 +46,21 @@ final class CoreMIDISource: MIDIEventSource {
         onConnectionChanged?(false)
     }
 
+    /// 当前系统 MIDI 输入源名单（S03 向导设备列表用；BLE 设备需系统配对后才会出现）
+    var sourceNames: [String] {
+        (0..<MIDIGetNumberOfSources()).compactMap { i in
+            let endpoint = MIDIGetSource(i)
+            var name: Unmanaged<CFString>?
+            guard MIDIObjectGetStringProperty(endpoint, kMIDIPropertyName, &name) == noErr, let name else { return nil }
+            return name.takeRetainedValue() as String
+        }
+    }
+
+    /// 是否发现疑似 V70 的源（名字含 v70，大小写不敏感）
+    var hasV70Source: Bool {
+        sourceNames.contains { $0.localizedCaseInsensitiveContains("V70") }
+    }
+
     private func connectAllSources() {
         let count = MIDIGetNumberOfSources()
         for i in 0..<count {

@@ -43,6 +43,8 @@ targets:
       path: PianoSempai/Info.plist
       properties:
         CFBundleDisplayName: PianoSempai
+        CFBundleShortVersionString: 0.1.0
+        CFBundleVersion: 1
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -50,6 +52,9 @@ targets:
         NSBluetoothAlwaysUsageDescription: 接收特伦斯 V70 的琴键、力度和踏板信号。这是判分的唯一依据。
         NSCameraUsageDescription: 只有你主动点「录给 AI 看」时才会启动。日常练习全程不录像、不录音。
         NSMicrophoneUsageDescription: 只有你主动点「录给 AI 看」时才会启动。日常练习全程不录像、不录音。
+        # GarageBand 验证按钮仅在可用时显示（S03 spec）；无此 scheme 声明 canOpenURL 恒 false
+        LSApplicationQueriesSchemes:
+          - garageband
 
   PianoSempaiTests:
     type: bundle.unit-test

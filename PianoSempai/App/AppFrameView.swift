@@ -33,7 +33,7 @@ enum AppTab: CaseIterable, Identifiable {
 /// tab bar），框架不做自定义路由栈；onboarding（S01–S05）、练习室（S11）、报告（S13）
 /// 等后续批次均从本框架以 fullScreenCover 呈现。
 struct AppFrameView: View {
-    @StateObject private var midi = MIDIHub()
+    @ObservedObject private var midi = MIDIHub.shared
     @State private var tab: AppTab = .today
     @State private var nekoToastVisible = false
 

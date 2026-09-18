@@ -6,6 +6,8 @@ import Foundation
 /// P1 功能实装时 TakeStore/练习室从 onEvent 消费。
 @MainActor
 final class MIDIHub: ObservableObject {
+    /// App 单例（AppFrame 与 onboarding 流程共享同一事件流与连接态）
+    @MainActor static let shared = MIDIHub()
     enum Mode: String, CaseIterable, Identifiable {
         case simulated
         case real
@@ -86,6 +88,17 @@ final class MIDIHub: ObservableObject {
     /// 模拟源专用便捷入口（屏幕琴键/自动回放/断连模拟）
     var simulated: SimulatedMIDIEventSource? {
         source as? SimulatedMIDIEventSource
+    }
+
+    /// 真机源便捷入口（S03 设备列表）
+    var real: CoreMIDISource? {
+        source as? CoreMIDISource
+    }
+
+    /// S03 用：临时构建真机源查看系统设备名单（不影响当前源）
+    static func systemSourceNames() -> [String] {
+        guard let probe = CoreMIDISource() else { return [] }
+        return probe.sourceNames
     }
 
     private func handleTracked(_ raw: MIDIEvent) {

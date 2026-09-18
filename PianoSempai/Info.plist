@@ -17,9 +17,13 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<integer>1</integer>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>garageband</string>
+	</array>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>接收特伦斯 V70 的琴键、力度和踏板信号。这是判分的唯一依据。</string>
 	<key>NSCameraUsageDescription</key>
