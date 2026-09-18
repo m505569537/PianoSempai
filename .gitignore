@@ -1,6 +1,7 @@
-DerivedData/
-*.xcuserstate
-xcuserdata/
-build/
-*.app
 .DS_Store
+*.xcodeproj
+*.xcodeproj
+DerivedData/
+xcuserdata/
+*.xcuserstate
+.build/

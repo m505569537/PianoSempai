@@ -1,0 +1,62 @@
+name: PianoSempai
+
+options:
+  bundleIdPrefix: com.eeexu
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  xcodeVersion: "26.0"
+
+settings:
+  base:
+    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: 1
+    SWIFT_VERSION: "5.0"
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+
+targets:
+  PianoSempai:
+    type: application
+    platform: iOS
+    sources:
+      - path: PianoSempai
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.eeexu.pianosempai
+        TARGETED_DEVICE_FAMILY: "1" # iPhone only
+        SUPPORTS_MACCATALYST: NO
+    info:
+      path: PianoSempai/Info.plist
+      properties:
+        CFBundleDisplayName: PianoSempai
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIRequiresFullScreen: true
+        NSBluetoothAlwaysUsageDescription: 接收特伦斯 V70 的琴键、力度和踏板信号。这是判分的唯一依据。
+        NSCameraUsageDescription: 只有你主动点「录给 AI 看」时才会启动。日常练习全程不录像、不录音。
+        NSMicrophoneUsageDescription: 只有你主动点「录给 AI 看」时才会启动。日常练习全程不录像、不录音。
+
+  PianoSempaiTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/PianoSempaiTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: PianoSempai
+
+schemes:
+  PianoSempai:
+    build:
+      targets:
+        PianoSempai: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - PianoSempaiTests
