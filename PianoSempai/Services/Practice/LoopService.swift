@@ -45,6 +45,12 @@ struct TempoChange: Equatable {
 
 enum LoopService {
 
+    /// 区间合法性（S12 交互态：越界时步进器禁用/拒绝开始循环）
+    static func isValid(start: Int, end: Int, totalMeasures: Int) -> Bool {
+        let total = max(1, totalMeasures)
+        return start >= 1 && start < end && end <= total
+    }
+
     /// 越界钳制：1 ≤ start < end ≤ totalMeasures（S12 交互态）
     static func clamped(start: Int, end: Int, totalMeasures: Int) -> (start: Int, end: Int) {
         let total = max(1, totalMeasures)

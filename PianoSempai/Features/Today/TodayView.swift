@@ -3,6 +3,11 @@ import SwiftUI
 
 // MARK: - 今日 tab：S07b（未定级空状态）/ S07（已定级常态）自动切换
 
+/// 练习室路由（fullScreenCover(item:) 需要 Identifiable）
+struct PracticeTaskRoute: Identifiable {
+    let id: String // warmup / main / reward
+}
+
 struct TodayView: View {
     @Environment(\.modelContext) private var context
     @Query private var settingsList: [AppSettings]
@@ -17,7 +22,7 @@ struct TodayView: View {
     @State private var plan: DailyPlan?
     @State private var now = Date()
     @State private var showOverrideModal = false
-    @State private var showPracticePlaceholder = false
+    @State private var practiceRoute: PracticeTaskRoute? // warmup / main / reward → S11
 
     private var settings: AppSettings? { settingsList.first }
     private var hasPlacement: Bool { !placementResults.isEmpty }
@@ -35,8 +40,11 @@ struct TodayView: View {
             now = Date()
             plan = CourseEngine.todayPlan(in: context)
         }
-        .fullScreenCover(isPresented: $showPracticePlaceholder) {
-            PracticeRoomPlaceholder()
+        .fullScreenCover(item: $practiceRoute) { route in
+            PracticeRoomView(
+                taskType: route.id,
+                timeLimitSec: (plan?.durationChoice).map { $0 * 60 }
+            )
         }
         .overlay {
             if showOverrideModal {
@@ -45,7 +53,7 @@ struct TodayView: View {
                     allEvents: gateEvents,
                     onGoWarmup: {
                         showOverrideModal = false
-                        showPracticePlaceholder = true // 练习室 S11 在后续批次；占位承接
+                        practiceRoute = .init(id: "warmup")
                     },
                     onConfirmOverride: { reasonTag, note in
                         confirmOverride(reasonTag: reasonTag, note: note)
@@ -70,7 +78,7 @@ struct TodayView: View {
         let event = WarmupGate.recordOverride(reasonTag: reasonTag, note: note, in: context)
         plan.gateOverrideId = event.entityId // 今日已强开标记（热身卡陈述用）
         showOverrideModal = false
-        showPracticePlaceholder = true
+        practiceRoute = .init(id: "main")
     }
 
     // MARK: - S07 常态
@@ -97,7 +105,7 @@ struct TodayView: View {
                         subtitle: warmupTask.map { "\($0.book) \($0.number)" } ?? "热身任务",
                         state: warmupDone ? .completed : .ready,
                         footnote: overriddenToday ? "今日已强开" : nil,
-                        action: warmupDone ? nil : { showPracticePlaceholder = true }
+                        action: warmupDone ? nil : { practiceRoute = .init(id: "warmup") }
                     )
                     .padding(.top, 16)
 
@@ -117,7 +125,7 @@ struct TodayView: View {
                         subtitle: "今日未安排曲目，弹喜欢的就好",
                         state: .ready,
                         footnote: nil,
-                        action: { showPracticePlaceholder = true } // 奖励曲无门禁、无完成条件（spec）
+                        action: { practiceRoute = .init(id: "reward") } // 奖励曲无门禁、无完成条件（spec）
                     )
 
                     weekProgressRow(plan: plan).padding(.top, 20)
@@ -283,7 +291,7 @@ struct TodayView: View {
         )
         switch decision {
         case .allowed:
-            showPracticePlaceholder = true
+            practiceRoute = .init(id: "main")
         case .blocked:
             showOverrideModal = true
         }
@@ -629,35 +637,6 @@ struct S07cOverrideModal: View {
     }
 }
 
-// MARK: - 练习室占位（S11 后续批次；门禁放行/奖励曲的承接去向）
-
-struct PracticeRoomPlaceholder: View {
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "pianokeys")
-                .font(.system(size: 40))
-                .foregroundStyle(Color.amber)
-            Text("练习室")
-                .font(.headlineLg)
-                .foregroundStyle(Color.textPrimary)
-            Text("S11 将在下一批次实装（谱面渲染 + 节拍器 + 循环）。此占位保证门禁与任务入口都有真实去向，不留假按钮。")
-                .font(.bodySm)
-                .leading(19, fontSize: 12)
-                .foregroundStyle(Color.textMuted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            Button("返回") { dismiss() }
-                .buttonStyle(SecondaryButtonStyle(cornerRadius: 8))
-                .padding(.horizontal, 60)
-                .padding(.top, 8)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.canvas)
-        .preferredColorScheme(.dark)
-    }
-}
 
 #Preview {
     TodayView(onBrowseLibrary: {})

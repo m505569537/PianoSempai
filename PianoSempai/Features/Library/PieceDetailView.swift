@@ -11,9 +11,10 @@ struct PieceDetailView: View {
     var entry: CatalogEntry?
     var piece: Piece?
 
+    @Query private var scoreFiles: [ScoreFile]
     @State private var rangeStart = 1
     @State private var rangeEnd = 8
-    @State private var showPracticePlaceholder = false
+    @State private var startPractice = false
 
     private var title: String {
         if let entry { return entry.title }
@@ -48,6 +49,12 @@ struct PieceDetailView: View {
         return CourseEngine.catalogStatus(book: entry.book, number: entry.number, pathState: CoursePathState()) == .locked
     }
 
+    /// 导入曲目关联的可跟弹谱文件（内置教材暂无谱文件 → 练习室回落内置样例）
+    private var linkedScoreFile: ScoreFile? {
+        guard let piece, let sourceId = piece.sourceScoreId else { return nil }
+        return scoreFiles.first { $0.entityId == sourceId && $0.canFollow }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -76,7 +83,7 @@ struct PieceDetailView: View {
                     .padding(.top, 20)
 
                     Button {
-                        showPracticePlaceholder = true
+                        startPractice = true
                     } label: {
                         HStack(spacing: 6) {
                             Text(isLocked ? "路线到达后解锁" : "开始练习")
@@ -96,7 +103,13 @@ struct PieceDetailView: View {
             .overlay(alignment: .topLeading) {
                 backButton
             }
-            .fullScreenCover(isPresented: $showPracticePlaceholder) { PracticeRoomPlaceholder() }
+            .fullScreenCover(isPresented: $startPractice) {
+                PracticeRoomView(
+                    taskType: "main",
+                    scoreFile: linkedScoreFile,
+                    pieceTitle: title
+                )
+            }
         }
     }
 

@@ -59,6 +59,11 @@ final class SimulatedMIDIEventSource: MIDIEventSource {
         onConnectionChanged?(false)
     }
 
+    /// S11b 重连（模拟源路径：恢复连接态，断点续）
+    func reconnect() {
+        onConnectionChanged?(true)
+    }
+
     // MARK: - 私有
 
     private func emit(_ kind: MIDIEvent.Kind, channel: UInt8) {

@@ -37,10 +37,12 @@ struct AppFrameView: View {
     @State private var tab: AppTab = AppFrameView.initialTab()
     @State private var nekoToastVisible = false
 
-    /// DEBUG 视觉验收：simctl launch 传 --ui.tab.library 直落曲库
+    /// DEBUG 视觉验收：simctl launch 传 --ui.tab.library / --ui.tab.practice 直落对应 tab
     static func initialTab() -> AppTab {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--ui.tab.library") { return .library }
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("--ui.tab.library") { return .library }
+        if args.contains("--ui.tab.practice") { return .practice }
         #endif
         return .today
     }
@@ -95,7 +97,7 @@ struct AppFrameView: View {
         case .library:
             LibraryView()
         case .practice:
-            TabPlaceholderPage(title: "练习室", note: "练习室 · 下一批次实装")
+            PracticeHubView(onBrowseLibrary: { tab = .library })
         case .archive:
             TabPlaceholderPage(title: "档案", note: "练习档案 · 下一批次实装")
         case .settings:
