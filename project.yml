@@ -5,6 +5,11 @@ packages:
     url: https://github.com/jiyimeta/swift-sheet-music
     revision: 2a3a6f73977273c12a9405b56e837773e0127525
     # Spike A 选型（docs/spikes/score-rendering.md）。上游无 tag，pin 到 2026-09-18 的 HEAD。
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation.git
+    exactVersion: 0.9.20
+    # S26 导出/恢复 zip（MIT，成熟库；Hermes M7 指令替换自研解析器。
+    # 注：指令里的 URL weichol 少字母，实际仓库为 weichsel/ZIPFoundation）
 
 options:
   bundleIdPrefix: com.eeexu
@@ -34,6 +39,8 @@ targets:
           - SheetMusicLoader
           - SheetMusicCore
           - SheetMusicMIDI
+      - package: ZIPFoundation
+        product: ZIPFoundation
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.eeexu.pianosempai

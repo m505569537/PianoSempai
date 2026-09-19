@@ -44,6 +44,7 @@ struct AppFrameView: View {
         if args.contains("--ui.tab.library") { return .library }
         if args.contains("--ui.tab.practice") { return .practice }
         if args.contains("--ui.tab.archive") { return .archive }
+        if args.contains("--ui.tab.settings") { return .settings }
         #endif
         return .today
     }
@@ -105,7 +106,7 @@ struct AppFrameView: View {
         case .archive:
             ArchiveView()
         case .settings:
-            TabPlaceholderPage(title: "我的", note: "设置 · 下一批次实装")
+            SettingsView()
         }
     }
 
