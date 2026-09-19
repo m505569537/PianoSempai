@@ -252,11 +252,13 @@ final class Take {
     var midiEventCount: Int = 0
     /// 断连区间（秒起点列表，S11b 重连续录标注）
     var interruptionRanges: [Int] = []
+    /// 逐音错音明细（"小节:音高"字符串；P1 简化存储，S13b 剔除规则数据源）
+    var wrongNoteRecords: [String] = []
     /// 自由弹奏一句话 / take 标题
     var title: String = ""
 
     /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
-    init(entityId: UUID = UUID(), startedAt: Date = Date(), endedAt: Date? = nil, durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false, midiFileURL: String = "", measureFrom: Int? = nil, measureTo: Int? = nil, tempoAvg: Int = 0, noteCount: Int = 0, wrongNoteCount: Int = 0, pedalEventCount: Int = 0, midiEventCount: Int = 0, interruptionRanges: [Int] = [], title: String = "") {
+    init(entityId: UUID = UUID(), startedAt: Date = Date(), endedAt: Date? = nil, durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false, midiFileURL: String = "", measureFrom: Int? = nil, measureTo: Int? = nil, tempoAvg: Int = 0, noteCount: Int = 0, wrongNoteCount: Int = 0, pedalEventCount: Int = 0, midiEventCount: Int = 0, interruptionRanges: [Int] = [], wrongNoteRecords: [String] = [], title: String = "") {
         self.entityId = entityId
         self.startedAt = startedAt
         self.endedAt = endedAt
@@ -273,6 +275,7 @@ final class Take {
         self.pedalEventCount = pedalEventCount
         self.midiEventCount = midiEventCount
         self.interruptionRanges = interruptionRanges
+        self.wrongNoteRecords = wrongNoteRecords
         self.title = title
     }
 }

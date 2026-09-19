@@ -43,6 +43,7 @@ struct AppFrameView: View {
         let args = ProcessInfo.processInfo.arguments
         if args.contains("--ui.tab.library") { return .library }
         if args.contains("--ui.tab.practice") { return .practice }
+        if args.contains("--ui.tab.archive") { return .archive }
         #endif
         return .today
     }
@@ -97,9 +98,12 @@ struct AppFrameView: View {
         case .library:
             LibraryView()
         case .practice:
-            PracticeHubView(onBrowseLibrary: { tab = .library })
+            PracticeHubView(
+                onBrowseLibrary: { tab = .library },
+                onBrowseArchive: { tab = .archive }
+            )
         case .archive:
-            TabPlaceholderPage(title: "档案", note: "练习档案 · 下一批次实装")
+            ArchiveView()
         case .settings:
             TabPlaceholderPage(title: "我的", note: "设置 · 下一批次实装")
         }

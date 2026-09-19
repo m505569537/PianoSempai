@@ -8,10 +8,11 @@ struct PracticeHubView: View {
     @Query private var dailyPlans: [DailyPlan]
     @Query private var tasks: [PracticeTask]
     let onBrowseLibrary: () -> Void
+    let onBrowseArchive: () -> Void
 
     @State private var showMainPractice = false
-    @State private var showFreeplayPlaceholder = false
-    @State private var showRecentPlaceholder = false
+    @State private var showFreeplay = false
+    @State private var showRecentTakes = false
 
     private var todayPlan: DailyPlan? {
         let today = Calendar.current.startOfDay(for: Date())
@@ -50,12 +51,12 @@ struct PracticeHubView: View {
                 .padding(.top, 12)
 
                 hubCard(icon: "waveform.path", title: "自由弹奏", subtitle: "不打分 · MIDI 记录 · 一句话存档", accent: .compareB) {
-                    showFreeplayPlaceholder = true // S14 在 M6b
+                    showFreeplay = true
                 }
                 .padding(.top, 12)
 
-                hubCard(icon: "clock.arrow.circlepath", title: "最近 take", subtitle: "Take 报告与时间线（M6b）", accent: .compareB) {
-                    showRecentPlaceholder = true
+                hubCard(icon: "clock.arrow.circlepath", title: "最近 take", subtitle: "报告与时间线", accent: .compareB) {
+                    showRecentTakes = true
                 }
                 .padding(.top, 12)
             }
@@ -66,11 +67,11 @@ struct PracticeHubView: View {
         .fullScreenCover(isPresented: $showMainPractice) {
             PracticeRoomView(taskType: "main", timeLimitSec: (todayPlan?.durationChoice).map { $0 * 60 })
         }
-        .sheet(isPresented: $showFreeplayPlaceholder) {
-            M6bPlaceholderSheet(title: "自由弹奏", note: "S14 自由弹奏（钢琴卷帘 + 一句话存档）在下一批次提供。")
+        .fullScreenCover(isPresented: $showFreeplay) {
+            FreePlayView(onSaved: onBrowseArchive) // S14 spec：保存后跳档案
         }
-        .sheet(isPresented: $showRecentPlaceholder) {
-            M6bPlaceholderSheet(title: "最近 take", note: "S13 Take 报告与档案时间线在下一批次提供。已保存的 take 不会丢。")
+        .sheet(isPresented: $showRecentTakes) {
+            TakesListView()
         }
     }
 

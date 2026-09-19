@@ -7,7 +7,7 @@ import Foundation
 // - 当前小节期望耗尽 → 光标推进到下一小节（超出循环终点回到起点，由 LoopService 决定）；
 // - 多弹同一音而期望已耗尽 → 同样计错音。
 
-struct WrongNoteRecord: Equatable {
+struct WrongNoteRecord: Equatable, Hashable {
     let measure: Int // 1-based 展示用小节号
     let actualPitch: UInt8
 }

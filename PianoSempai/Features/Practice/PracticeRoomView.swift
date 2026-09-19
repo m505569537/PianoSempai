@@ -28,6 +28,7 @@ struct PracticeRoomView: View {
     @State private var exitConfirm = false
     @State private var nekoToast = false
     @State private var lastHandledEventID: UUID?
+    @State private var showMarkSheet = false
 
     private var totalMeasures: Int { loadedScore.map(ScoreExpectedPitches.measureCount) ?? 0 }
 
@@ -77,6 +78,20 @@ struct PracticeRoomView: View {
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showLoopSheet) {
             S12LoopSettingsSheet(session: session, totalMeasures: totalMeasures)
+        }
+        .sheet(isPresented: $showMarkSheet) {
+            S13bMarkSheet(
+                scoreName: displayTitle,
+                measure: session.followState.measureIndex + 1
+            ) { type, note in
+                context.insert(ScoreErrorMark(
+                    scoreName: displayTitle,
+                    measure: session.followState.measureIndex + 1,
+                    type: type,
+                    note: note
+                ))
+                session.addMark() // 时间点标签
+            }
         }
         .fullScreenCover(item: $finishedSummary) { summary in
             M6aTakeSavedView(summary: summary, onDone: { dismiss() })
@@ -241,7 +256,7 @@ struct PracticeRoomView: View {
                 showLoopSheet = true
             }
             controlCard(icon: "flag", label: "标记", value: session.marks.isEmpty ? "" : "\(session.marks.count)", highlighted: false) {
-                session.addMark() // S13b hook：时间点标签；谱错 sheet M6b
+                showMarkSheet = true // S13b：疑似谱错标记（时间点标签随提交一并记录）
             }
         }
     }

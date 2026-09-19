@@ -261,6 +261,7 @@ final class PracticeSession: ObservableObject {
             pedalEventCount: summary.pedalEventCount,
             midiEventCount: summary.midiEventCount,
             interruptionRanges: interruptions,
+            wrongNoteRecords: summary.wrongNotes.map { "\($0.measure):\($0.actualPitch)" },
             title: title
         )
         context.insert(take)
