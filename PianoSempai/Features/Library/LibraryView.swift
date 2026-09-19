@@ -21,9 +21,22 @@ struct LibraryView: View {
     @State private var showImporter = false
     @State private var importError: LibraryImportService.ImportError?
     @State private var importedFileName = ""
-    @State private var showPDFLibrary = false
-    @State private var detailEntry: CatalogEntry?
-    @State private var detailPiece: Piece?
+    /// 单一 sheet 路由（SwiftUI 一个视图只可靠呈现一个 .sheet；三链曾致 S09 死路）
+    enum ActiveSheet: Identifiable {
+        case pdf
+        case entry(CatalogEntry)
+        case piece(Piece)
+
+        var id: String {
+            switch self {
+            case .pdf: "pdf"
+            case let .entry(entry): "entry-\(entry.id)"
+            case let .piece(piece): "piece-\(piece.entityId.uuidString)"
+            }
+        }
+    }
+
+    @State private var activeSheet: ActiveSheet?
 
     private var pathState: CoursePathState? { pathStates.first }
     private var catalog: [CatalogEntry] { CatalogLoader.loadBuiltin() }
@@ -38,9 +51,13 @@ struct LibraryView: View {
             .background(Color.canvas)
             .navigationBarHidden(true)
         }
-        .sheet(isPresented: $showPDFLibrary) { PDFLibraryView() }
-        .sheet(item: $detailEntry) { entry in PieceDetailView(entry: entry) }
-        .sheet(item: $detailPiece) { piece in PieceDetailView(piece: piece) }
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .pdf: PDFLibraryView()
+            case let .entry(entry): PieceDetailView(entry: entry)
+            case let .piece(piece): PieceDetailView(piece: piece)
+            }
+        }
         .fileImporter(
             isPresented: $showImporter,
             allowedContentTypes: [UTType.data],
@@ -59,7 +76,7 @@ struct LibraryView: View {
                     },
                     onHelp: {
                         self.importError = nil
-                        showPDFLibrary = true
+                        activeSheet = .pdf
                     },
                     onDismiss: { self.importError = nil }
                 )
@@ -155,7 +172,7 @@ struct LibraryView: View {
         )
         let projected = CourseEngine.projected599WeeksLabel(pathState: pathState ?? CoursePathState())
         return Button {
-            detailEntry = entry
+            activeSheet = .entry(entry)
         } label: {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
@@ -218,7 +235,7 @@ struct LibraryView: View {
                 }
                 ForEach(pieces) { piece in
                     Button {
-                        detailPiece = piece
+                        activeSheet = .piece(piece)
                     } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
@@ -254,7 +271,7 @@ struct LibraryView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // PDF 资料库入口（S08 段头入口，screen-index）
                 Button {
-                    showPDFLibrary = true
+                    activeSheet = .pdf
                 } label: {
                     HStack {
                         Image(systemName: "doc.richtext")
