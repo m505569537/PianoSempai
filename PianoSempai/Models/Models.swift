@@ -277,3 +277,89 @@ final class PracticeTask {
     }
 
 }
+
+/// 曲目（data-model §2；P1：内置教材由目录 JSON + CoursePathState 派生，导入曲目落库）
+@Model
+final class Piece {
+    var entityId: UUID = UUID()
+    var title: String = ""
+    /// 拜厄 / 哈农 / 599 / 奖励曲 / 导入
+    var book: String = ""
+    var number: Int = 0
+    var totalMeasures: Int = 0
+    /// locked / notStarted / practicing / passed（只由 CourseEngine 写，红线 1/3）
+    var status: String = "notStarted"
+    var referenceTempo: Int = 0
+    /// 可跟弹谱文件（ScoreFile.entityId）
+    var sourceScoreId: UUID?
+    var suspectedErrorCount: Int = 0
+    var importedAt: Date = Date()
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
+    init(entityId: UUID = UUID(), title: String = "", book: String = "", number: Int = 0, totalMeasures: Int = 0, status: String = "notStarted", referenceTempo: Int = 0, sourceScoreId: UUID? = nil, suspectedErrorCount: Int = 0, importedAt: Date = Date()) {
+        self.entityId = entityId
+        self.title = title
+        self.book = book
+        self.number = number
+        self.totalMeasures = totalMeasures
+        self.status = status
+        self.referenceTempo = referenceTempo
+        self.sourceScoreId = sourceScoreId
+        self.suspectedErrorCount = suspectedErrorCount
+        self.importedAt = importedAt
+    }
+}
+
+/// 谱面文件（data-model §2；沙盒相对路径，DB 只存路径）
+@Model
+final class ScoreFile {
+    var entityId: UUID = UUID()
+    /// musicxml / mxl / mscz / mid / pdf
+    var kind: String = ""
+    /// 沙盒相对路径（scores/ 或 pdfs/ 下）
+    var fileURL: String = ""
+    var title: String = ""
+    /// pdf = false（不能跟弹，只查看）
+    var canFollow: Bool = false
+    /// ok / failed（失败文件不入库，此字段预留诊断）
+    var parseStatus: String = "ok"
+    var importedAt: Date = Date()
+    var fileExt: String = ""
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
+    init(entityId: UUID = UUID(), kind: String = "", fileURL: String = "", title: String = "", canFollow: Bool = false, parseStatus: String = "ok", importedAt: Date = Date(), fileExt: String = "") {
+        self.entityId = entityId
+        self.kind = kind
+        self.fileURL = fileURL
+        self.title = title
+        self.canFollow = canFollow
+        self.parseStatus = parseStatus
+        self.importedAt = importedAt
+        self.fileExt = fileExt
+    }
+}
+
+/// 疑似谱面错误标记（data-model §2 / S13b：标记不扣分、不影响过关）
+@Model
+final class ScoreErrorMark {
+    var entityId: UUID = UUID()
+    /// 曲目标识（P1 用曲目名；Piece 关联随练习批次细化）
+    var scoreName: String = ""
+    var measure: Int = 0
+    /// note / rhythm / fingering
+    var type: String = ""
+    var note: String = ""
+    var occurrenceCount: Int = 1
+    var createdAt: Date = Date()
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
+    init(entityId: UUID = UUID(), scoreName: String = "", measure: Int = 0, type: String = "", note: String = "", occurrenceCount: Int = 1, createdAt: Date = Date()) {
+        self.entityId = entityId
+        self.scoreName = scoreName
+        self.measure = measure
+        self.type = type
+        self.note = note
+        self.occurrenceCount = occurrenceCount
+        self.createdAt = createdAt
+    }
+}

@@ -171,6 +171,32 @@ enum CourseEngine {
         plan.durationChoice = minutes
     }
 
+    /// 曲库导入成功后的落库（library.md 导入契约：ScoreFile(canFollow) + Piece(book=导入, status=notStarted)）。
+    /// 新建导入条目不属于课程状态推进（状态仍由本引擎维护），故集中在 CourseEngine。
+    @discardableResult
+    static func registerImportedScore(_ imported: LibraryImportService.Imported, in context: ModelContext) -> (ScoreFile, Piece?) {
+        let file = ScoreFile(
+            kind: imported.kind,
+            fileURL: imported.relativePath,
+            title: imported.title,
+            canFollow: imported.canFollow
+        )
+        context.insert(file)
+
+        var piece: Piece?
+        if imported.canFollow {
+            let newPiece = Piece(
+                title: imported.title,
+                book: "导入",
+                status: "notStarted"
+            )
+            newPiece.sourceScoreId = file.entityId
+            context.insert(newPiece)
+            piece = newPiece
+        }
+        return (file, piece)
+    }
+
     private static func fetchOrCreatePathState(in context: ModelContext) -> CoursePathState {
         let descriptor = FetchDescriptor<CoursePathState>()
         if let existing = try? context.fetch(descriptor).first {

@@ -17,6 +17,11 @@ struct PianoSempaiApp: App {
                     CoursePathState.self,
                     DailyPlan.self,
                     PracticeTask.self,
+                    GateEvent.self,
+                    Take.self,
+                    Piece.self,
+                    ScoreFile.self,
+                    ScoreErrorMark.self,
                 ])
         }
     }

@@ -34,8 +34,16 @@ enum AppTab: CaseIterable, Identifiable {
 /// 等后续批次均从本框架以 fullScreenCover 呈现。
 struct AppFrameView: View {
     @ObservedObject private var midi = MIDIHub.shared
-    @State private var tab: AppTab = .today
+    @State private var tab: AppTab = AppFrameView.initialTab()
     @State private var nekoToastVisible = false
+
+    /// DEBUG 视觉验收：simctl launch 传 --ui.tab.library 直落曲库
+    static func initialTab() -> AppTab {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui.tab.library") { return .library }
+        #endif
+        return .today
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -85,7 +93,7 @@ struct AppFrameView: View {
         case .today:
             TodayView(onBrowseLibrary: { tab = .library })
         case .library:
-            TabPlaceholderPage(title: "曲库", note: "曲库 · 下一批次实装")
+            LibraryView()
         case .practice:
             TabPlaceholderPage(title: "练习室", note: "练习室 · 下一批次实装")
         case .archive:
