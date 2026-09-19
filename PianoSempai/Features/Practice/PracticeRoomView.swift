@@ -52,6 +52,9 @@ struct PracticeRoomView: View {
 
             if !hub.isConnected {
                 S11bDisconnectedOverlay(
+                    waitingText: MIDIDeviceLabel.waitingText(
+                        for: MIDIDeviceLabel.state(isConnected: hub.isConnected, mode: hub.mode)
+                    ),
                     onReconnect: reconnect,
                     onExit: { finishAndSave() }
                 )
@@ -419,6 +422,7 @@ struct PracticeRoomView: View {
 // MARK: - S11b 断连覆盖态（横幅 + 遮罩卡；控件置灰由父层 playDisabled 控制）
 
 struct S11bDisconnectedOverlay: View {
+    let waitingText: String
     let onReconnect: () -> Void
     let onExit: () -> Void
     @State private var showDistanceHint = false
@@ -468,12 +472,9 @@ struct S11bDisconnectedOverlay: View {
                 Image(systemName: "wifi.slash")
                     .font(.system(size: 32))
                     .foregroundStyle(Color.textMuted)
-                Text("等待特伦斯 V70 重新连接…")
+                Text(waitingText)
                     .font(.bodyMd)
                     .foregroundStyle(Color.textBody)
-                Text("MIDI 诊断页将在「我的」批次提供")
-                    .font(.labelSm)
-                    .foregroundStyle(Color.textMuted)
             }
             .padding(28)
             .background(Color.canvas.opacity(0.72), in: RoundedRectangle(cornerRadius: 12))

@@ -43,7 +43,7 @@ struct SettingsView: View {
                 groupCard {
                     row(
                         icon: hub.isConnected ? "pianokeys" : "exclamationmark.circle",
-                        title: hub.isConnected ? "特伦斯 V70 · 已连接" : "未连接 · 去连接",
+                        title: MIDIDeviceLabel.label(for: MIDIDeviceLabel.state(isConnected: hub.isConnected, mode: hub.mode)),
                         valueColor: hub.isConnected ? Color.textBody : Color.danger
                     ) {
                         // 去连接 = 恢复 onboarding 的 S03 向导
