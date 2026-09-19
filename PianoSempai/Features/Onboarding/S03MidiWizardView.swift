@@ -425,7 +425,11 @@ struct S03MidiWizardView: View {
         VStack(spacing: 8) {
             if step == .connect {
                 Button {
-                    if !systemDevices.isEmpty {
+                    if MIDIWizardFlow.canAdvanceFromConnect(
+                        systemDevices: systemDevices,
+                        selectedDevice: selectedDevice,
+                        mode: hub.mode
+                    ) {
                         step = .verify
                     }
                 } label: {
