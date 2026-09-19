@@ -48,6 +48,10 @@ struct OnboardingFlowView: View {
     private func advance(to newStage: OnboardingStage) {
         stage = newStage
         settings?.onboardingStage = newStage.rawValue
+        // 进入定级时打点：S07b「继续定级（还剩 X 分钟）」的诚实估算依据
+        if newStage == .placement, settings?.placementStartedAt == nil {
+            settings?.placementStartedAt = Date()
+        }
     }
 
     /// 退出流程回框架（进度已存；S07b 继续定级在 M4 接入）

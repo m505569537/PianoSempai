@@ -48,6 +48,7 @@ struct PrimaryButtonStyle: ButtonStyle {
 /// 次按钮：透明底 + 1px 琥珀 0.3 描边 + textBody；pressed 描边 0.7 + card 底
 struct SecondaryButtonStyle: ButtonStyle {
     var isEnabled = true
+    var cornerRadius: CGFloat = 12
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -56,11 +57,11 @@ struct SecondaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .frame(height: 50)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(configuration.isPressed && isEnabled ? Color.card : Color.clear)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: cornerRadius)
                     .strokeBorder(Color.amber.opacity(configuration.isPressed && isEnabled ? 0.7 : 0.3), lineWidth: 1)
             )
     }

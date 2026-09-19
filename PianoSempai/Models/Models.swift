@@ -12,15 +12,18 @@ final class AppSettings {
     var onboardingStage: String = OnboardingStage.welcome.rawValue
     /// 用户中途退出流程（S03 ✕ / S04 稍后评估）→ 直接进框架，S07b「继续定级」恢复
     var onboardingDismissed: Bool = false
+    /// 进入定级（S04）的时间戳：S07b「继续定级（还剩 X 分钟）」的诚实估算依据
+    var placementStartedAt: Date?
     var weeklyGoal: Int = 3
     var notificationConfigured: Bool = false
     var createdAt: Date = Date()
 
     /// 显式 init（@Model 宏对此类的 init 综合失败，原因未明；显式提供绕过）
-    init(onboardingCompleted: Bool = false, onboardingStage: String = OnboardingStage.welcome.rawValue, onboardingDismissed: Bool = false, weeklyGoal: Int = 3, notificationConfigured: Bool = false, createdAt: Date = Date()) {
+    init(onboardingCompleted: Bool = false, onboardingStage: String = OnboardingStage.welcome.rawValue, onboardingDismissed: Bool = false, placementStartedAt: Date? = nil, weeklyGoal: Int = 3, notificationConfigured: Bool = false, createdAt: Date = Date()) {
         self.onboardingCompleted = onboardingCompleted
         self.onboardingStage = onboardingStage
         self.onboardingDismissed = onboardingDismissed
+        self.placementStartedAt = placementStartedAt
         self.weeklyGoal = weeklyGoal
         self.notificationConfigured = notificationConfigured
         self.createdAt = createdAt
@@ -197,6 +200,54 @@ final class DailyPlan {
         self.generatedFromRulesVersion = generatedFromRulesVersion
     }
 
+}
+
+/// 门禁/强开事件（kind 语义锁定 data-model §2：warmupBlocked/override/passAssessed）
+@Model
+final class GateEvent {
+    var entityId: UUID = UUID()
+    var date: Date = Date()
+    /// warmupBlocked / override / passAssessed
+    var kind: String = ""
+    /// 强开原因标签（S07c 四选一；"其他"时存"other"）
+    var reasonTag: String = ""
+    /// "其他"的补充一句（可为空）
+    var note: String = ""
+    /// 周索引（周一起始，供"本周第 N 次"聚合）
+    var weekIndex: Int = 0
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
+    init(entityId: UUID = UUID(), date: Date = Date(), kind: String = "", reasonTag: String = "", note: String = "", weekIndex: Int = 0) {
+        self.entityId = entityId
+        self.date = date
+        self.kind = kind
+        self.reasonTag = reasonTag
+        self.note = note
+        self.weekIndex = weekIndex
+    }
+}
+
+/// Take 元数据（P1 最小集；原始 MIDI 文件/沙盒布局在 Take 落盘批次补齐）
+@Model
+final class Take {
+    var entityId: UUID = UUID()
+    var startedAt: Date = Date()
+    var durationSec: Int = 0
+    /// warmup / main / reward / free
+    var taskType: String = ""
+    /// 是否有 MIDI 数据（有效练习 = 有 MIDI 且当日累计 ≥10 分钟，M9 口径）
+    var hasMidi: Bool = false
+    var isFreePlay: Bool = false
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
+    init(entityId: UUID = UUID(), startedAt: Date = Date(), durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false) {
+        self.entityId = entityId
+        self.startedAt = startedAt
+        self.durationSec = durationSec
+        self.taskType = taskType
+        self.hasMidi = hasMidi
+        self.isFreePlay = isFreePlay
+    }
 }
 
 /// 会话任务（Swift 原生 Task 类型冲突，故命名 PracticeTask；语义同 data-model Task）

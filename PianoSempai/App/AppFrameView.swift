@@ -78,14 +78,20 @@ struct AppFrameView: View {
         return .disconnected
     }
 
+    @ViewBuilder
     private var pageContent: some View {
         // 各 tab 内容页按批次实装；当前为框架占位（不含任何伪造数据）
         switch tab {
-        case .today: TabPlaceholderPage(title: "今日", note: "今日任务 · 下一批次实装")
-        case .library: TabPlaceholderPage(title: "曲库", note: "曲库 · 下一批次实装")
-        case .practice: TabPlaceholderPage(title: "练习室", note: "练习室 · 下一批次实装")
-        case .archive: TabPlaceholderPage(title: "档案", note: "练习档案 · 下一批次实装")
-        case .settings: TabPlaceholderPage(title: "我的", note: "设置 · 下一批次实装")
+        case .today:
+            TodayView(onBrowseLibrary: { tab = .library })
+        case .library:
+            TabPlaceholderPage(title: "曲库", note: "曲库 · 下一批次实装")
+        case .practice:
+            TabPlaceholderPage(title: "练习室", note: "练习室 · 下一批次实装")
+        case .archive:
+            TabPlaceholderPage(title: "档案", note: "练习档案 · 下一批次实装")
+        case .settings:
+            TabPlaceholderPage(title: "我的", note: "设置 · 下一批次实装")
         }
     }
 

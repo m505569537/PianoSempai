@@ -129,6 +129,48 @@ enum CourseEngine {
         return plan
     }
 
+    // MARK: - 今日计划（每日首次进入生成；CourseEngine 唯一写手）
+
+    /// 取当日 DailyPlan；不存在则从 CoursePathState 生成（热身=哈农当前条目 / 主菜=拜厄当前条目 / 奖励曲空缺）。
+    /// 未定级（无 CoursePathState）时返回 nil —— 今日页走 S07b 空状态。
+    static func todayPlan(today: Date = Date(), in context: ModelContext) -> DailyPlan? {
+        let pathState = fetchOrCreatePathState(in: context)
+        guard pathState.placementResultId != nil else { return nil }
+
+        let dayStart = Calendar.current.startOfDay(for: today)
+        let plans = (try? context.fetch(FetchDescriptor<DailyPlan>())) ?? []
+        if let existing = plans.first(where: { Calendar.current.isDate($0.date, inSameDayAs: dayStart) }) {
+            return existing
+        }
+
+        let warmup = PracticeTask()
+        warmup.type = "warmup"
+        warmup.book = "哈农"
+        warmup.number = pathState.currentHanon
+        context.insert(warmup)
+
+        let main = PracticeTask()
+        main.type = "main"
+        main.book = "拜厄"
+        main.number = pathState.currentBeyer
+        context.insert(main)
+
+        let plan = DailyPlan()
+        plan.date = dayStart
+        plan.durationChoice = 30
+        plan.warmupTaskId = warmup.taskId
+        plan.mainTaskId = main.taskId
+        plan.generatedFromRulesVersion = rulesVersion
+        context.insert(plan)
+        return plan
+    }
+
+    /// 切换当日时长（15/30/45）：只改 DailyPlan.durationChoice，热身不被压缩（today.md）
+    static func setDurationChoice(_ minutes: Int, for plan: DailyPlan) {
+        guard [15, 30, 45].contains(minutes) else { return }
+        plan.durationChoice = minutes
+    }
+
     private static func fetchOrCreatePathState(in context: ModelContext) -> CoursePathState {
         let descriptor = FetchDescriptor<CoursePathState>()
         if let existing = try? context.fetch(descriptor).first {
