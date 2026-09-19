@@ -227,26 +227,78 @@ final class GateEvent {
     }
 }
 
-/// Take 元数据（P1 最小集；原始 MIDI 文件/沙盒布局在 Take 落盘批次补齐）
+/// Take 元数据（P1 简化报告口径：真实统计值；M5 完整判分 P2 补齐）
 @Model
 final class Take {
     var entityId: UUID = UUID()
     var startedAt: Date = Date()
+    var endedAt: Date?
     var durationSec: Int = 0
     /// warmup / main / reward / free
     var taskType: String = ""
     /// 是否有 MIDI 数据（有效练习 = 有 MIDI 且当日累计 ≥10 分钟，M9 口径）
     var hasMidi: Bool = false
     var isFreePlay: Bool = false
+    /// 原始 MIDI 事件文件（沙盒相对路径；只追加不可变，红线 4）
+    var midiFileURL: String = ""
+    /// 练习小节区间（P1 来自循环设置；自由弹奏为 nil）
+    var measureFrom: Int?
+    var measureTo: Int?
+    var tempoAvg: Int = 0
+    /// 真实统计（S13 P1 报告）
+    var noteCount: Int = 0
+    var wrongNoteCount: Int = 0
+    var pedalEventCount: Int = 0
+    var midiEventCount: Int = 0
+    /// 断连区间（秒起点列表，S11b 重连续录标注）
+    var interruptionRanges: [Int] = []
+    /// 自由弹奏一句话 / take 标题
+    var title: String = ""
 
     /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
-    init(entityId: UUID = UUID(), startedAt: Date = Date(), durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false) {
+    init(entityId: UUID = UUID(), startedAt: Date = Date(), endedAt: Date? = nil, durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false, midiFileURL: String = "", measureFrom: Int? = nil, measureTo: Int? = nil, tempoAvg: Int = 0, noteCount: Int = 0, wrongNoteCount: Int = 0, pedalEventCount: Int = 0, midiEventCount: Int = 0, interruptionRanges: [Int] = [], title: String = "") {
         self.entityId = entityId
         self.startedAt = startedAt
+        self.endedAt = endedAt
         self.durationSec = durationSec
         self.taskType = taskType
         self.hasMidi = hasMidi
         self.isFreePlay = isFreePlay
+        self.midiFileURL = midiFileURL
+        self.measureFrom = measureFrom
+        self.measureTo = measureTo
+        self.tempoAvg = tempoAvg
+        self.noteCount = noteCount
+        self.wrongNoteCount = wrongNoteCount
+        self.pedalEventCount = pedalEventCount
+        self.midiEventCount = midiEventCount
+        self.interruptionRanges = interruptionRanges
+        self.title = title
+    }
+}
+
+/// 疑似谱面错误标记（S13b；标记不扣分、不影响过关）
+@Model
+final class ScoreErrorMark {
+    var entityId: UUID = UUID()
+    /// 曲目标识（P1 用谱文件名；Piece 实体在曲库批次接入）
+    var scoreName: String = ""
+    var measure: Int = 0
+    /// note / rhythm / fingering
+    var type: String = ""
+    var note: String = ""
+    var occurrenceCount: Int = 1
+    var createdAt: Date = Date()
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
+    init(entityId: UUID = UUID(), scoreName: String = "", measure: Int = 0, type: String = "", note: String = "", occurrenceCount: Int = 1, createdAt: Date = Date()) {
+        self.entityId = entityId
+        self.scoreName = scoreName
+        self.measure = measure
+        self.type = type
+        self.note = note
+        self.occurrenceCount = occurrenceCount
+        self.createdAt = createdAt
     }
 }
 
