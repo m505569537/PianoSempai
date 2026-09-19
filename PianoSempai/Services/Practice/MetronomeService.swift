@@ -14,8 +14,12 @@ final class MetronomeService {
     private(set) var bpm: Int = 72
     private(set) var isRunning = false
     private var beatIndex = 0
-    private var countInBeatsRemaining = 0
+    /// S12 预备拍剩余拍数（测试可见；1 小节 = 4 拍）
+    private(set) var countInBeatsRemaining = 0
     var onCountInFinished: (() -> Void)?
+
+    /// 音频图是否已连接（测试宿主无音频输出时为 false，start 应为安全 no-op）
+    var graphConnected: Bool { engine.isRunning }
 
     init() {
         configureAudioSession()
@@ -29,6 +33,16 @@ final class MetronomeService {
         try? session.setCategory(.playback, options: [.mixWithOthers])
         try? session.setActive(true)
         #endif
+    }
+
+    private var playerConnected = false
+
+    private func connectPlayerOnce() {
+        guard !playerConnected else { return }
+        let format = engine.outputNode.outputFormat(forBus: 0)
+        guard format.sampleRate > 0 else { return }
+        engine.connect(player, to: engine.mainMixerNode, format: format)
+        playerConnected = true
     }
 
     private func ensureBuffers() {
@@ -54,6 +68,9 @@ final class MetronomeService {
     /// 开始：bpm；countInBars > 0 时先打预备拍（4/4 一小节），结束回调 onCountInFinished
     func start(bpm: Int, countInBars: Int = 0) {
         stop()
+        // player 节点必须先连进音频图（attach ≠ connect；漏连会在 play() 时抛
+        // "player started when in a disconnected state"——真机同样会炸）
+        connectPlayerOnce()
         ensureBuffers()
         self.bpm = bpm
         beatIndex = 0
@@ -62,8 +79,14 @@ final class MetronomeService {
             if !engine.isRunning {
                 try engine.start()
             }
+            // 无音频输出的宿主：引擎可能"启动"但图不可用——保持安全 no-op（不崩溃）
+            guard engine.isRunning, playerConnected else {
+                engine.stop()
+                return
+            }
             player.play()
         } catch {
+            engine.stop()
             return
         }
         isRunning = true
@@ -74,6 +97,7 @@ final class MetronomeService {
         beatTimer?.invalidate()
         beatTimer = nil
         if player.isPlaying { player.stop() }
+        engine.stop() // 释放音频图（下次 start 重建）
         isRunning = false
         countInBeatsRemaining = 0
     }
