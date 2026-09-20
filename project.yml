@@ -46,6 +46,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.eeexu.pianosempai
         TARGETED_DEVICE_FAMILY: "1" # iPhone only
         SUPPORTS_MACCATALYST: NO
+        DEVELOPMENT_TEAM: 9RBFTZ8C6Y
+        CODE_SIGN_STYLE: Automatic
     info:
       path: PianoSempai/Info.plist
       properties:

@@ -1,13 +1,21 @@
 import Combine
 import Foundation
 
-/// MIDI 中枢（spike 版）：持有当前事件源（真机/模拟可切换），
+/// MIDI 中枢：持有当前事件源（真机/模拟可切换），
 /// 全部事件过 HeldNoteTracker 双保险后分发（回调 + 结构化日志）。
-/// P1 功能实装时 TakeStore/练习室从 onEvent 消费。
+///
+/// 连接态状态机（2026-09-20 真机 P0 修复）：
+/// - isConnected 的唯一事实来源是当前激活源的 onConnectionChanged 回调；
+///   切源瞬间先归零，再由新源 start 上报真值——杜绝上一源残留与模式臆断。
+/// - 启动默认模式：真机 = .real（立即扫描系统源，无设备即「未连接」）；
+///   模拟器 = .simulated（无 CoreMIDI 设备，视觉验收依赖屏幕模拟键，文案如实标「模拟输入」）。
+///   用 targetEnvironment(simulator) 区分，不用 DEBUG（真机 debug 也必须默认 real）。
+/// - CoreMIDI 初始化失败 → 占位源（恒 disconnected），绝不借模拟源冒充 V70（红线 2）。
 @MainActor
 final class MIDIHub: ObservableObject {
     /// App 单例（AppFrame 与 onboarding 流程共享同一事件流与连接态）
     @MainActor static let shared = MIDIHub()
+
     enum Mode: String, CaseIterable, Identifiable {
         case simulated
         case real
@@ -20,12 +28,25 @@ final class MIDIHub: ObservableObject {
         }
     }
 
+    /// 初始模式解析（纯函数，可单测）：模拟器环境 → .simulated，真机 → .real
+    static func initialMode(isSimulatorEnvironment: Bool) -> Mode {
+        isSimulatorEnvironment ? .simulated : .real
+    }
+
+    private static var runsInSimulator: Bool {
+        #if targetEnvironment(simulator)
+        true
+        #else
+        false
+        #endif
+    }
+
     @Published private(set) var events: [MIDIEvent] = []
     @Published private(set) var isConnected = false
-    @Published var mode: Mode = .simulated {
-        didSet { switchSource(mode) }
+    @Published var mode: Mode {
+        didSet { installSource(mode) }
     }
-    /// 跟弹/判分消费的事件出口（spike 阶段 UI 也从这里拿）
+    /// 跟弹/判分消费的事件出口
     var onEvent: ((MIDIEvent) -> Void)?
 
     private(set) var source: MIDIEventSource?
@@ -34,29 +55,50 @@ final class MIDIHub: ObservableObject {
     private var truncationPump: Timer?
     private let maxLogEvents = 100
 
-    init() {
-        switchSource(.simulated)
+    // 源工厂（测试注入 fake 源；生产走真实现）
+    private let makeRealSource: () -> MIDIEventSource?
+    private let makeSimulatedSource: () -> MIDIEventSource
+
+    init(
+        initialMode: Mode? = nil,
+        makeRealSource: @escaping () -> MIDIEventSource? = { CoreMIDISource() },
+        makeSimulatedSource: @escaping () -> MIDIEventSource = { SimulatedMIDIEventSource() }
+    ) {
+        self.makeRealSource = makeRealSource
+        self.makeSimulatedSource = makeSimulatedSource
+        let resolved = initialMode ?? MIDIHub.initialMode(isSimulatorEnvironment: Self.runsInSimulator)
+        mode = resolved
+        installSource(resolved)
     }
 
     var connectedDeviceName: String? {
         source?.name
     }
 
+    /// 显式切源（S03 选卡/练习室重连入口）。didSet 触发 installSource。
     func switchSource(_ mode: Mode) {
+        self.mode = mode
+    }
+
+    /// 安装当前模式对应的源。连接态唯一事实来源 = 源的 onConnectionChanged 回调。
+    private func installSource(_ newMode: Mode) {
         truncationPump?.invalidate()
         source?.stop()
         tracker = HeldNoteTracker() // 换源时清 held 状态
+        isConnected = false // 切源瞬间先归零：不沿用上一个源的残留 true
 
         let newSource: MIDIEventSource
-        switch mode {
+        switch newMode {
         case .simulated:
-            newSource = SimulatedMIDIEventSource()
+            // 仅当用户主动选择模拟源时才会走到这里；其 start 自报 connected 是真值
+            newSource = makeSimulatedSource()
         case .real:
-            if let core = CoreMIDISource() {
-                newSource = core
+            if let real = makeRealSource() {
+                newSource = real
             } else {
-                // CoreMIDI 初始化失败：回退模拟源，真实连接态 false
-                newSource = SimulatedMIDIEventSource()
+                // CoreMIDI 初始化失败：占位源恒 disconnected。
+                // 不回退模拟源——否则它的 start 回调 true 会让胶囊冒充「特伦斯 V70 · 已连接」（红线 2）
+                newSource = DisconnectedPlaceholderSource()
             }
         }
         newSource.onEvent = { [weak self] event in
@@ -65,13 +107,18 @@ final class MIDIHub: ObservableObject {
             }
         }
         newSource.onConnectionChanged = { [weak self] connected in
-            Task { @MainActor in
-                self?.isConnected = connected
+            if Thread.isMainThread {
+                MainActor.assumeIsolated {
+                    self?.isConnected = connected
+                }
+            } else {
+                Task { @MainActor in
+                    self?.isConnected = connected
+                }
             }
         }
         try? newSource.start()
         source = newSource
-        isConnected = mode == .simulated
 
         // 超时截断由定时器泵驱动（100ms 粒度，截断点仍精确到 start+800ms）
         let pump = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
@@ -85,7 +132,7 @@ final class MIDIHub: ObservableObject {
         truncationPump = pump
     }
 
-    /// 模拟源专用便捷入口（屏幕琴键/自动回放/断连模拟）
+    /// 模拟源专用便捷入口（屏幕琴键/自动回放/断连模拟）；CoreMIDI 失败 fallback 下为 nil
     var simulated: SimulatedMIDIEventSource? {
         source as? SimulatedMIDIEventSource
     }
@@ -113,7 +160,24 @@ final class MIDIHub: ObservableObject {
             events.removeFirst(events.count - maxLogEvents)
         }
         onEvent?(event)
-        // 结构化打印（红线 3：日志不涉 Key；MIDI 日志仅 spike 诊断用）
+        // 结构化打印（红线 3：日志不涉 Key；MIDI 日志仅诊断用）
         print("[MIDI] \(event.structuredDescription)")
+    }
+}
+
+/// CoreMIDI 初始化失败时的占位源：恒 disconnected、零事件。
+/// 结构上排除「fallback 模拟源冒充真机已连接」的可能（红线 2）。
+final class DisconnectedPlaceholderSource: MIDIEventSource {
+    let name = "未发现设备"
+    let isSimulated = false
+    var onEvent: ((MIDIEvent) -> Void)?
+    var onConnectionChanged: ((Bool) -> Void)?
+
+    func start() throws {
+        onConnectionChanged?(false)
+    }
+
+    func stop() {
+        onConnectionChanged?(false)
     }
 }
