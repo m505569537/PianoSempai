@@ -141,14 +141,23 @@ struct LibraryView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 filterChips.padding(.top, 12)
+                // 导入卡片：独立入口，不在列表底部沉没
+                importCard
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
                 let entries = filteredCatalog
                 if entries.isEmpty {
                     emptyHint("这个筛选下还没有曲子")
                 }
-                ForEach(entries) { entry in
+                // 示例曲 featured：在教材列表顶部单独展示，不沉底
+                if let sample = entries.first(where: \.isSample) {
+                    sampleFeaturedCard(sample)
+                        .padding(.top, 12)
+                }
+                ForEach(entries.filter { !$0.isSample }) { entry in
                     catalogRow(entry)
                 }
-                importCard.padding(.top, 16)
+                .padding(.bottom, 12)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
@@ -381,6 +390,52 @@ struct LibraryView: View {
             .foregroundStyle(Color.textMuted)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 28)
+    }
+
+    // MARK: 示例曲 featured 卡（M5b：不沉底，放在教材列表顶部）
+
+    private func sampleFeaturedCard(_ entry: CatalogEntry) -> some View {
+        Button {
+            activeSheet = .entry(entry)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color.amber)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text(entry.title)
+                            .font(.titleMd)
+                            .foregroundStyle(Color.textPrimary)
+                        Text("示例")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Color.amber)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .overlay(Capsule().strokeBorder(Color.amber.opacity(0.5), lineWidth: 1))
+                    }
+                    Text("示例曲 · 可跟弹可判分（演示用）")
+                        .font(.bodySm)
+                        .foregroundStyle(Color.amber.opacity(0.9))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.textMuted)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.card.opacity(0.9))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Color.amber.opacity(0.35), lineWidth: 1.5)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: 导入虚线卡
