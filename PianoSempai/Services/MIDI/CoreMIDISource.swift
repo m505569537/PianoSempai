@@ -108,35 +108,59 @@ final class CoreMIDISource: MIDIEventSource {
 
     /// 解析原始 MIDI 字节流。只关心 note on/off 与 CC64；program change/pitch bend
     /// 按 PRD"记录但不依赖"——P1 spike 先忽略，S24 诊断页实装时补。
+    ///
+    /// 支持 MIDI 1.0 running status：CoreMIDI 交的是原始 cable 字节（不展开），BLE-MIDI
+    /// （V70 链路）在多个消息共用同一时间戳时会省略 status 字节。省略时沿用上一个
+    /// channel status（0x80...0xEF）解析，且不消耗 status 字节。
     static func parse(data: [UInt8], timeStamp: MIDITimeStamp, timebase: mach_timebase_info_data_t) -> [MIDIEvent] {
         let nanos = timeStamp * UInt64(timebase.numer) / UInt64(timebase.denom)
         var events: [MIDIEvent] = []
         var i = 0
+        /// 最近一个 channel status 字节（0x80...0xEF），nil 表示尚未见过任何 status
+        var runningStatus: UInt8?
         while i < data.count {
-            let status = data[i]
-            guard status & 0x80 == 0x80 else { i += 1; continue } // 跳过 running status 尾巴
+            let byte = data[i]
+            let status: UInt8
+            if byte & 0x80 == 0x80 {
+                guard byte < 0xF0 else {
+                    // 系统消息本解析器忽略。按 MIDI 1.0：0xF0–0xF7（含 SysEx）取消
+                    // running status，0xF8–0xFF（实时消息）不影响它。
+                    if byte < 0xF8 { runningStatus = nil }
+                    i += 1
+                    continue
+                }
+                runningStatus = byte
+                status = byte
+                i += 1
+            } else if let last = runningStatus {
+                status = last // running status：不消耗 status 字节
+            } else {
+                i += 1
+                continue // 没有任何 status 在前，不能凭空发明一个
+            }
             let type = status & 0xF0
             let channel = status & 0x0F
             let twoByte = (type == 0xC0 || type == 0xD0)
-            guard i + (twoByte ? 1 : 2) < data.count else { break }
+            // 此处 i 指向第一条数据字节（status 已被消耗，running status 则从未占用）
+            guard i + (twoByte ? 1 : 2) <= data.count else { break }
             switch type {
             case 0x90:
-                let note = data[i + 1], velocity = data[i + 2]
+                let note = data[i], velocity = data[i + 1]
                 if velocity == 0 {
                     events.append(MIDIEvent(kind: .noteOff(note: note, velocity: 0), channel: channel, timeNanos: nanos))
                 } else {
                     events.append(MIDIEvent(kind: .noteOn(note: note, velocity: velocity), channel: channel, timeNanos: nanos))
                 }
             case 0x80:
-                events.append(MIDIEvent(kind: .noteOff(note: data[i + 1], velocity: data[i + 2]), channel: channel, timeNanos: nanos))
+                events.append(MIDIEvent(kind: .noteOff(note: data[i], velocity: data[i + 1]), channel: channel, timeNanos: nanos))
             case 0xB0:
-                if data[i + 1] == 64 {
-                    events.append(MIDIEvent(kind: .sustainPedal(value: data[i + 2]), channel: channel, timeNanos: nanos))
+                if data[i] == 64 {
+                    events.append(MIDIEvent(kind: .sustainPedal(value: data[i + 1]), channel: channel, timeNanos: nanos))
                 }
             default:
                 break
             }
-            i += twoByte ? 2 : 3
+            i += twoByte ? 1 : 2 // 只跨数据字节：status 已在上面消耗（running status 则本就没占）
         }
         return events
     }
