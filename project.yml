@@ -70,6 +70,12 @@ targets:
     platform: iOS
     sources:
       - path: Tests/PianoSempaiTests
+        excludes:
+          - "Scoring/Fixtures"
+      # 对拍夹具用 folder reference（保留子目录层级；6 组夹具同名 JSON 拍平会冲突）
+      - path: Tests/PianoSempaiTests/Scoring/Fixtures
+        type: folder
+        buildPhase: resources
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
