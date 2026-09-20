@@ -19,6 +19,7 @@ struct LibraryView: View {
     @State private var segment: Segment = .training
     @State private var bookFilter: String? // nil = 全部
     @State private var showImporter = false
+    @State private var importTarget: ImportTarget? // 统一导入入口：选教材/奖励曲库
     @State private var importError: LibraryImportService.ImportError?
     @State private var importedFileName = ""
     /// 单一 sheet 路由（SwiftUI 一个视图只可靠呈现一个 .sheet；三链曾致 S09 死路）
@@ -141,10 +142,6 @@ struct LibraryView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 filterChips.padding(.top, 12)
-                // 导入卡片：独立入口，不在列表底部沉没
-                importCard
-                    .padding(.top, 16)
-                    .padding(.bottom, 8)
                 let entries = filteredCatalog
                 if entries.isEmpty {
                     emptyHint("这个筛选下还没有曲子")
@@ -263,14 +260,19 @@ struct LibraryView: View {
         }
     }
 
-    // MARK: 奖励曲库（手动导入；无锁态）
+    // MARK: 奖励曲库（空态显示导入卡；有数据后隐藏，去「全部导入」tab）
 
     private var rewardSegment: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 let pieces = importedPieces
                 if pieces.isEmpty {
-                    emptyHint("还没有导入的奖励曲。点下方导入卡把喜欢的谱子放进来。")
+                    emptyHint("还没有导入的奖励曲。")
+                    Button { importTarget = .reward; showImporter = true } label: {
+                        importCard
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 8)
                 }
                 ForEach(pieces) { piece in
                     Button {
@@ -296,84 +298,72 @@ struct LibraryView: View {
                     .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.border, lineWidth: 1))
                     .padding(.top, 8)
                 }
-                importCard.padding(.top, 16)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
         }
     }
 
-    // MARK: 全部导入（文件视图 + PDF 资料库入口）
+    // MARK: 全部导入（统一入口：选教材/奖励曲库/PDF 资料库）
 
     private var importsSegment: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                // PDF 资料库入口（S08 段头入口，screen-index）
-                Button {
-                    activeSheet = .pdf
-                } label: {
-                    HStack {
-                        Image(systemName: "doc.richtext")
-                            .font(.system(size: 18))
-                            .foregroundStyle(Color.textBody)
-                            .frame(width: 40, height: 40)
-                            .background(Color.cardElevated, in: RoundedRectangle(cornerRadius: 8))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("PDF 资料库")
-                                .font(.titleMd)
-                                .foregroundStyle(Color.textPrimary)
-                            Text("只查看 · 不判分 · 不能跟弹")
-                                .font(.bodySm)
-                                .foregroundStyle(Color.textMuted)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color.textMuted)
-                    }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.card, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.border, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 12)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("统一导入")
+                    .font(.titleMd)
+                    .foregroundStyle(Color.textPrimary)
+                Text("选择一个分类，导入后将进入对应曲库。")
+                    .font(.bodySm)
+                    .foregroundStyle(Color.textMuted)
 
-                if scoreFiles.isEmpty {
-                    emptyHint("还没有导入任何文件。")
+                // 教材
+                Button { importTarget = .training; showImporter = true } label: {
+                    importChoiceRow(icon: "book.fill", title: "训练教材", desc: "拜厄 / 哈农 / 车尔尼 599 等系统教材")
                 }
-                ForEach(scoreFiles.sorted { $0.importedAt > $1.importedAt }) { file in
-                    HStack {
-                        Image(systemName: iconName(for: file.kind))
-                            .font(.system(size: 16))
-                            .foregroundStyle(file.canFollow ? Color.amber : Color.textMuted)
-                            .frame(width: 32)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(file.title)
-                                .font(.bodyMd)
-                                .foregroundStyle(Color.textPrimary)
-                                .lineLimit(1)
-                            Text("\(file.fileExt.uppercased()) · \(file.importedAt.formatted(date: .abbreviated, time: .shortened))")
-                                .font(.labelSm)
-                                .foregroundStyle(Color.textMuted)
-                                .monospacedDigit()
-                        }
-                        Spacer()
-                        Text(file.canFollow ? "可跟弹" : "仅查看")
-                            .font(.labelSm)
-                            .foregroundStyle(file.canFollow ? Color.amber : Color.textMuted)
-                    }
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 56)
-                    .background(Color.card, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.border, lineWidth: 1))
-                    .padding(.top, 8)
+                // 奖励曲库
+                Button { importTarget = .reward; showImporter = true } label: {
+                    importChoiceRow(icon: "star.fill", title: "奖励曲库", desc: "课外曲 / 音乐会曲 / 自己加的曲子")
                 }
-                importCard.padding(.top, 16)
+                // PDF 资料库
+                Button { importTarget = .pdf; activeSheet = .pdf } label: {
+                    importChoiceRow(icon: "doc.richtext", title: "PDF 资料库", desc: "只查看 · 不判分 · 不能跟弹")
+                }
             }
             .padding(.horizontal, 20)
+            .padding(.top, 16)
             .padding(.bottom, 24)
         }
+    }
+
+    private func importChoiceRow(icon: String, title: String, desc: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundStyle(Color.textBody)
+                .frame(width: 40, height: 40)
+                .background(Color.cardElevated, in: RoundedRectangle(cornerRadius: 8))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.titleMd)
+                    .foregroundStyle(Color.textPrimary)
+                Text(desc)
+                    .font(.bodySm)
+                    .foregroundStyle(Color.textMuted)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13))
+                .foregroundStyle(Color.textMuted)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.border, lineWidth: 1))
+        .buttonStyle(.plain)
+    }
+
+    private enum ImportTarget {
+        case training, reward, pdf
     }
 
     private func iconName(for kind: String) -> String {
