@@ -243,6 +243,8 @@ final class PracticeSession: ObservableObject {
         startedAt: Date,
         interruptions: [Int],
         title: String,
+        pieceId: UUID? = nil,
+        scoreFileId: UUID? = nil,
         in context: ModelContext
     ) -> Take {
         let take = Take(
@@ -262,6 +264,8 @@ final class PracticeSession: ObservableObject {
             midiEventCount: summary.midiEventCount,
             interruptionRanges: interruptions,
             wrongNoteRecords: summary.wrongNotes.map { "\($0.measure):\($0.actualPitch)" },
+            pieceId: pieceId,
+            scoreFileId: scoreFileId,
             title: title
         )
         context.insert(take)

@@ -7,9 +7,20 @@ struct CatalogEntry: Identifiable, Equatable, Hashable {
     let book: String
     let number: Int
     let referenceTempo: Int
+    /// 显式示例曲标记（P2 M5a）：book="示例"，标题含「示例」，不伪装成拜厄/哈农/599
+    var isSample: Bool = false
 
     var id: String { "\(book)-\(number)" }
-    var title: String { "\(book) 第\(number)条" }
+    var title: String {
+        isSample ? "示例：SpikeSample32（演示用）" : "\(book) 第\(number)条"
+    }
+}
+
+extension CatalogEntry {
+    /// 示例曲（演示用）：可跟弹可评分，但不冒充任何教材条目（SPEC §10）
+    static let spikeSample = CatalogEntry(
+        book: "示例", number: 0, referenceTempo: 72, isSample: true
+    )
 }
 
 enum CatalogLoader {
@@ -28,9 +39,11 @@ enum CatalogLoader {
         guard let url = bundle.url(forResource: "BuiltinCatalog", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let file = try? JSONDecoder().decode(CatalogFile.self, from: data) else {
-            return []
+            return [CatalogEntry.spikeSample]
         }
+        // 示例曲显式追加在目录尾部（SPEC §10：端到端可演示，不冒充教材）
         return file.entries.map { CatalogEntry(book: $0.book, number: $0.number, referenceTempo: $0.referenceTempo) }
+            + [CatalogEntry.spikeSample]
     }
 }
 
@@ -45,7 +58,9 @@ extension CourseEngine {
     /// 内置教材条目状态（library.md 状态流转：locked → notStarted → practicing → passed）。
     /// P1 规则：拜厄/哈农 n > current → locked；n == current → practicing；n < current → notStarted。
     /// 车尔尼 599 P1 全部锁定（仅占位；"约 N 周后"取 CoursePathState.projected599Week 真实推算值）。
+    /// 示例曲（book="示例"）：显式 notStarted，不锁、不冒充教材（SPEC §10）。
     static func catalogStatus(book: String, number: Int, pathState: CoursePathState) -> PieceStatus {
+        if book == "示例" { return .notStarted }
         switch book {
         case "拜厄":
             return statusAgainstCurrent(number, current: pathState.currentBeyer)

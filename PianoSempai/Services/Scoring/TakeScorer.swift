@@ -18,6 +18,12 @@ enum TakeScorer {
         var avgBPM: Double? = nil
     }
 
+    /// 节奏维统计透传（中位/均值 ms；TakeAnalysis 落库用）
+    struct RhythmStats: Equatable, Sendable {
+        let medianMs: Double
+        let meanMs: Double
+    }
+
     struct Scored: Equatable, Sendable {
         let pitch: DimensionResult
         let rhythm: DimensionResult
@@ -27,6 +33,8 @@ enum TakeScorer {
         let hands: DimensionResult
         /// 弱总分（非 nil 维度等权；全 nil → nil）。仅进步曲线用，不作过关依据
         let weakTotal: Int?
+        /// 节奏偏差中位/均值 ms（TakeAnalysis 落库；无可计时匹配 = nil）
+        let rhythmStats: RhythmStats?
         /// 小节热力：小节 → 0...1 热度
         let measureHeat: [Int: Double]
         let hotspotMeasures: [Int]
@@ -74,9 +82,24 @@ enum TakeScorer {
             pitch: pitch, rhythm: rhythm, tempo: tempo,
             dynamics: dynamics, continuity: continuity, hands: hands,
             weakTotal: weakTotal,
+            rhythmStats: rhythmStats(result: result),
             measureHeat: measureHeat(result: result, pauses: continuity.hotspotMeasures),
             hotspotMeasures: Array(Set(pitch.hotspotMeasures + continuity.hotspotMeasures)).sorted()
         )
+    }
+
+    /// 节奏偏差统计（中位/均值 ms；可计时匹配 < 4 → nil）
+    static func rhythmStats(result: AlignmentResult) -> RhythmStats? {
+        let deltas = result.aligned
+            .filter { $0.cls == .correct || $0.cls == .wrongPitch }
+            .compactMap(\.deltaMs)
+        guard deltas.count >= 4 else { return nil }
+        let sorted = deltas.sorted()
+        let median: Double = sorted.count % 2 == 1
+            ? sorted[sorted.count / 2]
+            : (sorted[sorted.count / 2 - 1] + sorted[sorted.count / 2]) / 2
+        let mean = deltas.reduce(0, +) / Double(deltas.count)
+        return RhythmStats(medianMs: median, meanMs: mean)
     }
 
     // MARK: - 1 音高

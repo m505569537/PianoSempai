@@ -12,6 +12,8 @@ struct PracticeRoomView: View {
     var scoreFile: ScoreFile?
     var pieceTitle: String = ""
     var timeLimitSec: Int? = nil
+    /// 显式示例曲入口（M5a：仅数据标记；三态 UI 呈现留 M5b）
+    var isSampleEntry: Bool = false
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -394,11 +396,18 @@ struct PracticeRoomView: View {
 
     private func load() {
         session.timeLimitSec = timeLimitSec
+        // 谱可用性三态决策（ScoreAvailability；TODO(M5b)：unavailable 的三态 UI 呈现）
+        let availability = ScoreAvailability.resolve(scoreFile: scoreFile, isSampleEntry: isSampleEntry)
         let url: URL?
-        if let scoreFile, let resolved = SandboxPaths.resolve(scoreFile.fileURL) {
-            url = resolved
-        } else {
+        switch availability {
+        case .realScore(let sf):
+            url = SandboxPaths.resolve(sf.fileURL)
+        case .samplePiece:
             url = Bundle.main.url(forResource: "SpikeSample32", withExtension: "musicxml")
+        case .unavailable:
+            // 内置教材条目无 scoreFile：不再静默加载 SpikeSample32 冒充（SPEC §10）
+            loadError = "暂无参考谱。可用「示例曲」或导入的乐谱练习；本次可自由弹奏（不判分）。"
+            return
         }
         guard let url else {
             loadError = "找不到可练习的谱面文件"
