@@ -53,9 +53,13 @@ enum ScoringOrchestrator {
         let missingCount: Int
         let extraCount: Int
         let wrongPitchCount: Int
+        /// 评分区间内非 grace 参考音数（错音率分母；S09/S13 重算指标用）
+        let referenceNoteCount: Int
         let rhythmMedianMs: Double
         let rhythmMeanMs: Double
         let tempoTargetHit: Bool
+        /// 实测平均速度（BPM；0 = 速度维算不出）
+        let avgBPM: Double
         let hotspotMeasures: [Int]
         let alignmentJSON: String
         let measureHeatJSON: String
@@ -72,7 +76,8 @@ enum ScoringOrchestrator {
                 dynamicsScore: nil, continuityScore: nil, handsScore: nil,
                 weakTotal: nil,
                 wrongCount: 0, missingCount: 0, extraCount: 0, wrongPitchCount: 0,
-                rhythmMedianMs: 0, rhythmMeanMs: 0, tempoTargetHit: false,
+                referenceNoteCount: 0,
+                rhythmMedianMs: 0, rhythmMeanMs: 0, tempoTargetHit: false, avgBPM: 0,
                 hotspotMeasures: [], alignmentJSON: "[]", measureHeatJSON: "{}",
                 passMetrics: [], passReasons: [message]
             )
@@ -145,9 +150,11 @@ enum ScoringOrchestrator {
                 missingCount: result.missingCount,
                 extraCount: result.extraCount,
                 wrongPitchCount: result.wrongCount,
+                referenceNoteCount: nonGraceCount,
                 rhythmMedianMs: scored.rhythmStats?.medianMs ?? 0,
                 rhythmMeanMs: scored.rhythmStats?.meanMs ?? 0,
                 tempoTargetHit: scored.tempo.tempoTargetHit,
+                avgBPM: scored.tempo.avgBPM ?? 0,
                 hotspotMeasures: scored.hotspotMeasures,
                 alignmentJSON: alignmentJSON,
                 measureHeatJSON: measureHeatJSON,
@@ -170,7 +177,8 @@ enum ScoringOrchestrator {
             dynamicsScore: nil, continuityScore: nil, handsScore: nil,
             weakTotal: nil,
             wrongCount: 0, missingCount: 0, extraCount: 0, wrongPitchCount: 0,
-            rhythmMedianMs: 0, rhythmMeanMs: 0, tempoTargetHit: false,
+            referenceNoteCount: 0,
+            rhythmMedianMs: 0, rhythmMeanMs: 0, tempoTargetHit: false, avgBPM: 0,
             hotspotMeasures: [], alignmentJSON: "[]", measureHeatJSON: "{}",
             passMetrics: [], passReasons: [reason]
         )
@@ -296,9 +304,11 @@ enum ScoringOrchestrator {
         row.missingCount = outcome.missingCount
         row.extraCount = outcome.extraCount
         row.wrongPitchCount = outcome.wrongPitchCount
+        row.referenceNoteCount = outcome.referenceNoteCount
         row.rhythmMedianMs = outcome.rhythmMedianMs
         row.rhythmMeanMs = outcome.rhythmMeanMs
         row.tempoTargetHit = outcome.tempoTargetHit
+        row.avgBPM = outcome.avgBPM
         row.hotspotMeasures = outcome.hotspotMeasures
         row.measureHeatJSON = outcome.measureHeatJSON
         row.canEvaluate = outcome.canEvaluate

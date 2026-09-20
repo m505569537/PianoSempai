@@ -61,10 +61,10 @@ final class TakeAnalysisTests: XCTestCase {
         XCTAssertEqual(analysis.effectiveWrongCount, 4)
         // 错音率真实可算
         XCTAssertEqual(analysis.wrongNoteRate ?? 0, 4.0 / 132.0, accuracy: 0.0001)
-        // P1 结构性保证：没有 overallScore / 六维 / 热力字段可填（类型上不存在），
-        // 占位维度名单只用于展示"这些在 P2"，不含任何数值
-        XCTAssertEqual(analysis.pendingDimensionNames, ["六维雷达", "小节热力", "节奏偏差", "弱总分"])
-        XCTAssertTrue(analysis.measuredDimensionNames.allSatisfy { !$0.isEmpty })
+        // M5b：P1 不提供六维/热力/弱总成的占位名单已删除——
+        // 没有数据就由 P2TakeReport 显式「数据不足」，不留假装会有的文案
+        XCTAssertNil(TakeReportPresentation.build(analysis: nil, standards: .beginner).weakTotal)
+        XCTAssertEqual(TakeReportPresentation.build(analysis: nil, standards: .beginner).state, .noAnalysis)
         // 无标记时剔除不生效
         XCTAssertFalse(analysis.exclusionApplied)
     }
@@ -132,7 +132,12 @@ final class TakeAnalysisTests: XCTestCase {
         // 分析器对自由弹奏 take 也能如实计算（统计维度真实、无六维）
         let analysis = TakeAnalysisService.analyze(take: take, errorMarks: [])
         XCTAssertEqual(analysis.noteCount, 486)
-        XCTAssertTrue(analysis.pendingDimensionNames.contains("弱总分"))
+        // 无分析行 → 报告诚实空态（不编六维、不给弱总分）
+        let report = TakeReportPresentation.build(analysis: nil, standards: .beginner)
+        XCTAssertEqual(report.state, .noAnalysis)
+        XCTAssertTrue(report.dimensions.isEmpty)
+        XCTAssertNil(report.weakTotal)
+        XCTAssertFalse(report.canEvaluate)
     }
 
     // MARK: ④ 报告分析绝不写课程解锁状态

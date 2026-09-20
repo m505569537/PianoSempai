@@ -12,8 +12,12 @@ struct PracticeRoomView: View {
     var scoreFile: ScoreFile?
     var pieceTitle: String = ""
     var timeLimitSec: Int? = nil
-    /// 显式示例曲入口（M5a：仅数据标记；三态 UI 呈现留 M5b）
+    /// 显式示例曲入口（M5a：数据标记；M5b：三态谱加载 + 示例曲文案）
     var isSampleEntry: Bool = false
+    /// 所属曲目（M5b：落 take.pieceId + 触发分析/过关判定；内置教材由 CourseEngine 建档）
+    var piece: Piece? = nil
+    /// 参考速度（分析用；0 = 回落 piece.referenceTempo）
+    var referenceTempo: Int = 0
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -370,16 +374,41 @@ struct PracticeRoomView: View {
             return
         }
         let summary = session.finish()
-        _ = PracticeSession.persist(
+        let take = PracticeSession.persist(
             summary,
             taskType: taskType,
             isFreePlay: session.isFreePlay,
             startedAt: session.startedAt ?? Date(),
             interruptions: session.interruptionStarts,
             title: "",
+            // M5b：take 挂到曲目与谱，才有分析/过关的归属（SPEC §10）
+            pieceId: piece?.entityId,
+            scoreFileId: scoreFile?.entityId,
             in: context
         )
+        // 先落库再分析：pieceTakeHistory 要能查到这条新 take（连续计数口径）
+        try? context.save()
         finishedSummary = summary
+        triggerAnalysis(for: take)
+    }
+
+    /// 分析编排（SPEC §10）：在 persist 成功后触发，**不**塞进 persist（保持其纯落库）。
+    /// 读盘 + 载谱是同步 IO，丢到 Task 里做，避免卡保存后的 UI；
+    /// 失败不吞（ScoringOrchestrator 返回 error outcome），也不影响 take 已落库与连续计数。
+    private func triggerAnalysis(for take: Take) {
+        let tempo = referenceTempo > 0 ? referenceTempo : (piece?.referenceTempo ?? 0)
+        Task { @MainActor in
+            _ = ScoringOrchestrator.run(
+                for: take,
+                scoreFile: scoreFile,
+                piece: piece,
+                measureFrom: nil,
+                measureTo: nil,
+                referenceTempo: tempo,
+                standards: ScoringStandards.standards(forBook: piece?.book ?? ""),
+                in: context
+            )
+        }
     }
 
     private func reconnect() {

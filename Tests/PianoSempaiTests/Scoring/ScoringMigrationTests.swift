@@ -33,6 +33,10 @@ final class ScoringMigrationTests: XCTestCase {
         XCTAssertNil(take.analysisId)
         XCTAssertFalse(take.isPassEligible, "旧 take 默认不参与过关判定")
         XCTAssertTrue(take.wrongNoteRecords.isEmpty)
+        // M5b 新增字段：旧行默认 0（错音率分母不可编造）
+        let legacyAnalysis = TakeAnalysis(takeId: take.entityId, engineVersion: "P2-scoring-1.0")
+        context.insert(legacyAnalysis)
+        XCTAssertEqual(legacyAnalysis.referenceNoteCount, 0, "旧分析行默认分母 0")
     }
 
     /// TakeAnalysis 幂等 upsert：同 takeId+engineVersion 重算不产生重复行

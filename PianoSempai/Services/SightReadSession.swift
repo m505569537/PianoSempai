@@ -72,8 +72,8 @@ final class SightReadSession: ObservableObject {
         return SightReadSegmentResult(expected: expectedPitches.count, matched: matched, pauses: pauses)
     }
 
-    /// MIDI 音高 → 音名（如 C4），实时反馈用
-    static func noteName(_ midi: UInt8) -> String {
+    /// MIDI 音高 → 音名（如 C4），实时反馈用。纯函数：非隔离，供 S13 呈现层复用
+    nonisolated static func noteName(_ midi: UInt8) -> String {
         let names = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"]
         return names[Int(midi) % 12] + "\(Int(midi) / 12 - 1)"
     }

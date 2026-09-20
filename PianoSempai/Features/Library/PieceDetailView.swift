@@ -1,11 +1,14 @@
 import SwiftData
 import SwiftUI
 
-// MARK: - S09 曲目详情（P1 简化：硬标准展示/选段/最近 take；判分与热点 P2）
+// MARK: - S09 曲目详情（硬标准真值/选段/最近 take；判分由 CourseEngine 唯一写手）
 
 struct PieceDetailView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
     @Query private var errorMarks: [ScoreErrorMark]
+    @Query private var allPieces: [Piece]
+    @Query private var takes: [Take]
 
     /// 内置教材条目（与导入 Piece 二选一）
     var entry: CatalogEntry?
@@ -15,6 +18,8 @@ struct PieceDetailView: View {
     @State private var rangeStart = 1
     @State private var rangeEnd = 8
     @State private var startPractice = false
+    /// 点「开始练习」时建档/取到的 Piece（传给练习室，落 take 的 pieceId）
+    @State private var resolvedPiece: Piece?
 
     private var title: String {
         if let entry { return entry.title }
@@ -49,10 +54,58 @@ struct PieceDetailView: View {
         return CourseEngine.catalogStatus(book: entry.book, number: entry.number, pathState: CoursePathState()) == .locked
     }
 
-    /// 导入曲目关联的可跟弹谱文件（内置教材暂无谱文件 → 练习室回落内置样例）
+    /// 导入曲目关联的可跟弹谱文件（内置教材暂无谱文件）
     private var linkedScoreFile: ScoreFile? {
         guard let piece, let sourceId = piece.sourceScoreId else { return nil }
         return scoreFiles.first { $0.entityId == sourceId && $0.canFollow }
+    }
+
+    /// 谱可用性三态（M5a 纯决策）：realScore / samplePiece / unavailable。
+    /// unavailable = 内置教材条目但无谱文件：不冒充样例谱（SPEC §10）。
+    private var availability: ScoreAvailability {
+        ScoreAvailability.resolve(
+            scoreFile: linkedScoreFile,
+            isSampleEntry: entry?.isSample ?? false
+        )
+    }
+
+    /// 已建档的 Piece（导入曲直接用；目录条目按 book+number 只读查找，找不到 = 还没练过）
+    private var existingPiece: Piece? {
+        if let piece { return piece }
+        guard let entry else { return nil }
+        return allPieces.first { $0.book == entry.book && $0.number == entry.number }
+    }
+
+    /// 点「开始练习」时才建档（幂等；只建行，状态仍只由 CourseEngine 写，红线 2）
+    private func resolvePracticePiece() -> Piece? {
+        if let existingPiece { return existingPiece }
+        guard let entry else { return nil }
+        return CourseEngine.ensurePiece(for: entry, in: context)
+    }
+
+    private var recentTakes: [Take] {
+        guard let id = existingPiece?.entityId else { return [] }
+        return takes.filter { $0.pieceId == id }.sorted { $0.startedAt > $1.startedAt }
+    }
+
+    /// 分级阈值（§9：入门/进阶/高级；内置教材与导入曲按 book 映射）
+    private var standards: ScoringStandards {
+        ScoringStandards.standards(forBook: entry?.book ?? piece?.book ?? "")
+    }
+
+    /// 练习室加载的谱：真实谱用之；示例曲走 Bundle 样例（isSampleEntry）；无谱 = nil
+    private var scoreFileForPractice: ScoreFile? {
+        if case let .realScore(file) = availability { return file }
+        return nil
+    }
+
+    private var practiceCTATitle: String {
+        if isLocked { return "路线到达后解锁" }
+        switch availability {
+        case .realScore: return "开始练习"
+        case .samplePiece: return "开始练习（示例曲）"
+        case .unavailable: return "自由弹奏（不判分）"
+        }
     }
 
     var body: some View {
@@ -60,7 +113,9 @@ struct PieceDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     header
+                    sampleNoteCard.padding(.top, 12)
                     passStandardCard.padding(.top, 16)
+                    noScoreCard.padding(.top, 12)
                     rangeCard.padding(.top, 12)
                     recentTakesCard.padding(.top, 12)
 
@@ -83,10 +138,11 @@ struct PieceDetailView: View {
                     .padding(.top, 20)
 
                     Button {
+                        resolvedPiece = resolvePracticePiece()
                         startPractice = true
                     } label: {
                         HStack(spacing: 6) {
-                            Text(isLocked ? "路线到达后解锁" : "开始练习")
+                            Text(practiceCTATitle)
                             if !isLocked {
                                 Image(systemName: "arrow.right")
                             }
@@ -106,8 +162,11 @@ struct PieceDetailView: View {
             .fullScreenCover(isPresented: $startPractice) {
                 PracticeRoomView(
                     taskType: "main",
-                    scoreFile: linkedScoreFile,
-                    pieceTitle: title
+                    scoreFile: scoreFileForPractice,
+                    pieceTitle: title,
+                    isSampleEntry: entry?.isSample ?? false,
+                    piece: resolvedPiece,
+                    referenceTempo: referenceTempo
                 )
             }
         }
@@ -148,6 +207,31 @@ struct PieceDetailView: View {
         .padding(.top, 12)
     }
 
+    /// 示例曲标注（演示用途，不冒充教材条目，SPEC §10）
+    @ViewBuilder
+    private var sampleNoteCard: some View {
+        if entry?.isSample == true {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.amber)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("示例曲 · 演示用")
+                        .font(.labelMd)
+                        .foregroundStyle(Color.amber)
+                    Text("SpikeSample32 是内置演示谱，不是拜厄/哈农/599 的任何一条；可以完整跟弹并判分。")
+                        .font(.labelSm)
+                        .foregroundStyle(Color.textMuted)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.amber.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.amber.opacity(0.35), lineWidth: 1))
+        }
+    }
+
     /// 疑似谱错计数（真实 ScoreErrorMark 聚合；无标记不显示）
     private var errorLine: String {
         let marks = errorMarks.filter { $0.scoreName == scoreName }
@@ -156,16 +240,42 @@ struct PieceDetailView: View {
         return "· 疑似谱面错误 \(total) 处 ⚠"
     }
 
-    /// 过关标准卡（硬指标锁定文案；判定主体声明红线 3）
+    /// 无谱诚实态（M5b）：内置教材条目没有谱文件时明确说明，不拿样例谱冒充
+    @ViewBuilder
+    private var noScoreCard: some View {
+        if case .unavailable = availability {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("暂无参考谱")
+                    .font(.labelMd)
+                    .foregroundStyle(Color.textBody)
+                Text("开放后可判分过关。现在可以自由弹奏、录制（不判分），或用曲库里的「示例曲」体验完整判分。")
+                    .font(.labelSm)
+                    .foregroundStyle(Color.textMuted)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.surface, in: RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    /// 过关标准卡（阈值来自 ScoringStandards 真值，S09/S13 与 gate 同源）
     private var passStandardCard: some View {
         NocturneCard {
             VStack(alignment: .leading, spacing: 10) {
                 Text("过关标准（硬指标，连续 2 遍达标）")
                     .font(.titleMd)
                     .foregroundStyle(Color.textPrimary)
-                standardRow("错音率", "≤ 2%")
-                standardRow("节奏偏差中位数", "≤ 50ms")
-                standardRow("速度", "≥ ♩=72（参考 \(referenceTempo)）")
+                standardRow("错音率", String(format: "≤ %.0f%%", standards.maxWrongNoteRate * 100))
+                standardRow("节奏偏差中位数", String(format: "≤ %.0fms", standards.maxRhythmMedianMs))
+                standardRow(
+                    "速度",
+                    "≥ 参考速度 \(Int(standards.targetTempoRatio * 100))%（♩=\(Int((Double(referenceTempo) * standards.targetTempoRatio).rounded()))）"
+                )
+                if case .unavailable = availability {
+                    Text("暂无参考谱，开放后可判分过关。")
+                        .font(.labelSm)
+                        .foregroundStyle(Color.textMuted)
+                }
                 Text("由规则引擎判定 · Neko 不能改结果")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.textMuted)
@@ -235,7 +345,7 @@ struct PieceDetailView: View {
         }
     }
 
-    /// 最近 take（≤3；P1 练习室未接入 pieceId → 诚实空态）
+    /// 最近 take（≤3；真实 take.pieceId 关联，没有就诚实空态）
     private var recentTakesCard: some View {
         NocturneCard {
             VStack(alignment: .leading, spacing: 10) {
@@ -245,11 +355,25 @@ struct PieceDetailView: View {
                         .foregroundStyle(Color.textPrimary)
                     Spacer()
                 }
-                // P1：Take 与 Piece 的关联（take.pieceId）随练习室批次接入；
-                // 现在如实显示空态，不借假数据占位（红线 2）。
-                Text("还没有 take。练习室接入后，这里显示最近 3 次。")
-                    .font(.bodySm)
-                    .foregroundStyle(Color.textMuted)
+                if recentTakes.isEmpty {
+                    // P1/P2 都如实显示：没练过就是没练过，不借假数据占位（红线 2）
+                    Text("还没有 take。练过之后，这里显示最近 3 次。")
+                        .font(.bodySm)
+                        .foregroundStyle(Color.textMuted)
+                } else {
+                    ForEach(recentTakes.prefix(3), id: \.entityId) { take in
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(take.startedAt.formatted(date: .abbreviated, time: .shortened))
+                                .font(.labelMd)
+                                .foregroundStyle(Color.textBody)
+                            Spacer()
+                            Text("♩=\(take.tempoAvg) · \(take.durationSec / 60)分\(take.durationSec % 60)秒")
+                                .font(.labelSm)
+                                .foregroundStyle(Color.textMuted)
+                                .monospacedDigit()
+                        }
+                    }
+                }
             }
         }
     }

@@ -202,6 +202,27 @@ enum CourseEngine {
         return (file, piece)
     }
 
+    /// 目录条目（内置教材/示例曲）对应的 Piece 建档（M5b：take 关联 pieceId 的前提）。
+    /// **只建行、不改状态**：status 恒为默认 notStarted，过关状态仍只由
+    /// applyPassIfConsecutive 写（红线 2）。幂等：同 book+number 只建一次。
+    static func ensurePiece(for entry: CatalogEntry, in context: ModelContext) -> Piece {
+        let book = entry.book
+        let number = entry.number
+        let descriptor = FetchDescriptor<Piece>(
+            predicate: #Predicate { $0.book == book && $0.number == number }
+        )
+        if let existing = try? context.fetch(descriptor).first { return existing }
+        let piece = Piece(
+            title: entry.title,
+            book: entry.book,
+            number: entry.number,
+            status: "notStarted",
+            referenceTempo: entry.referenceTempo
+        )
+        context.insert(piece)
+        return piece
+    }
+
     private static func fetchOrCreatePathState(in context: ModelContext) -> CoursePathState {
         let descriptor = FetchDescriptor<CoursePathState>()
         if let existing = try? context.fetch(descriptor).first {

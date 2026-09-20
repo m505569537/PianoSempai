@@ -315,10 +315,14 @@ final class TakeAnalysis {
     var missingCount: Int = 0
     var extraCount: Int = 0
     var wrongPitchCount: Int = 0
+    /// 评分区间内非 grace 参考音数（错音率分母；S09/S13 重算「差多少」用，§7）
+    var referenceNoteCount: Int = 0
     var rhythmMedianMs: Double = 0
     var rhythmMeanMs: Double = 0
     /// tempoScore 的达标布尔（门禁用）
     var tempoTargetHit: Bool = false
+    /// 实测平均速度（BPM；0 = 速度维算不出）。S13 速度项展示真实值用
+    var avgBPM: Double = 0
     var hotspotMeasures: [Int] = []
     /// 小节热力 JSON（[Int: HeatValue] 结构化序列化）
     var measureHeatJSON: String = ""
@@ -329,7 +333,7 @@ final class TakeAnalysis {
     var alignmentJSON: String = ""
 
     /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
-    init(entityId: UUID = UUID(), takeId: UUID = UUID(), analyzedAt: Date = Date(), engineVersion: String = "", confidence: Double = 0, lowConfidenceReasons: [String] = [], pitchScore: Int? = nil, rhythmScore: Int? = nil, tempoScore: Int? = nil, dynamicsScore: Int? = nil, continuityScore: Int? = nil, handsScore: Int? = nil, weakTotal: Int? = nil, wrongCount: Int = 0, missingCount: Int = 0, extraCount: Int = 0, wrongPitchCount: Int = 0, rhythmMedianMs: Double = 0, rhythmMeanMs: Double = 0, tempoTargetHit: Bool = false, hotspotMeasures: [Int] = [], measureHeatJSON: String = "", canEvaluate: Bool = false, passesHardMetrics: Bool = false, alignmentJSON: String = "") {
+    init(entityId: UUID = UUID(), takeId: UUID = UUID(), analyzedAt: Date = Date(), engineVersion: String = "", confidence: Double = 0, lowConfidenceReasons: [String] = [], pitchScore: Int? = nil, rhythmScore: Int? = nil, tempoScore: Int? = nil, dynamicsScore: Int? = nil, continuityScore: Int? = nil, handsScore: Int? = nil, weakTotal: Int? = nil, wrongCount: Int = 0, missingCount: Int = 0, extraCount: Int = 0, wrongPitchCount: Int = 0, referenceNoteCount: Int = 0, rhythmMedianMs: Double = 0, rhythmMeanMs: Double = 0, tempoTargetHit: Bool = false, avgBPM: Double = 0, hotspotMeasures: [Int] = [], measureHeatJSON: String = "", canEvaluate: Bool = false, passesHardMetrics: Bool = false, alignmentJSON: String = "") {
         self.entityId = entityId
         self.takeId = takeId
         self.analyzedAt = analyzedAt
@@ -347,9 +351,11 @@ final class TakeAnalysis {
         self.missingCount = missingCount
         self.extraCount = extraCount
         self.wrongPitchCount = wrongPitchCount
+        self.referenceNoteCount = referenceNoteCount
         self.rhythmMedianMs = rhythmMedianMs
         self.rhythmMeanMs = rhythmMeanMs
         self.tempoTargetHit = tempoTargetHit
+        self.avgBPM = avgBPM
         self.hotspotMeasures = hotspotMeasures
         self.measureHeatJSON = measureHeatJSON
         self.canEvaluate = canEvaluate

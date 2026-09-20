@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
 struct LibraryView: View {
     @Environment(\.modelContext) private var context
     @Query private var pathStates: [CoursePathState]
-    @Query private var importedPieces: [Piece]
+    @Query private var allPieces: [Piece]
     @Query private var scoreFiles: [ScoreFile]
 
     enum Segment: String, CaseIterable {
@@ -40,6 +40,12 @@ struct LibraryView: View {
 
     private var pathState: CoursePathState? { pathStates.first }
     private var catalog: [CatalogEntry] { CatalogLoader.loadBuiltin() }
+
+    /// 导入曲（奖励曲库/PDF 段用）。只列 book="导入" 的真实导入——
+    /// M5b 给目录条目建档的 Piece 不能混进来（红线：曲库只呈现真实来源）。
+    private var importedPieces: [Piece] {
+        allPieces.filter { $0.book == "导入" }
+    }
 
     var body: some View {
         NavigationStack {
@@ -171,14 +177,38 @@ struct LibraryView: View {
             pathState: pathState ?? CoursePathState()
         )
         let projected = CourseEngine.projected599WeeksLabel(pathState: pathState ?? CoursePathState())
+        // 谱可用性三态（M5a 纯决策；M5b 诚实呈现）：内置教材条目无谱文件时不冒充样例谱
+        let availability = ScoreAvailability.resolve(scoreFile: nil, isSampleEntry: entry.isSample)
         return Button {
             activeSheet = .entry(entry)
         } label: {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(entry.title)
-                        .font(.titleMd)
-                        .foregroundStyle(status == .locked ? Color.textMuted : Color.textPrimary)
+                    HStack(spacing: 6) {
+                        Text(entry.title)
+                            .font(.titleMd)
+                            .foregroundStyle(status == .locked ? Color.textMuted : Color.textPrimary)
+                        if entry.isSample {
+                            Text("示例")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(Color.amber)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .overlay(Capsule().strokeBorder(Color.amber.opacity(0.5), lineWidth: 1))
+                        }
+                    }
+                    switch availability {
+                    case .unavailable:
+                        Text("暂无参考谱 · 可自由弹奏（不判分）")
+                            .font(.bodySm)
+                            .foregroundStyle(Color.textMuted)
+                    case .samplePiece:
+                        Text("示例曲 · 可跟弹可判分（演示用）")
+                            .font(.bodySm)
+                            .foregroundStyle(Color.amber)
+                    case .realScore:
+                        EmptyView()
+                    }
                     if status == .locked, entry.book == "车尔尼599", let projected {
                         Text("约 \(projected) 周后")
                             .font(.bodySm)
