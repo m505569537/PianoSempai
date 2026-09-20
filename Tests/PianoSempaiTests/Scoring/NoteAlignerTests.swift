@@ -210,10 +210,10 @@ final class NoteAlignerTests: XCTestCase {
 
     func testIsotonicEnforcesMonotonicSeconds() {
         let points = [
-            NoteAligner.TempoPoint(beat: 0, sec: 0),
-            NoteAligner.TempoPoint(beat: 1, sec: 2.0),  // 违序（应 ≤ 后续）
-            NoteAligner.TempoPoint(beat: 2, sec: 1.0),
-            NoteAligner.TempoPoint(beat: 3, sec: 3.0),
+            TempoPoint(beat: 0, sec: 0),
+            TempoPoint(beat: 1, sec: 2.0),  // 违序（应 ≤ 后续）
+            TempoPoint(beat: 2, sec: 1.0),
+            TempoPoint(beat: 3, sec: 3.0),
         ]
         let fitted = NoteAligner.isotonic(points)
         for k in 1..<fitted.count {

@@ -254,11 +254,18 @@ final class Take {
     var interruptionRanges: [Int] = []
     /// 逐音错音明细（"小节:音高"字符串；P1 简化存储，S13b 剔除规则数据源）
     var wrongNoteRecords: [String] = []
+    /// 关联曲目/谱（P2 M4：把 take 挂到具体曲目与可跟弹谱；分析缓存外键）
+    var pieceId: UUID?
+    var scoreFileId: UUID?
+    /// 最新 TakeAnalysis 的 entityId（重算幂等 upsert 时更新）
+    var analysisId: UUID?
+    /// 该 take 是否参与了过关判定（高置信 + 覆盖完整；低置信/无谱 take = false，不计数不清零）
+    var isPassEligible: Bool = false
     /// 自由弹奏一句话 / take 标题
     var title: String = ""
 
     /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
-    init(entityId: UUID = UUID(), startedAt: Date = Date(), endedAt: Date? = nil, durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false, midiFileURL: String = "", measureFrom: Int? = nil, measureTo: Int? = nil, tempoAvg: Int = 0, noteCount: Int = 0, wrongNoteCount: Int = 0, pedalEventCount: Int = 0, midiEventCount: Int = 0, interruptionRanges: [Int] = [], wrongNoteRecords: [String] = [], title: String = "") {
+    init(entityId: UUID = UUID(), startedAt: Date = Date(), endedAt: Date? = nil, durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false, midiFileURL: String = "", measureFrom: Int? = nil, measureTo: Int? = nil, tempoAvg: Int = 0, noteCount: Int = 0, wrongNoteCount: Int = 0, pedalEventCount: Int = 0, midiEventCount: Int = 0, interruptionRanges: [Int] = [], wrongNoteRecords: [String] = [], pieceId: UUID? = nil, scoreFileId: UUID? = nil, analysisId: UUID? = nil, isPassEligible: Bool = false, title: String = "") {
         self.entityId = entityId
         self.startedAt = startedAt
         self.endedAt = endedAt
@@ -276,7 +283,78 @@ final class Take {
         self.midiEventCount = midiEventCount
         self.interruptionRanges = interruptionRanges
         self.wrongNoteRecords = wrongNoteRecords
+        self.pieceId = pieceId
+        self.scoreFileId = scoreFileId
+        self.analysisId = analysisId
+        self.isPassEligible = isPassEligible
         self.title = title
+    }
+}
+
+/// P2 判分结果（SPEC §8）：派生缓存，可删可重建（原始 jsonl + 谱是唯一真值，红线 3）。
+/// 一个 take 至多一份（按 takeId + engineVersion 幂等 upsert）。
+@Model
+final class TakeAnalysis {
+    var entityId: UUID = UUID()
+    var takeId: UUID = UUID()
+    var analyzedAt: Date = Date()
+    /// = "P2-scoring-1.0"（SPEC §8）
+    var engineVersion: String = ""
+    var confidence: Double = 0
+    var lowConfidenceReasons: [String] = []
+    // 六维（可空——算不出 = nil，UI 显式「数据不足」，禁止编分，红线 1）
+    var pitchScore: Int?
+    var rhythmScore: Int?
+    var tempoScore: Int?
+    var dynamicsScore: Int?
+    var continuityScore: Int?
+    var handsScore: Int?
+    /// 弱总分（非 nil 维度等权；不作过关依据，红线 4）
+    var weakTotal: Int?
+    var wrongCount: Int = 0
+    var missingCount: Int = 0
+    var extraCount: Int = 0
+    var wrongPitchCount: Int = 0
+    var rhythmMedianMs: Double = 0
+    var rhythmMeanMs: Double = 0
+    /// tempoScore 的达标布尔（门禁用）
+    var tempoTargetHit: Bool = false
+    var hotspotMeasures: [Int] = []
+    /// 小节热力 JSON（[Int: HeatValue] 结构化序列化）
+    var measureHeatJSON: String = ""
+    /// 门禁判定（evaluatePass 纯函数产出后回写）
+    var canEvaluate: Bool = false
+    var passesHardMetrics: Bool = false
+    /// 逐音 AlignedNote JSON（永久回看 + S21 对比）
+    var alignmentJSON: String = ""
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
+    init(entityId: UUID = UUID(), takeId: UUID = UUID(), analyzedAt: Date = Date(), engineVersion: String = "", confidence: Double = 0, lowConfidenceReasons: [String] = [], pitchScore: Int? = nil, rhythmScore: Int? = nil, tempoScore: Int? = nil, dynamicsScore: Int? = nil, continuityScore: Int? = nil, handsScore: Int? = nil, weakTotal: Int? = nil, wrongCount: Int = 0, missingCount: Int = 0, extraCount: Int = 0, wrongPitchCount: Int = 0, rhythmMedianMs: Double = 0, rhythmMeanMs: Double = 0, tempoTargetHit: Bool = false, hotspotMeasures: [Int] = [], measureHeatJSON: String = "", canEvaluate: Bool = false, passesHardMetrics: Bool = false, alignmentJSON: String = "") {
+        self.entityId = entityId
+        self.takeId = takeId
+        self.analyzedAt = analyzedAt
+        self.engineVersion = engineVersion
+        self.confidence = confidence
+        self.lowConfidenceReasons = lowConfidenceReasons
+        self.pitchScore = pitchScore
+        self.rhythmScore = rhythmScore
+        self.tempoScore = tempoScore
+        self.dynamicsScore = dynamicsScore
+        self.continuityScore = continuityScore
+        self.handsScore = handsScore
+        self.weakTotal = weakTotal
+        self.wrongCount = wrongCount
+        self.missingCount = missingCount
+        self.extraCount = extraCount
+        self.wrongPitchCount = wrongPitchCount
+        self.rhythmMedianMs = rhythmMedianMs
+        self.rhythmMeanMs = rhythmMeanMs
+        self.tempoTargetHit = tempoTargetHit
+        self.hotspotMeasures = hotspotMeasures
+        self.measureHeatJSON = measureHeatJSON
+        self.canEvaluate = canEvaluate
+        self.passesHardMetrics = passesHardMetrics
+        self.alignmentJSON = alignmentJSON
     }
 }
 
@@ -323,10 +401,12 @@ final class Piece {
     /// 可跟弹谱文件（ScoreFile.entityId）
     var sourceScoreId: UUID?
     var suspectedErrorCount: Int = 0
+    /// 过关时的规则版本留痕（SPEC L162；nil = 尚未过关）
+    var passedRulesVersion: String?
     var importedAt: Date = Date()
 
     /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
-    init(entityId: UUID = UUID(), title: String = "", book: String = "", number: Int = 0, totalMeasures: Int = 0, status: String = "notStarted", referenceTempo: Int = 0, sourceScoreId: UUID? = nil, suspectedErrorCount: Int = 0, importedAt: Date = Date()) {
+    init(entityId: UUID = UUID(), title: String = "", book: String = "", number: Int = 0, totalMeasures: Int = 0, status: String = "notStarted", referenceTempo: Int = 0, sourceScoreId: UUID? = nil, suspectedErrorCount: Int = 0, passedRulesVersion: String? = nil, importedAt: Date = Date()) {
         self.entityId = entityId
         self.title = title
         self.book = book
@@ -336,6 +416,7 @@ final class Piece {
         self.referenceTempo = referenceTempo
         self.sourceScoreId = sourceScoreId
         self.suspectedErrorCount = suspectedErrorCount
+        self.passedRulesVersion = passedRulesVersion
         self.importedAt = importedAt
     }
 }

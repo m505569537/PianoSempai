@@ -7,11 +7,6 @@ import Foundation
 
 enum NoteAligner {
 
-    struct TempoPoint: Equatable, Sendable {
-        let beat: Double
-        let sec: Double
-    }
-
     // MARK: - 公开入口
 
     /// - Parameters:
@@ -209,6 +204,7 @@ enum NoteAligner {
             extraCount: extraCount,
             wrongCount: wrongCount,
             tempoMap: summary,
+            tempoKnots: knots,
             confidence: confidence,
             lowConfidenceReasons: reasons,
             passesPlayed: passesPlayed,
@@ -264,13 +260,15 @@ enum NoteAligner {
                 let pi = sortedCandidates[ci]
                 let p = played[pi]
                 aligned.append(AlignedNote(
+                    refID: ref.id,
                     refMeasureIndex: ref.measureIndex,
                     refBeatInMeasure: ref.beatInMeasure,
                     refPitch: ref.pitch,
                     playedPitch: p.pitch,
                     deltaMs: (p.onsetSec - predicted) * 1000,
                     cls: p.pitch == ref.pitch ? .correct : .wrongPitch,
-                    hand: ref.hand
+                    hand: ref.hand,
+                    playedOnsetSec: p.onsetSec
                 ))
                 matchedRefIDs.insert(ref.id)
                 usedPlayedIndices.insert(pi)
@@ -384,13 +382,15 @@ enum NoteAligner {
                 let ref = sortedRefs[ri]
                 let p = segPlayed[sortedCandidates[ci]]
                 aligned.append(AlignedNote(
+                    refID: ref.id,
                     refMeasureIndex: ref.measureIndex,
                     refBeatInMeasure: ref.beatInMeasure,
                     refPitch: ref.pitch,
                     playedPitch: p.pitch,
                     deltaMs: (p.onsetSec - predicted) * 1000,
                     cls: p.pitch == ref.pitch ? .correct : .wrongPitch,
-                    hand: ref.hand
+                    hand: ref.hand,
+                    playedOnsetSec: p.onsetSec
                 ))
                 matchedRefIDs.insert(ref.id)
                 usedLocal.insert(sortedCandidates[ci])
@@ -581,8 +581,10 @@ enum NoteAligner {
             var aligned: [AlignedNote] = []
             for p in played {
                 aligned.append(AlignedNote(
+                    refID: nil,
                     refMeasureIndex: nil, refBeatInMeasure: nil, refPitch: nil,
-                    playedPitch: p.pitch, deltaMs: nil, cls: .extra, hand: .unknown
+                    playedPitch: p.pitch, deltaMs: nil, cls: .extra, hand: .unknown,
+                    playedOnsetSec: p.onsetSec
                 ))
             }
             return SegmentOutcome(aligned: aligned, matchedRefIDs: [], lastMatchedRefIndexGlobal: nil)
@@ -632,13 +634,15 @@ enum NoteAligner {
                 let predicted = tempoFn(ref.onsetBeat)
                 let deltaMs = (p.onsetSec - predicted) * 1000
                 aligned.append(AlignedNote(
+                    refID: ref.id,
                     refMeasureIndex: ref.measureIndex,
                     refBeatInMeasure: ref.beatInMeasure,
                     refPitch: ref.pitch,
                     playedPitch: p.pitch,
                     deltaMs: deltaMs,
                     cls: p.pitch == ref.pitch ? .correct : .wrongPitch,
-                    hand: ref.hand
+                    hand: ref.hand,
+                    playedOnsetSec: p.onsetSec
                 ))
                 matchedRefIDs.insert(ref.id)
                 // 回溯自尾向头：首次命中即「本段最晚匹配的参考音」（游标推进用）
@@ -652,8 +656,10 @@ enum NoteAligner {
             } else if j > 0 {
                 let p = played[j - 1]
                 aligned.append(AlignedNote(
+                    refID: nil,
                     refMeasureIndex: nil, refBeatInMeasure: nil, refPitch: nil,
-                    playedPitch: p.pitch, deltaMs: nil, cls: .extra, hand: .unknown
+                    playedPitch: p.pitch, deltaMs: nil, cls: .extra, hand: .unknown,
+                    playedOnsetSec: p.onsetSec
                 ))
                 j -= 1
             } else {
@@ -670,8 +676,10 @@ enum NoteAligner {
 
     private static func missingNote(_ ref: ReferenceNote) -> AlignedNote {
         AlignedNote(
+            refID: ref.id,
             refMeasureIndex: ref.measureIndex, refBeatInMeasure: ref.beatInMeasure,
-            refPitch: ref.pitch, playedPitch: nil, deltaMs: nil, cls: .missing, hand: ref.hand
+            refPitch: ref.pitch, playedPitch: nil, deltaMs: nil, cls: .missing, hand: ref.hand,
+            playedOnsetSec: nil
         )
     }
 
@@ -687,13 +695,15 @@ enum NoteAligner {
                let idx = available.firstIndex(where: { $0.pitch == playedPitch }) {
                 let grace = available.remove(at: idx)
                 result.append(AlignedNote(
+                    refID: grace.id,
                     refMeasureIndex: grace.measureIndex,
                     refBeatInMeasure: grace.beatInMeasure,
                     refPitch: grace.pitch,
                     playedPitch: playedPitch,
-                    deltaMs: nil,
+                    deltaMs: note.deltaMs,
                     cls: .correct,
-                    hand: grace.hand
+                    hand: grace.hand,
+                    playedOnsetSec: note.playedOnsetSec
                 ))
             } else {
                 result.append(note)

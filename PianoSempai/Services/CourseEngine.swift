@@ -9,6 +9,11 @@ import SwiftData
 // 所有产出的数字都来自真实采集（视奏命中率/停顿/力度样本），规则为固定查表，不做随机。
 
 enum CourseEngine {
+
+    /// P1 定级/计划生成规则版本（勿动；升版走显式决策）
+    /// P2 过关判定规则版本（SPEC L162 留痕：过关时写入 Piece.passedRulesVersion）
+    static let scoringRulesVersion = "P2-scoring-1.0"
+
     /// 规则版本号（写入 DailyPlan.generatedFromRulesVersion，便于追溯是哪版规则产出的计划）
     static let rulesVersion = "P1-rule-1.0"
 
@@ -205,5 +210,150 @@ enum CourseEngine {
         let state = CoursePathState()
         context.insert(state)
         return state
+    }
+
+    // MARK: - 过关门禁（SPEC §7；课程引擎唯一写手，红线 2/4）
+
+    /// 单项硬指标判定结果（S09/S13 以真实数值展示 + 「差多少」，§7 公开可查非黑箱）
+    struct MetricResult: Equatable, Sendable {
+        let name: String
+        let actualDisplay: String
+        let thresholdDisplay: String
+        let passed: Bool
+    }
+
+    /// 单 take 过关判定（纯函数值类型；写 Piece.status 仍由 applyPassIfConsecutive 承担）
+    struct PassEvaluation: Equatable, Sendable {
+        /// 有参考谱 + 非自由弹奏 + confidence ≥ 0.6 + coversFullScope
+        let canEvaluate: Bool
+        let passesAllHardMetrics: Bool
+        let metrics: [MetricResult]
+        let reasons: [String]
+    }
+
+    /// 单 take 硬指标判定（纯函数；confidence 门禁阈值 0.6 集中在 ScoringStandards，§9）。
+    /// 错音率分母 = 非 grace 参考音数（§6 口径互补）：漏音计罚、多弹不稀释比率（M4 gate B3）。
+    static func evaluatePass(
+        wrongPitchCount: Int,
+        missingCount: Int,
+        referenceNonGraceCount: Int,
+        rhythmMedianMs: Double,
+        tempoTargetHit: Bool,
+        confidence: Double,
+        coversFullScope: Bool,
+        hasScore: Bool,
+        isFreePlay: Bool,
+        standards: ScoringStandards
+    ) -> PassEvaluation {
+        var reasons: [String] = []
+        // 可评前提（§7）：有参考谱 + 非自由弹奏 + 高置信 + 覆盖完整
+        guard hasScore, !isFreePlay else {
+            return PassEvaluation(
+                canEvaluate: false, passesAllHardMetrics: false, metrics: [],
+                reasons: ["无参考谱/自由弹奏，不判定过关"]
+            )
+        }
+        guard confidence >= ScoringStandards.confidenceGateThreshold else {
+            reasons.append(String(format: "对齐置信度 %.2f 低于 %.2f，本次不计入过关（也不清零）", confidence, ScoringStandards.confidenceGateThreshold))
+            return PassEvaluation(
+                canEvaluate: false, passesAllHardMetrics: false, metrics: [],
+                reasons: reasons
+            )
+        }
+        guard coversFullScope else {
+            reasons.append("未覆盖评分区间全部小节，本次不计入过关（也不清零）")
+            return PassEvaluation(
+                canEvaluate: false, passesAllHardMetrics: false, metrics: [],
+                reasons: reasons
+            )
+        }
+        // 硬指标（§7：错音率/节奏偏差中位/速度达标；弱总分不参与，红线 4）。
+        // 错音率 = (错音 + 漏音) / 非 grace 参考音数（gate B3：漏音计罚、多弹不进分子分母）
+        let rate = Double(wrongPitchCount + missingCount) / Double(max(1, referenceNonGraceCount))
+        let ratePassed = rate <= standards.maxWrongNoteRate
+        let rhythmPassed = rhythmMedianMs <= standards.maxRhythmMedianMs
+        let metrics = [
+            MetricResult(
+                name: "错音率",
+                actualDisplay: String(format: "%.1f%%", rate * 100),
+                thresholdDisplay: String(format: "≤ %.0f%%", standards.maxWrongNoteRate * 100),
+                passed: ratePassed
+            ),
+            MetricResult(
+                name: "节奏偏差中位",
+                actualDisplay: String(format: "%.0fms", rhythmMedianMs),
+                thresholdDisplay: String(format: "≤ %.0fms", standards.maxRhythmMedianMs),
+                passed: rhythmPassed
+            ),
+            MetricResult(
+                name: "速度达标",
+                actualDisplay: tempoTargetHit ? "已达标" : "未达标",
+                thresholdDisplay: "≥ 参考速度 \(Int(standards.targetTempoRatio * 100))%",
+                passed: tempoTargetHit
+            ),
+        ]
+        let passesAll = ratePassed && rhythmPassed && tempoTargetHit
+        if !ratePassed { reasons.append(String(format: "错音率 %.1f%% 超过 %.0f%%", rate * 100, standards.maxWrongNoteRate * 100)) }
+        if !rhythmPassed { reasons.append(String(format: "节奏偏差中位 %.0fms 超过 %.0fms", rhythmMedianMs, standards.maxRhythmMedianMs)) }
+        if !tempoTargetHit { reasons.append("速度未达标") }
+
+        return PassEvaluation(
+            canEvaluate: true, passesAllHardMetrics: passesAll,
+            metrics: metrics, reasons: reasons
+        )
+    }
+
+    /// 「差多少过关」（§7）：各硬指标当前值与阈值差（S09/S13 展示用；纯函数）。
+    /// 错音率口径与 evaluatePass 一致（gate B3）。
+    static func passGap(
+        wrongPitchCount: Int, missingCount: Int, referenceNonGraceCount: Int,
+        rhythmMedianMs: Double,
+        standards: ScoringStandards
+    ) -> [String] {
+        var gaps: [String] = []
+        let rate = Double(wrongPitchCount + missingCount) / Double(max(1, referenceNonGraceCount))
+        let rateGap = rate - standards.maxWrongNoteRate
+        if rateGap > 0 {
+            gaps.append(String(format: "错音率还差 %.1f%%", rateGap * 100))
+        }
+        let rhythmGap = rhythmMedianMs - standards.maxRhythmMedianMs
+        if rhythmGap > 0 {
+            gaps.append(String(format: "节奏偏差还差 %.0fms", rhythmGap))
+        }
+        return gaps
+    }
+
+    /// 连续达标计数（纯函数；§7）：
+    /// - 从最新往回数「可评且达标」的连续 take；
+    /// - 可评但不达标 → 连续计数清零（返回 0）；
+    /// - 不可评（低置信/无谱）→ 不参与计数也不清零（跳过）。
+    static func consecutivePassStreak(eligibleTakes: [(eligible: Bool, passed: Bool)]) -> Int {
+        var streak = 0
+        for take in eligibleTakes.reversed() {
+            guard take.eligible else { continue } // 不可评：跳过，不清零
+            if take.passed {
+                streak += 1
+            } else {
+                return 0 // 可评但不达标：清零
+            }
+        }
+        return streak
+    }
+
+    /// 过关落库（唯一写手）：同一 piece 最近连续 2 次可评且达标 → Piece.status = passed，
+    /// 并留痕 scoringRulesVersion（SPEC L162）。返回是否发生过关。
+    /// 判定消费的 take 数据由调用方给（保持引擎纯度，测试注入）。
+    @discardableResult
+    static func applyPassIfConsecutive(
+        piece: Piece,
+        takesOldestFirst: [(eligible: Bool, passed: Bool)],
+        in context: ModelContext
+    ) -> Bool {
+        let streak = consecutivePassStreak(eligibleTakes: takesOldestFirst)
+        guard streak >= 2 else { return false }
+        guard piece.status != "passed" else { return false }
+        piece.status = "passed"
+        piece.passedRulesVersion = Self.scoringRulesVersion
+        return true
     }
 }

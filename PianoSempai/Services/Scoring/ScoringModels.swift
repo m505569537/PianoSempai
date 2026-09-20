@@ -46,6 +46,8 @@ enum NoteMatchClass: String, Codable, Equatable, Sendable {
 }
 
 struct AlignedNote: Codable, Equatable, Sendable {
+    /// 匹配到的 ReferenceNote.id（回查绝对 onsetBeat 用；extra = nil）
+    let refID: Int?
     let refMeasureIndex: Int?
     let refBeatInMeasure: Double?
     let refPitch: UInt8?
@@ -54,6 +56,9 @@ struct AlignedNote: Codable, Equatable, Sendable {
     let deltaMs: Double?
     let cls: NoteMatchClass
     let hand: Hand
+    /// 真实演奏 onset（秒；M4 gate 返修 2：速度/连续性维直接消费，不走节奏图反推）。
+    /// correct/wrongPitch/extra 有值；missing = nil。默认 nil 便于测试构造。
+    var playedOnsetSec: Double? = nil
 }
 
 /// tempoMap 摘要（M3 NoteAligner 产出；M2 仅定义结构）
@@ -65,6 +70,12 @@ struct TempoMapSummary: Codable, Equatable, Sendable {
     let maxBPM: Double
 }
 
+/// 节奏图节点（beat → sec；P2 M4 从 NoteAligner 嵌套提升为顶层，ScoringModels 共用）
+struct TempoPoint: Equatable, Sendable {
+    let beat: Double
+    let sec: Double
+}
+
 struct AlignmentResult: Equatable, Sendable {
     let aligned: [AlignedNote]
     let matchedRefCount: Int
@@ -72,6 +83,8 @@ struct AlignmentResult: Equatable, Sendable {
     let extraCount: Int
     let wrongCount: Int
     let tempoMap: TempoMapSummary
+    /// 节奏图节点（去趋势+段偏移前的绝对预测曲线；连续性/速度维重建 predicted 秒用）
+    let tempoKnots: [TempoPoint]
     /// 0...1；公式在 NoteAligner 内注释（§5 禁黑箱）
     let confidence: Double
     /// 低置信原因（逐条中文，§5）

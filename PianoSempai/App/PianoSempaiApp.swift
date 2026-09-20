@@ -22,6 +22,7 @@ struct PianoSempaiApp: App {
                     Piece.self,
                     ScoreFile.self,
                     ScoreErrorMark.self,
+                    TakeAnalysis.self,
                 ])
         }
     }
