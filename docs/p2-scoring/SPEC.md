@@ -79,9 +79,12 @@ struct AlignedNote: Codable, Equatable {
 ## 3. 参考谱提取器 `ScoreReferenceNotes`（新文件 Services/Scoring/ScoreReferenceNotes.swift）
 
 - 输入：`Score`（SheetMusicCore）+ 评分区间 `measureRange: Range<Int>`（0-based，闭区间；缺省全曲）+ 是否双谱表自动判定。
-- 遍历 `part.staves.enumerated` → `staff.measures[range]` → `voice.elements` 时间序：
-  - `.chord`：用 `chord.duration.resolved(in:).ticks(division:)` 取时值；该元素 onset 由游标（小节内 tick，含本 voice 前面的 chord+rest 累加）+ 跨小节累计 tick 得到，`/ Double(score.division)` 换拍；chord.notes 每个音生成一条 ReferenceNote（和弦同时刻多音，共享 onsetBeat）。
-  - `.rest`：游标推进 rest 的 resolved ticks（**必须**推进，否则后续 onset 全错）。
+- 遍历 `part.staves.enumerated` → `staff.measures[range]` → `voice.elements` 时间序（已由 M1 FINDINGS D-1 按包源码校准）：
+  - **唯一占拍的 case 是 `.chord(Chord)`**；休止符 = 空 chord（`chord.notes.isEmpty` / `element.isRest`），**不存在 `.rest` case**。
+  - 其余 case（keySignature/timeSignature/clef/barLine/dynamic/spanner/fermata/breath/harmony/expression/ambitus/symbol/fretDiagram/preserved 等）全是**不占拍的标注，游标不推进、不产音**；遍历时直接跳过。
+  - `.locationShift(delta)`：按包语义移动该 voice 游标（M2 若样例谱/导入谱出现必须处理；先写测试确认样例谱无此 case，有则按 delta 拍数平移游标）。
+  - 非空 chord：时值用 `chord.duration.resolved(in: effectiveMeasureDuration).ticks(division:)`（**`.measure` 整小节休止/和弦必须先 resolved，否则 ticks(division:) 会 trap**；measureDuration 取包的 `effectiveMeasureDurations()`）。该元素 onset 由游标（小节内 tick，含本 voice 前面所有 chord——含空 chord 休止——累加）+ 跨小节累计 tick 得到，`/ Double(score.division)` 换拍；chord.notes 每个音生成一条 ReferenceNote（和弦同时刻多音，共享 onsetBeat）。
+  - 空 chord（休止，`isRest`）：**同样推进游标**其 resolved ticks，但不产 ReferenceNote。
   - 多 voice：同 staff 多 voice 的 onset 各自计算后合并、按 onsetBeat 稳定排序。
   - `graceNotesBefore/After`：标记 isGrace=true，不占正拍游标。
   - 连音线/tie：以 chord 为单位，时值已含；不重复生成被 tie 走的音头（若模型对 tie 末端也给 noteOn，按同 pitch+相邻 onset 去重，保留首个）。
@@ -129,8 +132,13 @@ struct AlignedNote: Codable, Equatable {
 - coversFullScope：首遍是否覆盖区间内全部小节（缺失整段小节=false）。
 
 parangonar 对拍验收（PRD L185「输出一致才验收」）：
-- Hermes 在仓外脚本目录用 Python parangonar 3.2.0 构造 ≥6 组 MIDI 对（完美/错音/漏音/多弹/抢拖拍/踏板延音），导出「参考+演奏」note 序列；Swift 侧加一个 `SCSMTestHarness`（仅 test target，可被 `xcodebuild test` 调用）读同一批 JSON 跑 NoteAligner。
-- 对拍口径：**correct/missing/extra/wrongPitch 的分类计数一致**（节奏 deltaMs 允许数值误差，不要求逐毫秒相同，因 tempoMap 实现可不同）。分类计数不一致的用例必须修到达标或在 spec 记录口径差异并经 Hermes 确认。
+- Hermes 在仓外脚本目录用 Python parangonar 3.x + partitura/music21 构造 ≥6 组 MIDI 对（完美/错音/漏音/多弹/抢拖拍/踏板延音），导出「参考+演奏」note 序列与对齐 CSV（列含 ref_pitch/performance_pitch/alignment_type/timing_deviation）；Swift 侧加一个仅 test target 的 harness 读同一批 JSON 跑 NoteAligner。夹具由 Hermes 生成、CC 接入（目录 Tests/PianoSempaiTests/Scoring/Fixtures/）。
+- **分类口径校准（Hermes 对 parangonar 实测，必读）**：parangonar 的 alignment_type 只有 `match / deletion / insertion`，**没有 wrongPitch**——一个错音（如 ref62 弹成63）它输出 deletion(ref62) + insertion(played63) 两条。Swift 侧产品语义保留 wrongPitch（PRD 用「错音率」，对用户直观），对拍时按下列投影比对三分类计数：
+  - match = Swift `correct`
+  - deletion = Swift `missing` + `wrongPitch`（wrongPitch 的参考侧）
+  - insertion = Swift `extra` + `wrongPitch`（wrongPitch 的演奏侧）
+- 验收：≥6 组夹具的 (match / deletion / insertion) 投影计数与 parangonar **逐组一致**。wrongPitch 与 (missing+extra) 之间的内部分配允许不同（一个时间相近的错音，DP 可判 wrongPitch 或拆 missing+extra），只要三分类投影计数吻合；节奏 timing_deviation 的数值**不**要求逐毫秒相同（tempoMap 实现不同），只核对抢/拖方向与量级合理。
+- 任一组投影计数不一致：修到达标，或在 FINDINGS 记录具体口径差异并经 Hermes 书面确认后才放行，禁止悄悄改夹具迁就实现。
 
 ## 6. 六维评分 `TakeScorer`（新文件 Services/Scoring/TakeScorer.swift）
 

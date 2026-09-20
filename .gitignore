@@ -5,3 +5,6 @@ DerivedData/
 xcuserdata/
 *.xcuserstate
 .build/
+
+# Hermes parangonar cross-check venv (not shipped)
+.parangonar-venv/

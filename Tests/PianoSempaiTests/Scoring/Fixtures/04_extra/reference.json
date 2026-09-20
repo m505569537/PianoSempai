@@ -1,0 +1,162 @@
+[
+  {
+    "id": 0,
+    "pitch": 60,
+    "onsetBeat": 0.0,
+    "durationBeats": 1.0,
+    "measureIndex": 0,
+    "beatInMeasure": 0.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 1,
+    "pitch": 62,
+    "onsetBeat": 1.0,
+    "durationBeats": 1.0,
+    "measureIndex": 0,
+    "beatInMeasure": 1.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 2,
+    "pitch": 64,
+    "onsetBeat": 2.0,
+    "durationBeats": 1.0,
+    "measureIndex": 0,
+    "beatInMeasure": 2.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 3,
+    "pitch": 65,
+    "onsetBeat": 3.0,
+    "durationBeats": 1.0,
+    "measureIndex": 0,
+    "beatInMeasure": 3.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 4,
+    "pitch": 67,
+    "onsetBeat": 4.0,
+    "durationBeats": 1.0,
+    "measureIndex": 1,
+    "beatInMeasure": 0.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 5,
+    "pitch": 69,
+    "onsetBeat": 5.0,
+    "durationBeats": 1.0,
+    "measureIndex": 1,
+    "beatInMeasure": 1.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 6,
+    "pitch": 71,
+    "onsetBeat": 6.0,
+    "durationBeats": 1.0,
+    "measureIndex": 1,
+    "beatInMeasure": 2.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 7,
+    "pitch": 72,
+    "onsetBeat": 7.0,
+    "durationBeats": 1.0,
+    "measureIndex": 1,
+    "beatInMeasure": 3.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 8,
+    "pitch": 71,
+    "onsetBeat": 8.0,
+    "durationBeats": 1.0,
+    "measureIndex": 2,
+    "beatInMeasure": 0.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 9,
+    "pitch": 69,
+    "onsetBeat": 9.0,
+    "durationBeats": 1.0,
+    "measureIndex": 2,
+    "beatInMeasure": 1.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 10,
+    "pitch": 67,
+    "onsetBeat": 10.0,
+    "durationBeats": 1.0,
+    "measureIndex": 2,
+    "beatInMeasure": 2.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 11,
+    "pitch": 65,
+    "onsetBeat": 11.0,
+    "durationBeats": 1.0,
+    "measureIndex": 2,
+    "beatInMeasure": 3.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 12,
+    "pitch": 64,
+    "onsetBeat": 12.0,
+    "durationBeats": 1.0,
+    "measureIndex": 3,
+    "beatInMeasure": 0.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 13,
+    "pitch": 62,
+    "onsetBeat": 13.0,
+    "durationBeats": 1.0,
+    "measureIndex": 3,
+    "beatInMeasure": 1.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 14,
+    "pitch": 60,
+    "onsetBeat": 14.0,
+    "durationBeats": 1.0,
+    "measureIndex": 3,
+    "beatInMeasure": 2.0,
+    "hand": "right",
+    "isGrace": false
+  },
+  {
+    "id": 15,
+    "pitch": 60,
+    "onsetBeat": 15.0,
+    "durationBeats": 1.0,
+    "measureIndex": 3,
+    "beatInMeasure": 3.0,
+    "hand": "right",
+    "isGrace": false
+  }
+]

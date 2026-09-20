@@ -1,0 +1,114 @@
+[
+  {
+    "pitch": 60,
+    "onsetSec": 0.0,
+    "endSec": 0.9,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 62,
+    "onsetSec": 1.05,
+    "endSec": 1.95,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 64,
+    "onsetSec": 2.1,
+    "endSec": 3.0,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 65,
+    "onsetSec": 3.15,
+    "endSec": 4.05,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 67,
+    "onsetSec": 4.2,
+    "endSec": 5.1,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 69,
+    "onsetSec": 5.25,
+    "endSec": 6.15,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 71,
+    "onsetSec": 6.3,
+    "endSec": 7.2,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 72,
+    "onsetSec": 7.35,
+    "endSec": 8.25,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 71,
+    "onsetSec": 8.4,
+    "endSec": 9.3,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 69,
+    "onsetSec": 9.45,
+    "endSec": 10.35,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 67,
+    "onsetSec": 10.5,
+    "endSec": 11.4,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 65,
+    "onsetSec": 11.55,
+    "endSec": 12.45,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 64,
+    "onsetSec": 12.6,
+    "endSec": 13.5,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 62,
+    "onsetSec": 13.65,
+    "endSec": 14.55,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 60,
+    "onsetSec": 14.7,
+    "endSec": 15.6,
+    "velocity": 80,
+    "isSuspicious": false
+  },
+  {
+    "pitch": 60,
+    "onsetSec": 15.75,
+    "endSec": 16.65,
+    "velocity": 80,
+    "isSuspicious": false
+  }
+]

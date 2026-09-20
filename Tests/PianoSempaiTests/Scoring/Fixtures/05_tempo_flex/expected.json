@@ -1,0 +1,107 @@
+{
+  "matcher": "parangonar 3.3.3 / AutomaticNoteMatcher",
+  "counts": {
+    "match": 16,
+    "deletion": 0,
+    "insertion": 0
+  },
+  "projectionNote": "match=correct; deletion=missing+wrongPitch(ref); insertion=extra+wrongPitch(perf)",
+  "detail": [
+    {
+      "alignmentType": "match",
+      "refPitch": 60,
+      "performancePitch": 60,
+      "timingDeviationSec": 0.0
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 62,
+      "performancePitch": 62,
+      "timingDeviationSec": -0.05
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 64,
+      "performancePitch": 64,
+      "timingDeviationSec": -0.1
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 65,
+      "performancePitch": 65,
+      "timingDeviationSec": -0.15
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 67,
+      "performancePitch": 67,
+      "timingDeviationSec": -0.2
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 69,
+      "performancePitch": 69,
+      "timingDeviationSec": -0.25
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 71,
+      "performancePitch": 71,
+      "timingDeviationSec": -0.3
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 72,
+      "performancePitch": 72,
+      "timingDeviationSec": -0.35
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 71,
+      "performancePitch": 71,
+      "timingDeviationSec": -0.4
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 69,
+      "performancePitch": 69,
+      "timingDeviationSec": -0.45
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 67,
+      "performancePitch": 67,
+      "timingDeviationSec": -0.5
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 65,
+      "performancePitch": 65,
+      "timingDeviationSec": -0.55
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 64,
+      "performancePitch": 64,
+      "timingDeviationSec": -0.6
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 62,
+      "performancePitch": 62,
+      "timingDeviationSec": -0.65
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 60,
+      "performancePitch": 60,
+      "timingDeviationSec": -0.7
+    },
+    {
+      "alignmentType": "match",
+      "refPitch": 60,
+      "performancePitch": 60,
+      "timingDeviationSec": -0.75
+    }
+  ]
+}
