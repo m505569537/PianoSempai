@@ -64,6 +64,7 @@ struct PlayedNote: Equatable {
 enum NoteMatchClass: String, Codable { case correct, wrongPitch, missing, extra }
 
 struct AlignedNote: Codable, Equatable {
+    let refID: Int?              // 配对到的参考音稳定 id；extra=nil
     let refMeasureIndex: Int?
     let refBeatInMeasure: Double?
     let refPitch: UInt8?
@@ -71,6 +72,7 @@ struct AlignedNote: Codable, Equatable {
     let deltaMs: Double?        // 实测 onset 相对节奏图预测 onset，正=拖拍/负=抢拍
     let cls: NoteMatchClass
     let hand: Hand
+    let playedOnsetSec: Double? // 真实演奏 onset（M4 真值源：速度/连续性维直接用，不从节奏图反推）；missing=nil
 }
 ```
 
@@ -146,7 +148,7 @@ parangonar 对拍验收（PRD L185「输出一致才验收」）：
 
 1. 音高 pitchScore：依据 correct /（非 grace 参考音数），wrongPitch/missing/extra 各自计数并定位到小节·拍。grace 参考音不进分母（装饰音容错），但 extra 的装饰乱弹仍计 extra。
 2. 节奏 rhythmScore：correct+wrongPitch 匹配对的 |deltaMs| 在容差带内的比例 + 抢/拖倾向（mean deltaMs 正负）。输出：分数、中位/均值偏差、抢拍或拖拍标签、逐音偏差分布（供 S13 折叠明细，本批先给数据结构与简表，不做高级图）。
-3. 速度稳定性 tempoScore：tempoMap 瞬时速度的变异度（CV）与渐快渐慢；对照 take 目标/referenceTempo 给「是否达标速度」布尔（门禁用）。无 ≥8 个可计时匹配返回 nil。
+3. 速度稳定性 tempoScore：以**真实演奏 onset**（`AlignedNote.playedOnsetSec`，见 §5 输出）相邻差算瞬时速度的变异度（CV）与渐快渐慢，**不从去趋势节奏图反推**（节奏图锚点按段去了 offset，反推在首匹配非 beat0/多段时会系统性偏移——M4 gate 实证）；对照 take 目标/referenceTempo 给「是否达标速度」布尔（门禁用，达标比按 §9 分级）。无 ≥8 个可计时匹配返回 nil。
 4. 力度 dynamicsScore：velocity 均匀度（同节拍层级内 CV）、左右手力度差、旋律/伴奏层级差。**有 VelocityCalibration 才做个人曲线归一**；无校准则只给原始相对统计且标注「未校准，仅相对值」；样本 <8 返回 nil。
 5. 连续性 continuityScore：非中断导致的停顿次数（相邻 matched onset 间隔超过「该拍预测间隔 × 2 且 >1.5s」）与卡顿热点小节；中断间隙不算停顿（§4）。
 6. 双手协同 handsScore：仅双 staff 谱；RHLH 各自 correct 率的均衡度与同步和弦到位率。单 staff/unknown → nil。
