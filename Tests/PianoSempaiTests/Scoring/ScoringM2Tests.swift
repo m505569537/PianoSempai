@@ -223,4 +223,48 @@ final class ScoringM2Tests: XCTestCase {
         XCTAssertEqual(result.notes.count, 0)
         XCTAssertEqual(result.segments.count, 0)
     }
+
+    // MARK: - gate 返修：EOS flush 乱序（M2-GATE-REWORK.md 精确复现）
+
+    func testEOSFlushOrderingPedalHeldToStreamEnd() {
+        // 踏板踩下后从不抬起：早 onset 音被踏板挂起（pedalExtended），
+        // 晚 onset 音到结束仍按住（active）。EOS flush 不得乱序。
+        // 流在 @3 结束（末事件在 @2，结束时刻由调用方传入）
+        let result = MidiTakeParser.parse(events: [
+            event("on", 60, 100, at: 0),
+            event("cc64", 64, 127, at: 0.5),
+            event("off", 60, 0, at: 1.0),   // 踏板踩着 → 60 进 pedalExtended，onset=0
+            event("on", 62, 100, at: 2.0),  // 仍按住 → active，onset=2
+            // 流 @3 结束，踏板未抬起
+        ], streamEndSec: 3.0)
+        XCTAssertEqual(result.notes.count, 2)
+        XCTAssertEqual(result.notes.map(\.onsetSec), [0, 2], "notes 必须按 onset 升序")
+        XCTAssertEqual(result.notes.map(\.pitch), [60, 62], "排序后 [60@0, 62@2]")
+        for end in result.notes.map(\.endSec) {
+            XCTAssertEqual(end, 3.0, accuracy: 0.0001, "两者都在流末收音")
+        }
+        XCTAssertEqual(result.segments, [0..<2], "单段")
+    }
+
+    func testEOSFlushOrderingWithInterruptionSplit() {
+        // 交错 flush + 断连：排序后段边界仍正确（段号随 onset 单调，范围连续）
+        let result = MidiTakeParser.parse(events: [
+            event("on", 60, 100, at: 0),
+            event("cc64", 64, 127, at: 0.5),
+            event("off", 60, 0, at: 1.0),   // 60@0 进 pedalExtended（段 0）
+            event("on", 62, 100, at: 1.5),  // 62@1.5 仍按住（段 0）
+            // 断连 @2
+            event("on", 64, 100, at: 3.0),  // 64@3（段 1）
+            event("cc64", 64, 0, at: 3.5),  // 抬踏板 → 60 收音 @3.5（段 1！onset 已过断连切分？onset=0 → 段 0）
+            event("off", 64, 0, at: 4.0),
+            event("on", 65, 100, at: 4.5),
+            // 流 @5 结束：62@1.5、65@4.5 在 EOS 按住 flush
+        ], interruptionRanges: [2])
+        XCTAssertEqual(result.notes.count, 4)
+        // 排序后：60@0(段0) → 62@1.5(段0) → 64@3(段1) → 65@4.5(段1)
+        XCTAssertEqual(result.notes.map(\.pitch), [60, 62, 64, 65], "按 onset 升序（60 的收音在 3.5 但 onset 仍最早）")
+        XCTAssertEqual(result.notes.map(\.onsetSec), [0, 1.5, 3.0, 4.5])
+        XCTAssertEqual(result.segmentIndexOfNote, [0, 0, 1, 1], "段号由 onset 落点决定，与收音时刻无关")
+        XCTAssertEqual(result.segments, [0..<2, 2..<4], "排序后段边界连续")
+    }
 }

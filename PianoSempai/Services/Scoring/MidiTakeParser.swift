@@ -29,7 +29,13 @@ enum MidiTakeParser {
     /// - Parameters:
     ///   - events: TakeStore.readEvents 的输出（时间升序不保证，内部排序）
     ///   - interruptionRanges: 断连秒起点列表（Take.interruptionRanges）
-    static func parse(events: [RawMIDIEventRecord], interruptionRanges: [Int] = []) -> Result {
+    ///   - streamEndSec: 录音实际结束时刻（秒，相对同一锚点）。流末收音用它——
+    ///     末事件之后流可能还在录（踏板/按住的音要延到真实结束）；nil = 末事件时刻
+    static func parse(
+        events: [RawMIDIEventRecord],
+        interruptionRanges: [Int] = [],
+        streamEndSec: Double? = nil
+    ) -> Result {
         let sorted = events.sorted { $0.t < $1.t }
         guard let first = sorted.first else {
             return Result(notes: [], segmentIndexOfNote: [], segments: [], pedalEventCount: 0, suspiciousCount: 0)
@@ -41,8 +47,7 @@ enum MidiTakeParser {
 
         let splits = Array(interruptionRanges.sorted()).filter { $0 >= 0 }
 
-        var notes: [PlayedNote] = []
-        var segmentOfNote: [Int] = []
+        var collected: [(note: PlayedNote, segment: Int)] = []
         var pedalEventCount = 0
         var suspiciousCount = 0
 
@@ -67,14 +72,16 @@ enum MidiTakeParser {
 
         func emit(pitch: UInt8, onset: Double, end: Double, velocity: UInt8, suspicious: Bool) {
             let segment = splits.filter { $0 <= Int(onset) }.count
-            notes.append(PlayedNote(
-                pitch: pitch,
-                onsetSec: onset,
-                endSec: max(end, onset),
-                velocity: velocity,
-                isSuspicious: suspicious
+            collected.append((
+                note: PlayedNote(
+                    pitch: pitch,
+                    onsetSec: onset,
+                    endSec: max(end, onset),
+                    velocity: velocity,
+                    isSuspicious: suspicious
+                ),
+                segment: segment
             ))
-            segmentOfNote.append(segment)
         }
 
         for event in sorted {
@@ -107,8 +114,10 @@ enum MidiTakeParser {
             }
         }
 
-        // 流结束：仍按住/挂起的音在末事件时刻收音（有界，不悬空）
-        let endTime = sec(sorted.last!.t)
+        // 流结束：仍按住/挂起的音在流末时刻收音（有界，不悬空）。
+        // EOS flush 的两类顺序不代表 onset 顺序（active 字典序 vs pedalExtended 挂起序），
+        // 故收集后统一排序（gate 返修：先 62@2 后 60@0 的乱序复现）。
+        let endTime = max(sec(sorted.last!.t), streamEndSec ?? 0)
         for (pitch, instances) in active {
             for instance in instances {
                 emit(pitch: pitch, onset: instance.onset, end: endTime,
@@ -120,11 +129,27 @@ enum MidiTakeParser {
                  velocity: held.velocity, suspicious: held.suspicious)
         }
 
-        // 段范围（按 notes 数组下标；notes 已按 onset 升序 = 事件顺序，段单调）
+        // 全部收集完（含 EOS 两类 flush）后按 (onsetSec, pitch) 稳定排序，
+        // 再在最终序列上重建段号与段范围（gate 返修口径，不依赖 emit 先后）
+        let ordered = collected.enumerated()
+            .sorted { lhs, rhs in
+                if lhs.element.note.onsetSec != rhs.element.note.onsetSec {
+                    return lhs.element.note.onsetSec < rhs.element.note.onsetSec
+                }
+                if lhs.element.note.pitch != rhs.element.note.pitch {
+                    return lhs.element.note.pitch < rhs.element.note.pitch
+                }
+                return lhs.offset < rhs.offset // 稳定
+            }
+            .map(\.element)
+        let notes = ordered.map(\.note)
+        let segmentIndexOfNote = ordered.map(\.segment)
+
+        // 段范围（在排序后的最终序列上重建；段号随 onset 单调，范围必连续）
         var segments: [Range<Int>] = []
         var cursor = 0
         var currentSegment = 0
-        for (idx, seg) in segmentOfNote.enumerated() {
+        for (idx, seg) in segmentIndexOfNote.enumerated() {
             if seg != currentSegment {
                 segments.append(cursor..<idx)
                 cursor = idx
@@ -140,7 +165,7 @@ enum MidiTakeParser {
 
         return Result(
             notes: notes,
-            segmentIndexOfNote: segmentOfNote,
+            segmentIndexOfNote: segmentIndexOfNote,
             segments: segments,
             pedalEventCount: pedalEventCount,
             suspiciousCount: suspiciousCount
