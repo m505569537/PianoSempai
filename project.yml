@@ -20,8 +20,8 @@ options:
 
 settings:
   base:
-    MARKETING_VERSION: 0.1.0
-    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.0"
     SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
@@ -52,8 +52,8 @@ targets:
       path: PianoSempai/Info.plist
       properties:
         CFBundleDisplayName: PianoSempai
-        CFBundleShortVersionString: 0.1.0
-        CFBundleVersion: 1
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

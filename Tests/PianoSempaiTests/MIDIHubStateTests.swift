@@ -129,18 +129,16 @@ final class MIDIHubStateTests: XCTestCase {
         )
     }
 
-    // MARK: ⑤ BLE-MIDI P0：BLE 层连上 ≠ App 已连接
+    // MARK: ⑤ BLE-MIDI P0：没有 CoreMIDI 源 ≠ App 已连接
 
-    /// 红线：外设在 BLE 层已连上、甚至名字就叫 V70，只要 iOS 还没创建 CoreMIDI 源
+    /// 红线：系统设置里显示「已连接」、甚至蓝牙 GATT 已连上，只要没有 CoreMIDI 源
     /// （hub.isConnected 仍为 false），就绝不允许显示「特伦斯 V70 · 已连接」。
-    func testBLEConnectedPeripheralDoesNotFakeRealConnection() {
+    func testNoCoreMIDISourceDoesNotFakeRealConnection() {
         let hub = MIDIHub(
             initialMode: .real,
             makeRealSource: { FakeSource(name: "empty", reportsConnected: false) },
             makeSimulatedSource: { FakeSource(name: "sim", reportsConnected: true) }
         )
-        let peripheral = BLEMIDIDevice(id: UUID(), name: "V70", rssi: -50, state: .connected)
-        XCTAssertEqual(peripheral.name, "V70", "外设广播名照实展示")
 
         XCTAssertFalse(hub.isConnected, "连接态只能来自 CoreMIDI 源回调")
         let labelState = MIDIDeviceLabel.state(isConnected: hub.isConnected, mode: hub.mode)
