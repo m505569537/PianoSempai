@@ -123,7 +123,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showStorage) { StorageSheet() }
         .sheet(isPresented: $showNotes) { NotesView() }
         .sheet(isPresented: $showNotifications) {
-            M6bPlaceholderSheet(title: "通知", note: "周日 21:00 周报与工作日提醒属 M9 本地通知批次；本页先展示计划时段。")
+            WeeklyDigestSheet()
         }
     }
 

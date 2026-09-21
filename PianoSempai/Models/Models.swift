@@ -16,16 +16,19 @@ final class AppSettings {
     var placementStartedAt: Date?
     var weeklyGoal: Int = 3
     var notificationConfigured: Bool = false
+    /// M7.2 周报本地通知总开关（PRD 主动性 Q2=A 已认可；默认开，用户可在「通知」页全关）
+    var weeklyDigestEnabled: Bool = true
     var createdAt: Date = Date()
 
     /// 显式 init（@Model 宏对此类的 init 综合失败，原因未明；显式提供绕过）
-    init(onboardingCompleted: Bool = false, onboardingStage: String = OnboardingStage.welcome.rawValue, onboardingDismissed: Bool = false, placementStartedAt: Date? = nil, weeklyGoal: Int = 3, notificationConfigured: Bool = false, createdAt: Date = Date()) {
+    init(onboardingCompleted: Bool = false, onboardingStage: String = OnboardingStage.welcome.rawValue, onboardingDismissed: Bool = false, placementStartedAt: Date? = nil, weeklyGoal: Int = 3, notificationConfigured: Bool = false, weeklyDigestEnabled: Bool = true, createdAt: Date = Date()) {
         self.onboardingCompleted = onboardingCompleted
         self.onboardingStage = onboardingStage
         self.onboardingDismissed = onboardingDismissed
         self.placementStartedAt = placementStartedAt
         self.weeklyGoal = weeklyGoal
         self.notificationConfigured = notificationConfigured
+        self.weeklyDigestEnabled = weeklyDigestEnabled
         self.createdAt = createdAt
     }
 
@@ -571,17 +574,20 @@ final class PracticeNote {
     var title: String = ""
     var body: String = ""
     var linkedTakeId: UUID?
+    /// 周报所属周（weekStart 的 "yyyy-MM-dd"，周一起始；M7.2 周报按此去重，其它类型笔记为 nil）
+    var weekKey: String?
     /// open / resolved
     var status: String = "open"
     var createdAt: Date = Date()
 
     /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
-    init(entityId: UUID = UUID(), kind: String = "manual", title: String = "", body: String = "", linkedTakeId: UUID? = nil, status: String = "open", createdAt: Date = Date()) {
+    init(entityId: UUID = UUID(), kind: String = "manual", title: String = "", body: String = "", linkedTakeId: UUID? = nil, weekKey: String? = nil, status: String = "open", createdAt: Date = Date()) {
         self.entityId = entityId
         self.kind = kind
         self.title = title
         self.body = body
         self.linkedTakeId = linkedTakeId
+        self.weekKey = weekKey
         self.status = status
         self.createdAt = createdAt
     }
