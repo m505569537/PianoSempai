@@ -23,6 +23,11 @@ struct PianoSempaiApp: App {
                     ScoreFile.self,
                     ScoreErrorMark.self,
                     TakeAnalysis.self,
+                    // M7.1 AI 助教（多服务商链；只存非密配置，Key 在 Keychain）
+                    AIProvider.self,
+                    ChatThread.self,
+                    ChatMessage.self,
+                    PracticeNote.self,
                 ])
         }
     }

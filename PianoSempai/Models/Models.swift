@@ -456,6 +456,7 @@ final class ScoreFile {
     }
 }
 
+
 /// 疑似谱面错误标记（data-model §2 / S13b：标记不扣分、不影响过关）
 @Model
 final class ScoreErrorMark {
@@ -477,6 +478,111 @@ final class ScoreErrorMark {
         self.type = type
         self.note = note
         self.occurrenceCount = occurrenceCount
+        self.createdAt = createdAt
+    }
+}
+
+// MARK: - M7.1 AI 助教（多服务商链；docs/decisions/0001）
+
+/// 服务商配置（data-model §2 providerChain 条目 / §5 出站接口）。
+/// **只存非密配置**：每商 Key 在 Keychain（ProviderKeyStore，account = providerId），
+/// 永不进本表/日志/导出包（红线 2）。
+@Model
+final class AIProvider {
+    var entityId: UUID = UUID()
+    /// 稳定唯一标识（"ark"/"bailian"/"deepseek"/自定义 UUID 串）。
+    /// Keychain 的 account 用它——改了等于换一条 key 条目，历史 key 不串。
+    var providerId: String = ""
+    var displayName: String = ""
+    /// OpenAI 兼容入口（如 https://ark.cn-beijing.volces.com/api/v3）；
+    /// 客户端只拼 "/chat/completions"，尾斜杠有无都容错。模型 id 不写死在 App。
+    var baseURL: String = ""
+    /// 该商下模型 id，可多个；按数组顺序依次尝试，任一调通即用。
+    var modelIds: [String] = []
+    var enabled: Bool = true
+    /// 链上优先级（升序；同值按录入序，稳定排序不抖动）
+    var sortOrder: Int = 0
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
+    init(entityId: UUID = UUID(), providerId: String = "", displayName: String = "", baseURL: String = "", modelIds: [String] = [], enabled: Bool = true, sortOrder: Int = 0) {
+        self.entityId = entityId
+        self.providerId = providerId
+        self.displayName = displayName
+        self.baseURL = baseURL
+        self.modelIds = modelIds
+        self.enabled = enabled
+        self.sortOrder = sortOrder
+    }
+}
+
+/// 问答会话（data-model §2 ChatThread）。标题不存（Stage B 由首条消息派生）。
+@Model
+final class ChatThread {
+    var entityId: UUID = UUID()
+    /// nil = 全局自由问答；非 nil = 挂在某个 take 上（S18b 上下文）
+    var takeContextId: UUID?
+    var createdAt: Date = Date()
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
+    init(entityId: UUID = UUID(), takeContextId: UUID? = nil, createdAt: Date = Date()) {
+        self.entityId = entityId
+        self.takeContextId = takeContextId
+        self.createdAt = createdAt
+    }
+}
+
+/// 对话消息（data-model §2 ChatMessage）。两个 JSON 字段是字符串，
+/// 便于 SwiftData 直接存/导出（结构定义在 Services/AI/AIModels.swift）。
+@Model
+final class ChatMessage {
+    var entityId: UUID = UUID()
+    var threadId: UUID = UUID()
+    /// user / neko
+    var role: String = ""
+    var text: String = ""
+    /// 附件 id 数组 JSON。M7.1 恒 "[]"（视频阶段才经 S18b 确认后写入，本 Stage 不做视频）
+    var attachmentsJSON: String = "[]"
+    /// EvidenceRef 数组 JSON（{takeId, measure, deviationMs?}）
+    var evidenceRefsJSON: String = "[]"
+    /// 本次实际命中「服务商·模型」（运行时写入，非写死）；user 消息为 ""
+    var providerModel: String = ""
+    var createdAt: Date = Date()
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
+    init(entityId: UUID = UUID(), threadId: UUID = UUID(), role: String = "", text: String = "", attachmentsJSON: String = "[]", evidenceRefsJSON: String = "[]", providerModel: String = "", createdAt: Date = Date()) {
+        self.entityId = entityId
+        self.threadId = threadId
+        self.role = role
+        self.text = text
+        self.attachmentsJSON = attachmentsJSON
+        self.evidenceRefsJSON = evidenceRefsJSON
+        self.providerModel = providerModel
+        self.createdAt = createdAt
+    }
+}
+
+/// 练琴笔记（data-model §2 Note 语义；类名避开 Swift 原生 Note，与 PracticeTask 风格一致）。
+/// 问答沉淀（Q11）与手动笔记都落这里；只由用户/AI 助教域写，不碰课程状态。
+@Model
+final class PracticeNote {
+    var entityId: UUID = UUID()
+    /// manual / weeklyReport / issue
+    var kind: String = "manual"
+    var title: String = ""
+    var body: String = ""
+    var linkedTakeId: UUID?
+    /// open / resolved
+    var status: String = "open"
+    var createdAt: Date = Date()
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
+    init(entityId: UUID = UUID(), kind: String = "manual", title: String = "", body: String = "", linkedTakeId: UUID? = nil, status: String = "open", createdAt: Date = Date()) {
+        self.entityId = entityId
+        self.kind = kind
+        self.title = title
+        self.body = body
+        self.linkedTakeId = linkedTakeId
+        self.status = status
         self.createdAt = createdAt
     }
 }
