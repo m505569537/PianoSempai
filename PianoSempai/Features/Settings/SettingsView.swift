@@ -9,9 +9,10 @@ struct SettingsView: View {
     @Query private var pathStates: [CoursePathState]
     @Query private var placementResults: [PlacementResult]
     @Query private var takes: [Take]
+    @Query(sort: \AIProvider.sortOrder) private var providers: [AIProvider]
 
     @ObservedObject private var hub = MIDIHub.shared
-    @State private var keyStore = KeychainAPIKeyStore()
+    @State private var keyStore = KeychainProviderKeyStore()
 
     @State private var showDiagnostics = false
     @State private var showCalibration = false
@@ -28,6 +29,11 @@ struct SettingsView: View {
     private var settings: AppSettings? { settingsList.first }
     private var pathState: CoursePathState? { pathStates.first }
     private var hasPlacement: Bool { !placementResults.isEmpty }
+
+    /// S23 AI 行反映链路状态（「N 个服务商 · M 个可用」）；Key 有无以 Keychain 为准
+    private var chainSummary: ProviderChainSummary {
+        ProviderChainLogic.summarize(providers) { keyStore.hasKey(providerId: $0) }
+    }
 
     var body: some View {
         ScrollView {
@@ -72,14 +78,13 @@ struct SettingsView: View {
                 groupCard {
                     row(
                         icon: "key",
-                        title: "火山方舟 API Key",
-                        value: keyStore.hasKey ? "已设置" : "未设置",
-                        pulse: !keyStore.hasKey // 唯一会脉冲的设置行（spec）
+                        title: "AI 助教 · 服务商链",
+                        value: chainSummary.settingsRowValue,
+                        valueColor: chainSummary.available > 0 ? Color.textMuted : Color.amber,
+                        pulse: chainSummary.available == 0 // 唯一会脉冲的设置行：链上还没有可用服务商
                     ) {
                         showAPIKey = true
                     }
-                    hairline
-                    row(icon: "cpu", title: "文字/数据模型：doubao-seed-2.0-pro") { showAPIKey = true }
                     hairline
                     row(icon: "note.text", title: "练琴笔记") { showNotesPlaceholder = true }
                 }
@@ -112,7 +117,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showRetention) { RetentionRuleSheet() }
         .sheet(isPresented: $showRoute) { RouteOverviewSheet() }
         .sheet(isPresented: $showWeeklyGoal) { WeeklyGoalSheet() }
-        .sheet(isPresented: $showAPIKey) { APIKeySettingsView() }
+        .sheet(isPresented: $showAPIKey) { ProviderChainSettingsView() }
         .sheet(isPresented: $showExport) { ExportView() }
         .sheet(isPresented: $showPrivacy) { PrivacyRedLinesView() }
         .sheet(isPresented: $showStorage) { StorageSheet() }
@@ -478,7 +483,7 @@ struct PrivacyRedLinesView: View {
         "1. 课程只许挂靠成熟教材（拜厄/哈农/车尔尼），AI 无锚点自创教学体系=禁止。",
         "2. 分析没把握就明说（对齐低置信、手型没看清），禁止编造结论。",
         "3. AI 只有建议权；课程状态只由课程引擎消费硬数据写入。",
-        "4. 视频镜头不常开；上传必经区间裁切+确认弹框+服务商明示（火山方舟）。",
+        "4. 视频镜头不常开；上传必经区间裁切+确认弹框+服务商明示（本次链路实际命中者）。",
         "5. 手型永远是助教：不进门禁，永久声明单摄死角。",
         "6. 产品性格：当坏人（热身不静默跳过、硬门禁）但语气温柔，不搞 guilt trip。",
     ]
@@ -491,7 +496,7 @@ struct PrivacyRedLinesView: View {
                         .font(.headlineLg)
                         .foregroundStyle(Color.textPrimary)
                         .padding(.top, 8)
-                    Text("本应用没有服务器、没有账号。MIDI、笔记、录像只存本机；导出包不含 API Key；唯一网络出口是你在 AI 助教里主动发起的火山方舟请求。")
+                    Text("本应用没有服务器、没有账号。MIDI、笔记、录像只存本机；导出包不含 API Key；唯一网络出口是你在 AI 助教服务商链里主动发起的请求。")
                         .font(.bodySm)
                         .leading(19, fontSize: 12)
                         .foregroundStyle(Color.textBody)

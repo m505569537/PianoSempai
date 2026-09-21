@@ -2,8 +2,8 @@ import Foundation
 import Security
 
 // 多服务商 Key 存储（data-model §2 Keychain 段：每服务商独立条目，互不串）。
-// 与旧单 key 协议 APIKeyStore 并存——APIKeySettingsView（旧 S25）仍在用旧的，
-// Stage B 换视图时再统一到本协议（红线：本 Stage 不破坏现有调用点）。
+// 旧单 key 协议 APIKeyStore 及其实现已在 M7.1 Stage B（S25 服务商链视图）删除，
+// 本协议是全项目唯一的 Key 存取入口。
 //
 // 铁律：Key 只在 Keychain；永不进 SwiftData / 日志 / 诊断 / 导出包。
 
@@ -87,4 +87,9 @@ final class KeychainProviderKeyStore: ProviderKeyStore {
 
 enum ProviderKeyStoreError: Error, Equatable {
     case emptyProviderId
+}
+
+/// Keychain 操作失败（从旧 APIKeyStore.swift 随删除迁入；本层与 ProviderKeyStore 共用）
+struct KeychainError: Error {
+    let status: OSStatus
 }

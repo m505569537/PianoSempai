@@ -126,12 +126,12 @@ struct S02PermissionsView: View {
                     trailing: AnyView(notificationTrailing)
                 )
 
-                // 安全卡（必须点名火山方舟）
+                // 安全卡（说明数据去向：服务商链）
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "shield")
                         .font(.system(size: 16))
                         .foregroundStyle(Color.amber)
-                    Text("本应用没有服务器。MIDI 与笔记只存本机；视频片段只有你确认裁切后才会发送到火山方舟分析。")
+                    Text("本应用没有服务器。MIDI 与笔记只存本机；视频片段只有你确认裁切后才会发送到你配置的 AI 服务商分析。")
                         .font(.bodySm)
                         .leading(18, fontSize: 12)
                         .foregroundStyle(Color.textBody)

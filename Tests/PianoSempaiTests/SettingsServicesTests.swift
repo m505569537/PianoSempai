@@ -2,33 +2,13 @@ import SwiftData
 import XCTest
 @testable import PianoSempai
 
-/// M7 验收（Hermes）：Keychain 协议假存储往返（测试无真实密钥）、掩码不暴露完整值、
-/// zip 含预期数据且断言无 Key/凭据条目、保留规则 LRU 3/8/never、重校力度盖时间戳。
+/// M7 验收（Hermes）：掩码不暴露完整值、zip 含预期数据且断言无 Key/凭据条目、
+/// 保留规则 LRU 3/8/never、重校力度盖时间戳。
+/// 每服务商 Key 往返（providerId 隔离）见 ProviderKeyStoreTests——旧单 key 协议
+/// APIKeyStore 已在 M7.1 Stage B（S25 服务商链）删除。
 final class SettingsServicesTests: XCTestCase {
 
-    // MARK: ① Keychain 协议往返（fake store；测试不产生真实凭据）
-
-    private final class FakeAPIKeyStore: APIKeyStore {
-        private var storage: String?
-        var hasKey: Bool { storage != nil }
-        func save(_ key: String) throws { storage = key }
-        func read() -> String? { storage }
-        func delete() throws { storage = nil }
-    }
-
-    func testAPIKeyRoundTripBehindProtocol() throws {
-        let store: APIKeyStore = FakeAPIKeyStore()
-        XCTAssertFalse(store.hasKey)
-
-        let fakeKey = "test-fake-key-\(UUID().uuidString)" // 测试假凭据，非真实密钥
-        try store.save(fakeKey)
-        XCTAssertTrue(store.hasKey)
-        XCTAssertEqual(store.read(), fakeKey)
-
-        try store.delete()
-        XCTAssertFalse(store.hasKey)
-        XCTAssertNil(store.read())
-    }
+    // MARK: ① 掩码永不暴露完整值
 
     func testMaskingNeverRevealsFullValue() {
         let key = "ak-2026-deadbeef3F9A"
