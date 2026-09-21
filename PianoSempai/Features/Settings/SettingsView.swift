@@ -23,7 +23,7 @@ struct SettingsView: View {
     @State private var showExport = false
     @State private var showPrivacy = false
     @State private var showStorage = false
-    @State private var showNotesPlaceholder = false
+    @State private var showNotes = false
     @State private var showNotifications = false
 
     private var settings: AppSettings? { settingsList.first }
@@ -86,7 +86,7 @@ struct SettingsView: View {
                         showAPIKey = true
                     }
                     hairline
-                    row(icon: "note.text", title: "练琴笔记") { showNotesPlaceholder = true }
+                    row(icon: "note.text", title: "练琴笔记") { showNotes = true }
                 }
 
                 groupLabel("数据")
@@ -121,9 +121,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showExport) { ExportView() }
         .sheet(isPresented: $showPrivacy) { PrivacyRedLinesView() }
         .sheet(isPresented: $showStorage) { StorageSheet() }
-        .sheet(isPresented: $showNotesPlaceholder) {
-            M6bPlaceholderSheet(title: "练琴笔记", note: "S19 本地笔记（手动/问题）在下一批次提供。")
-        }
+        .sheet(isPresented: $showNotes) { NotesView() }
         .sheet(isPresented: $showNotifications) {
             M6bPlaceholderSheet(title: "通知", note: "周日 21:00 周报与工作日提醒属 M9 本地通知批次；本页先展示计划时段。")
         }
