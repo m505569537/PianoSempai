@@ -184,6 +184,27 @@ enum ScoringOrchestrator {
         )
     }
 
+    /// 参考谱 URL 决策（纯，可单测）：真实谱 > 内置公版谱 > 无（nil = 无参考谱 → 统计级）。
+    /// 「有没有内置谱」由纯映射判定（与 ScoreAvailability 同源，599/示例 → nil）；
+    /// 「谱在哪」交给 bundledResolver（默认 Bundle 查找，测试可注入）。
+    /// 真实谱存在但沙盒文件缺失时**不**回退到内置谱：不拿另一份谱冒充评分（§10）。
+    /// - Parameter bundledResolver: 内置谱 URL 解析（默认 Bundle 查找；测试可注入，避免依赖宿主资源）
+    static func referenceScoreURL(
+        scoreFile: ScoreFile?,
+        bundledBook: String?,
+        bundledNumber: Int,
+        bundledResolver: (String, Int) -> URL? = BundledScore.url
+    ) -> URL? {
+        if let scoreFile {
+            return SandboxPaths.resolve(scoreFile.fileURL)
+        }
+        guard let book = bundledBook,
+              BundledScore.resourceName(book: book, number: bundledNumber) != nil else {
+            return nil
+        }
+        return bundledResolver(book, bundledNumber)
+    }
+
     // MARK: - IO 层（@MainActor；幂等 upsert + 过关落库）
 
     /// 分析并落库一条 take。上游解析/读取失败 → error outcome，不影响 take 已落库与 streak。
@@ -197,6 +218,8 @@ enum ScoringOrchestrator {
         measureTo: Int?,
         referenceTempo: Int,
         standards: ScoringStandards,
+        bundledBook: String? = nil,
+        bundledNumber: Int = 0,
         in context: ModelContext
     ) -> AnalysisOutcome {
         // 1) 读取原始事件（jsonl 不可变，唯一演奏真值）
@@ -210,10 +233,12 @@ enum ScoringOrchestrator {
             return .error("MIDI 读取失败：\(error.localizedDescription)")
         }
 
-        // 2) 参考谱（有 scoreFile 才有；无谱不冒充，§10）
+        // 2) 参考谱（真实谱或内置公版谱；两者都没有 → 无参考谱，统计级，不冒充，§10）
         // （演奏解析/段切分由 analyzeAndStore 委托 MidiTakeParser 完成）
         var references: [ReferenceNote] = []
-        if let scoreFile, let scoreURL = SandboxPaths.resolve(scoreFile.fileURL) {
+        if let scoreURL = referenceScoreURL(
+            scoreFile: scoreFile, bundledBook: bundledBook, bundledNumber: bundledNumber
+        ) {
             do {
                 let score = try ScoreLoader.loadScore(contentsOf: scoreURL)
                 // take.measureFrom/To 为 1-based 展示值；提取器用 0-based 闭区间

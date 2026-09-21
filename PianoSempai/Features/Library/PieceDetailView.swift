@@ -3,6 +3,43 @@ import SwiftUI
 
 // MARK: - S09 曲目详情（硬标准真值/选段/最近 take；判分由 CourseEngine 唯一写手）
 
+// MARK: - 练习 CTA 纯决策（M5b 延伸；与 CourseEngine 决策同风格：UI 只呈现，逻辑可测）
+//
+// 两项决策：主按钮文案 + 是否可点。
+// - `.unavailable`（内置教材条目但无谱：车尔尼599）优先于锁定文案：不提供判分入口，
+//   但允许自由弹奏（不打分、不推进路线；不拿别的谱冒充，红线 2 / SPEC §10）。
+// - 锁定只禁掉可判分的练习入口（拜厄/哈农未到达的条目），导入曲与示例曲不受影响。
+enum PracticeCTA {
+
+    static func title(availability: ScoreAvailability, isLocked: Bool) -> String {
+        switch availability {
+        case .unavailable: return "自由弹奏（不判分）"
+        case .samplePiece: return isLocked ? "路线到达后解锁" : "开始练习（示例曲）"
+        case .realScore, .bundledScore: return isLocked ? "路线到达后解锁" : "开始练习"
+        }
+    }
+
+    static func isEnabled(availability: ScoreAvailability, isLocked: Bool) -> Bool {
+        if case .unavailable = availability { return true }
+        return !isLocked
+    }
+}
+
+/// 主按钮去向（fullScreenCover(item:) 需要 Identifiable；单一路由收口，不叠多个 cover）
+enum PracticeRoute: Identifiable {
+    /// 判分练习：S11 练习室（建档 + 评分）
+    case practice
+    /// 无谱条目（车尔尼599）：S14 自由弹奏沙盒（不建档、不判分）
+    case freePlay
+
+    var id: String {
+        switch self {
+        case .practice: "practice"
+        case .freePlay: "freePlay"
+        }
+    }
+}
+
 struct PieceDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -17,7 +54,8 @@ struct PieceDetailView: View {
     @Query private var scoreFiles: [ScoreFile]
     @State private var rangeStart = 1
     @State private var rangeEnd = 8
-    @State private var startPractice = false
+    /// 主按钮去向（单一路由：practice → S11 练习室 / freePlay → S14 自由弹奏）
+    @State private var practiceRoute: PracticeRoute?
     /// 点「开始练习」时建档/取到的 Piece（传给练习室，落 take 的 pieceId）
     @State private var resolvedPiece: Piece?
 
@@ -60,13 +98,26 @@ struct PieceDetailView: View {
         return scoreFiles.first { $0.entityId == sourceId && $0.canFollow }
     }
 
-    /// 谱可用性三态（M5a 纯决策）：realScore / samplePiece / unavailable。
-    /// unavailable = 内置教材条目但无谱文件：不冒充样例谱（SPEC §10）。
+    /// 谱可用性四态（M5a 纯决策）：realScore / samplePiece / bundledScore / unavailable。
+    /// unavailable = 内置教材条目但无谱（车尔尼599）：不冒充样例谱（SPEC §10）。
     private var availability: ScoreAvailability {
         ScoreAvailability.resolve(
             scoreFile: linkedScoreFile,
-            isSampleEntry: entry?.isSample ?? false
+            isSampleEntry: entry?.isSample ?? false,
+            bundledBook: entry?.book,
+            bundledNumber: entry?.number ?? 0
         )
+    }
+
+    /// 内置公版谱坐标（仅 .bundledScore 有值；传给练习室走 BundledScore 定位）
+    private var bundledBook: String? {
+        if case let .bundledScore(book, _) = availability { return book }
+        return nil
+    }
+
+    private var bundledNumber: Int {
+        if case let .bundledScore(_, number) = availability { return number }
+        return 0
     }
 
     /// 已建档的 Piece（导入曲直接用；目录条目按 book+number 只读查找，找不到 = 还没练过）
@@ -93,19 +144,26 @@ struct PieceDetailView: View {
         ScoringStandards.standards(forBook: entry?.book ?? piece?.book ?? "")
     }
 
-    /// 练习室加载的谱：真实谱用之；示例曲走 Bundle 样例（isSampleEntry）；无谱 = nil
+    /// 练习室加载的谱：真实谱用之；示例曲走 Bundle 样例（isSampleEntry）；
+    /// 内置公版谱走 bundledBook/Number（无 ScoreFile 行）；无谱 = nil
     private var scoreFileForPractice: ScoreFile? {
         if case let .realScore(file) = availability { return file }
         return nil
     }
 
     private var practiceCTATitle: String {
-        if isLocked { return "路线到达后解锁" }
-        switch availability {
-        case .realScore: return "开始练习"
-        case .samplePiece: return "开始练习（示例曲）"
-        case .unavailable: return "自由弹奏（不判分）"
-        }
+        PracticeCTA.title(availability: availability, isLocked: isLocked)
+    }
+
+    /// 主按钮可点性：锁定的可判分条目禁用；无谱条目仍可点（进去只是自由弹奏）
+    private var practiceCTAEnabled: Bool {
+        PracticeCTA.isEnabled(availability: availability, isLocked: isLocked)
+    }
+
+    /// 无谱条目（车尔尼599）：走 S14 自由弹奏沙盒——不建 Piece、不判分
+    private var isFreePlayEntry: Bool {
+        if case .unavailable = availability { return true }
+        return false
     }
 
     var body: some View {
@@ -138,18 +196,22 @@ struct PieceDetailView: View {
                     .padding(.top, 20)
 
                     Button {
-                        resolvedPiece = resolvePracticePiece()
-                        startPractice = true
+                        if isFreePlayEntry {
+                            practiceRoute = .freePlay // 不建档、不判分：只进自由弹奏沙盒
+                        } else {
+                            resolvedPiece = resolvePracticePiece()
+                            practiceRoute = .practice
+                        }
                     } label: {
                         HStack(spacing: 6) {
                             Text(practiceCTATitle)
-                            if !isLocked {
+                            if practiceCTAEnabled {
                                 Image(systemName: "arrow.right")
                             }
                         }
                     }
-                    .buttonStyle(PrimaryButtonStyle(isEnabled: !isLocked, cornerRadius: 12))
-                    .disabled(isLocked)
+                    .buttonStyle(PrimaryButtonStyle(isEnabled: practiceCTAEnabled, cornerRadius: 12))
+                    .disabled(!practiceCTAEnabled)
                     .padding(.top, 8)
                     .padding(.bottom, 24)
                 }
@@ -159,15 +221,23 @@ struct PieceDetailView: View {
             .overlay(alignment: .topLeading) {
                 backButton
             }
-            .fullScreenCover(isPresented: $startPractice) {
-                PracticeRoomView(
-                    taskType: "main",
-                    scoreFile: scoreFileForPractice,
-                    pieceTitle: title,
-                    isSampleEntry: entry?.isSample ?? false,
-                    piece: resolvedPiece,
-                    referenceTempo: referenceTempo
-                )
+            .fullScreenCover(item: $practiceRoute) { route in
+                switch route {
+                case .practice:
+                    PracticeRoomView(
+                        taskType: "main",
+                        scoreFile: scoreFileForPractice,
+                        pieceTitle: title,
+                        isSampleEntry: entry?.isSample ?? false,
+                        piece: resolvedPiece,
+                        referenceTempo: referenceTempo,
+                        bundledBook: bundledBook,
+                        bundledNumber: bundledNumber
+                    )
+                case .freePlay:
+                    // S14 自由弹奏（不打分沙盒）：599 无谱条目的唯一入口。保存后只关掉详情页。
+                    FreePlayView(onSaved: { dismiss() })
+                }
             }
         }
     }

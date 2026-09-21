@@ -96,6 +96,11 @@ struct SettingsView: View {
                     row(icon: "externaldrive", title: "存储占用") { showStorage = true }
                 }
 
+                groupLabel("乐谱来源与许可")
+                groupCard {
+                    scoreSourcesCard
+                }
+
                 groupLabel("关于")
                 groupCard {
                     row(icon: "hand.raised", title: "隐私与六条红线") { showPrivacy = true }
@@ -171,6 +176,51 @@ struct SettingsView: View {
         guard hasPlacement, let pathState else { return "尚未定级" }
         let goal = settings?.weeklyGoal ?? 3
         return "第 \(pathState.weekNumber) 周 · 拜厄\(pathState.currentBeyer) · 本周 \(goal)×30 分钟"
+    }
+
+    // MARK: 乐谱来源与许可
+
+    /// 随 app 分发的内置公版谱署名与许可（合规必需；纯静态文本，无跳转）
+    private var scoreSourcesCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("内置教材谱均为公有领域作品的电子版，随 app 一起分发；本 app 不声称拥有原作曲版权。")
+                .font(.labelSm)
+                .foregroundStyle(Color.textBody)
+            sourceBlock(
+                title: "拜厄《钢琴基本教程》Op.101",
+                lines: [
+                    "Ferdinand Beyer，1851 · 公有领域",
+                    "数字谱源：hustcsz/mudata（MIT License）",
+                    "github.com/hustcsz/mudata"
+                ]
+            )
+            sourceBlock(
+                title: "哈农《钢琴练指法》第一部分",
+                lines: [
+                    "Charles-Louis Hanon，1873 · 公有领域",
+                    "排版：Mutopia Project（据 Schirmer 1900 版）· CC BY-SA 4.0",
+                    "本 app 做 MIDI→MusicXML 转换，并将右手移调 +12",
+                    "mutopiaproject.org · creativecommons.org/licenses/by-sa/4.0"
+                ]
+            )
+            Text("车尔尼599 暂无内置谱，解锁前不可判分。")
+                .font(.labelSm)
+                .foregroundStyle(Color.textMuted)
+        }
+        .padding(.vertical, 14)
+    }
+
+    private func sourceBlock(title: String, lines: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.labelMd)
+                .foregroundStyle(Color.textPrimary)
+            ForEach(lines, id: \.self) { line in
+                Text(line)
+                    .font(.labelSm)
+                    .foregroundStyle(Color.textMuted)
+            }
+        }
     }
 
     // MARK: 组样式

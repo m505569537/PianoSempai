@@ -18,6 +18,9 @@ struct PracticeRoomView: View {
     var piece: Piece? = nil
     /// 参考速度（分析用；0 = 回落 piece.referenceTempo）
     var referenceTempo: Int = 0
+    /// 内置公版谱坐标（拜厄/哈农）：与 scoreFile 二选一，走 BundledScore 定位
+    var bundledBook: String? = nil
+    var bundledNumber: Int = 0
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -403,6 +406,8 @@ struct PracticeRoomView: View {
                 measureTo: nil,
                 referenceTempo: tempo,
                 standards: ScoringStandards.standards(forBook: piece?.book ?? ""),
+                bundledBook: bundledBook,
+                bundledNumber: bundledNumber,
                 in: context
             )
         }
@@ -422,16 +427,23 @@ struct PracticeRoomView: View {
 
     private func load() {
         session.timeLimitSec = timeLimitSec
-        // 谱可用性三态决策（ScoreAvailability；TODO(M5b)：unavailable 的三态 UI 呈现）
-        let availability = ScoreAvailability.resolve(scoreFile: scoreFile, isSampleEntry: isSampleEntry)
+        // 谱可用性四态决策（ScoreAvailability；bundledScore = 内置公版谱）
+        let availability = ScoreAvailability.resolve(
+            scoreFile: scoreFile,
+            isSampleEntry: isSampleEntry,
+            bundledBook: bundledBook,
+            bundledNumber: bundledNumber
+        )
         let url: URL?
         switch availability {
         case .realScore(let sf):
             url = SandboxPaths.resolve(sf.fileURL)
         case .samplePiece:
             url = Bundle.main.url(forResource: "SpikeSample32", withExtension: "musicxml")
+        case .bundledScore(let book, let number):
+            url = BundledScore.url(book: book, number: number)
         case .unavailable:
-            // 内置教材条目无 scoreFile：不再静默加载 SpikeSample32 冒充（SPEC §10）
+            // 内置教材条目无谱（车尔尼599）：不再静默加载任何别的谱冒充（SPEC §10）
             loadError = "暂无参考谱。可用「示例曲」或导入的乐谱练习；本次可自由弹奏（不判分）。"
             return
         }
