@@ -592,3 +592,184 @@ final class PracticeNote {
         self.createdAt = createdAt
     }
 }
+
+/// 月报（PRD M8：每月 1 号生成上月；S22 月度报告详情）。
+/// 快照语义：落库即冻结，算法升级后不重算已出月报（PRD）——字段是当时的真实统计，
+/// 不是课程/判分状态的引用。只由 M9 聚合域写（从 take 派生，可重建），不碰课程/判分/计划状态（红线 3）。
+/// 两个结构化字段（原因分布 / 周均节奏可空数组）存 JSON 字符串，与 ChatMessage 同风格：
+/// SwiftData 直存、导出包可读，映射见 `snapshot` 与 `init(snapshot:)`。
+@Model
+final class MonthlyReport {
+    var entityId: UUID = UUID()
+    /// "yyyy-MM"（MonthlyCalendar.periodKey）；一个月一条，按此去重
+    var periodKey: String = ""
+    var year: Int = 0
+    var month: Int = 0
+    /// 当月有有效 take 的 distinct 日历日数
+    var validDays: Int = 0
+    /// 当月有效 take 时长之和（秒）
+    var totalDurationSec: Int = 0
+    /// 当月全部 take 数（含无效，如实）
+    var takeCount: Int = 0
+    /// 有效 take 数 / 当月覆盖周数
+    var avgSessionsPerWeek: Double?
+    // 教材路线（快照值；解锁只由硬数据规则判定，强开记录不影响）
+    var beyerCurrent: Int = 1
+    var hanonCurrent: Int = 1
+    var unlocked599: Bool = false
+    var projected599Week: Int = 0
+    // 热身与门禁
+    /// 热身完成天数 / 计划天数 * 100；当月无计划存 nil（不填 0）
+    var warmupCompletionPct: Int?
+    var overrideCount: Int = 0
+    /// [reasonTag: 次数] JSON（空/other 已合并为 "other"）
+    var overrideReasonsJSON: String = "{}"
+    var rhythmFirstWeekScore: Int?
+    var rhythmLastWeekScore: Int?
+    /// [Int?] JSON：月内各周（按 weekStart 升序）的 rhythmScore 周均；null = 该周无分析
+    var weeklyRhythmScoresJSON: String = "[]"
+    // AI 观察（b2 才起草；本 Stage 恒空正文 + pending）
+    var observationTitle: String = ""
+    var observationBody: String = ""
+    /// 本次实际命中的「服务商·模型」（b2 写入）
+    var observationProviderModel: String?
+    var refsTakeCount: Int = 0
+    /// 无视频批次，恒 0
+    var refsVideoCount: Int = 0
+    /// pending / ok / failed
+    var observationStatus: String = "pending"
+    var generatedAt: Date = Date()
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）；默认值即「空月报」的安全形态
+    init(
+        entityId: UUID = UUID(),
+        periodKey: String = "",
+        year: Int = 0,
+        month: Int = 0,
+        validDays: Int = 0,
+        totalDurationSec: Int = 0,
+        takeCount: Int = 0,
+        avgSessionsPerWeek: Double? = nil,
+        beyerCurrent: Int = 1,
+        hanonCurrent: Int = 1,
+        unlocked599: Bool = false,
+        projected599Week: Int = 0,
+        warmupCompletionPct: Int? = nil,
+        overrideCount: Int = 0,
+        overrideReasonsJSON: String = "{}",
+        rhythmFirstWeekScore: Int? = nil,
+        rhythmLastWeekScore: Int? = nil,
+        weeklyRhythmScoresJSON: String = "[]",
+        observationTitle: String = "",
+        observationBody: String = "",
+        observationProviderModel: String? = nil,
+        refsTakeCount: Int = 0,
+        refsVideoCount: Int = 0,
+        observationStatus: String = "pending",
+        generatedAt: Date = Date()
+    ) {
+        self.entityId = entityId
+        self.periodKey = periodKey
+        self.year = year
+        self.month = month
+        self.validDays = validDays
+        self.totalDurationSec = totalDurationSec
+        self.takeCount = takeCount
+        self.avgSessionsPerWeek = avgSessionsPerWeek
+        self.beyerCurrent = beyerCurrent
+        self.hanonCurrent = hanonCurrent
+        self.unlocked599 = unlocked599
+        self.projected599Week = projected599Week
+        self.warmupCompletionPct = warmupCompletionPct
+        self.overrideCount = overrideCount
+        self.overrideReasonsJSON = overrideReasonsJSON
+        self.rhythmFirstWeekScore = rhythmFirstWeekScore
+        self.rhythmLastWeekScore = rhythmLastWeekScore
+        self.weeklyRhythmScoresJSON = weeklyRhythmScoresJSON
+        self.observationTitle = observationTitle
+        self.observationBody = observationBody
+        self.observationProviderModel = observationProviderModel
+        self.refsTakeCount = refsTakeCount
+        self.refsVideoCount = refsVideoCount
+        self.observationStatus = observationStatus
+        self.generatedAt = generatedAt
+    }
+
+    /// 快照 → 模型（显式 init；JSON 编码，纯值转换不碰 ModelContext）
+    init(snapshot: MonthlyReportSnapshot, entityId: UUID = UUID()) {
+        self.entityId = entityId
+        self.periodKey = snapshot.periodKey
+        self.year = snapshot.year
+        self.month = snapshot.month
+        self.validDays = snapshot.validDays
+        self.totalDurationSec = snapshot.totalDurationSec
+        self.takeCount = snapshot.takeCount
+        self.avgSessionsPerWeek = snapshot.avgSessionsPerWeek
+        self.beyerCurrent = snapshot.beyerCurrent
+        self.hanonCurrent = snapshot.hanonCurrent
+        self.unlocked599 = snapshot.unlocked599
+        self.projected599Week = snapshot.projected599Week
+        self.warmupCompletionPct = snapshot.warmupCompletionPct
+        self.overrideCount = snapshot.overrideCount
+        self.overrideReasonsJSON = Self.encode(snapshot.overrideReasons) ?? "{}"
+        self.rhythmFirstWeekScore = snapshot.rhythmFirstWeekScore
+        self.rhythmLastWeekScore = snapshot.rhythmLastWeekScore
+        self.weeklyRhythmScoresJSON = Self.encode(snapshot.weeklyRhythmScores) ?? "[]"
+        self.observationTitle = snapshot.observationTitle
+        self.observationBody = snapshot.observationBody
+        self.observationProviderModel = snapshot.observationProviderModel
+        self.refsTakeCount = snapshot.refsTakeCount
+        self.refsVideoCount = snapshot.refsVideoCount
+        self.observationStatus = snapshot.observationStatus
+        self.generatedAt = snapshot.generatedAt
+    }
+
+    /// 模型 → 快照（JSON 解码；损坏给安全空值 [:]/[]，不崩溃——坏一行不等于坏整份月报）
+    var snapshot: MonthlyReportSnapshot {
+        MonthlyReportSnapshot(
+            year: year,
+            month: month,
+            periodKey: periodKey,
+            validDays: validDays,
+            totalDurationSec: totalDurationSec,
+            takeCount: takeCount,
+            avgSessionsPerWeek: avgSessionsPerWeek,
+            beyerCurrent: beyerCurrent,
+            hanonCurrent: hanonCurrent,
+            unlocked599: unlocked599,
+            projected599Week: projected599Week,
+            warmupCompletionPct: warmupCompletionPct,
+            overrideCount: overrideCount,
+            overrideReasons: Self.decode(String.self, Int.self, from: overrideReasonsJSON) ?? [:],
+            rhythmFirstWeekScore: rhythmFirstWeekScore,
+            rhythmLastWeekScore: rhythmLastWeekScore,
+            weeklyRhythmScores: Self.decode(Int?.self, from: weeklyRhythmScoresJSON) ?? [],
+            observationTitle: observationTitle,
+            observationBody: observationBody,
+            observationProviderModel: observationProviderModel,
+            refsTakeCount: refsTakeCount,
+            refsVideoCount: refsVideoCount,
+            observationStatus: observationStatus,
+            generatedAt: generatedAt
+        )
+    }
+
+    // MARK: - JSON 编解码（[String: Int] / [Int?]；本地时区无关，用普通 JSONEncoder）
+
+    private static func encode<T: Encodable>(_ value: T) -> String? {
+        // 失败给 nil（不是空串）：调用方的 `?? "{}"` / `?? "[]"` 兜底才生效
+        guard let data = try? JSONEncoder().encode(value) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private static func decode<T: Decodable>(_ type: T.Type, from json: String) -> [T]? {
+        guard let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode([T].self, from: data)
+    }
+
+    private static func decode<K: Hashable & Decodable, V: Decodable>(_ keyType: K.Type, _ valueType: V.Type, from json: String) -> [K: V]? {
+        guard let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode([K: V].self, from: data)
+    }
+}
+

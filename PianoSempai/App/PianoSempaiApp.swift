@@ -28,6 +28,8 @@ struct PianoSempaiApp: App {
                     ChatThread.self,
                     ChatMessage.self,
                     PracticeNote.self,
+                    // M7.2 月报（每月 1 号生成上月；快照冻结，算法升级不重算）
+                    MonthlyReport.self,
                 ])
         }
     }
