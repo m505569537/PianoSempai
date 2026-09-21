@@ -99,6 +99,22 @@ struct NocturneChip: View {
     }
 }
 
+// MARK: - 卡内小动作按钮（次按钮的紧凑形态：描边胶囊，pressed 变琥珀）
+// S19 笔记卡与 S22 月报观察卡（重试）共用
+struct NoteActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.labelMd)
+            .foregroundStyle(configuration.isPressed ? Color.amber : Color.textBody)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(configuration.isPressed ? Color.card : Color.clear, in: Capsule())
+            .overlay(
+                Capsule().strokeBorder(Color.amber.opacity(configuration.isPressed ? 0.7 : 0.3), lineWidth: 1)
+            )
+    }
+}
+
 // MARK: - 三步指示器（S03 向导）
 
 struct StepIndicator: View {

@@ -339,21 +339,6 @@ struct NotesView: View {
     }
 }
 
-/// 卡内小动作按钮（次按钮的紧凑形态：描边胶囊，pressed 变琥珀）
-private struct NoteActionButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.labelMd)
-            .foregroundStyle(configuration.isPressed ? Color.amber : Color.textBody)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(configuration.isPressed ? Color.card : Color.clear, in: Capsule())
-            .overlay(
-                Capsule().strokeBorder(Color.amber.opacity(configuration.isPressed ? 0.7 : 0.3), lineWidth: 1)
-            )
-    }
-}
-
 /// take 短标签：复用 S18 的 practiceTitle（pieceTitle → take.title → 小节区间 → 中性描述），不另造一套
 func takeShortLabel(_ take: Take, pieces: [Piece]) -> String {
     let pieceTitle = take.pieceId.flatMap { id in pieces.first { $0.entityId == id }?.title }

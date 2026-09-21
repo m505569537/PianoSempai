@@ -14,6 +14,10 @@ struct RootView: View {
     /// ModelContext 来自 modelContainer，生命周期与 App 一致。
     @State private var coordinator: WeeklyDigestCoordinator?
 
+    /// M7.2 月报协调器：启动 + 每次进后台/失活刷新（每月 1 号为上月起草 + 回填观察）。
+    /// 与周报协调器并存，各自 @State；月报失败只降级状态，不影响周报。
+    @State private var monthlyCoordinator: MonthlyReportCoordinator?
+
     var body: some View {
         Group {
             if let settings = settingsList.first {
@@ -39,11 +43,15 @@ struct RootView: View {
             }
         }
         .background(Color.canvas)
-        .task { await ensureCoordinator().refresh() }
+        .task {
+            await ensureCoordinator().refresh()
+            await ensureMonthlyCoordinator().refresh()
+        }
         .onChange(of: scenePhase) { _, phase in
             // 周日练完进后台时会再刷一次：通知文案随之覆盖更新（含周日练习）
             guard phase == .background || phase == .inactive else { return }
             Task { await ensureCoordinator().refresh() }
+            Task { await ensureMonthlyCoordinator().refresh() }
         }
     }
 
@@ -51,6 +59,13 @@ struct RootView: View {
         if let coordinator { return coordinator }
         let created = WeeklyDigestCoordinator.live(context: context)
         coordinator = created
+        return created
+    }
+
+    private func ensureMonthlyCoordinator() -> MonthlyReportCoordinator {
+        if let monthlyCoordinator { return monthlyCoordinator }
+        let created = MonthlyReportCoordinator.live(context: context)
+        monthlyCoordinator = created
         return created
     }
 }

@@ -301,6 +301,7 @@ final class MonthlyReportBuilderTests: XCTestCase {
         XCTAssertEqual(snapshot.beyerCurrent, 43)
         XCTAssertEqual(snapshot.hanonCurrent, 4)
         XCTAssertEqual(snapshot.unlocked599, true, "current599 非 nil = 已解锁")
+        XCTAssertEqual(snapshot.current599, 5, "599 当前首号原样进快照（S22 解锁行显「第 N 首」）")
         XCTAssertEqual(snapshot.projected599Week, 20)
     }
 
@@ -309,6 +310,7 @@ final class MonthlyReportBuilderTests: XCTestCase {
         XCTAssertEqual(snapshot.beyerCurrent, 1)
         XCTAssertEqual(snapshot.hanonCurrent, 1)
         XCTAssertEqual(snapshot.unlocked599, false)
+        XCTAssertNil(snapshot.current599, "未解锁不给 599 首号（不拿 1 冒充）")
         XCTAssertEqual(snapshot.projected599Week, 0, "无 pathState 的初始态安全默认，非编造进度")
     }
 

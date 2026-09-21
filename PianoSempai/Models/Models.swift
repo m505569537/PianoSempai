@@ -617,6 +617,8 @@ final class MonthlyReport {
     var beyerCurrent: Int = 1
     var hanonCurrent: Int = 1
     var unlocked599: Bool = false
+    /// 599 已开始时的当前首号（未解锁存 nil）
+    var current599: Int? = nil
     var projected599Week: Int = 0
     // 热身与门禁
     /// 热身完成天数 / 计划天数 * 100；当月无计划存 nil（不填 0）
@@ -653,6 +655,7 @@ final class MonthlyReport {
         beyerCurrent: Int = 1,
         hanonCurrent: Int = 1,
         unlocked599: Bool = false,
+        current599: Int? = nil,
         projected599Week: Int = 0,
         warmupCompletionPct: Int? = nil,
         overrideCount: Int = 0,
@@ -679,6 +682,7 @@ final class MonthlyReport {
         self.beyerCurrent = beyerCurrent
         self.hanonCurrent = hanonCurrent
         self.unlocked599 = unlocked599
+        self.current599 = current599
         self.projected599Week = projected599Week
         self.warmupCompletionPct = warmupCompletionPct
         self.overrideCount = overrideCount
@@ -708,6 +712,7 @@ final class MonthlyReport {
         self.beyerCurrent = snapshot.beyerCurrent
         self.hanonCurrent = snapshot.hanonCurrent
         self.unlocked599 = snapshot.unlocked599
+        self.current599 = snapshot.current599
         self.projected599Week = snapshot.projected599Week
         self.warmupCompletionPct = snapshot.warmupCompletionPct
         self.overrideCount = snapshot.overrideCount
@@ -737,6 +742,7 @@ final class MonthlyReport {
             beyerCurrent: beyerCurrent,
             hanonCurrent: hanonCurrent,
             unlocked599: unlocked599,
+            current599: current599,
             projected599Week: projected599Week,
             warmupCompletionPct: warmupCompletionPct,
             overrideCount: overrideCount,

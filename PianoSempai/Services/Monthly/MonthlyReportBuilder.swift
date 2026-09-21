@@ -49,6 +49,7 @@ enum MonthlyReportBuilder {
             beyerCurrent: pathState?.currentBeyer ?? 1,
             hanonCurrent: pathState?.currentHanon ?? 1,
             unlocked599: pathState?.current599 != nil,
+            current599: pathState?.current599,
             projected599Week: pathState?.projected599Week ?? 0,
             warmupCompletionPct: warmupCompletionPct(plans: plans, from: monthStart, until: monthEnd),
             overrideCount: overrides.count,

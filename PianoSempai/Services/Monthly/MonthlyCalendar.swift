@@ -23,6 +23,16 @@ enum MonthlyCalendar {
         calendar.date(byAdding: .month, value: 1, to: monthStart(for: date)) ?? monthStart(for: date)
     }
 
+    /// 指定年月的 1 号 00:00（PDF/标题从 snapshot 的 year/month 反查月界时用；非法月份给 nil，不猜）
+    static func monthStart(year: Int, month: Int) -> Date? {
+        calendar.date(from: DateComponents(year: year, month: month))
+    }
+
+    static func nextMonthStart(year: Int, month: Int) -> Date? {
+        guard let start = monthStart(year: year, month: month) else { return nil }
+        return calendar.date(byAdding: .month, value: 1, to: start)
+    }
+
     /// 周期键 "yyyy-MM"（零填充；周报按 weekKey 去重，月报按 periodKey 去重，一个月一条）
     static func periodKey(year: Int, month: Int) -> String {
         String(format: "%04d-%02d", year, month)
@@ -31,6 +41,14 @@ enum MonthlyCalendar {
     static func periodKey(for date: Date) -> String {
         let (year, month) = yearMonth(for: date)
         return periodKey(year: year, month: month)
+    }
+
+    /// periodKey "yyyy-MM" → 该月 1 号 00:00（S20 入口按最近一期 periodKey 定位 S22 选中月；
+    /// 格式不符给 nil，不猜月份）
+    static func monthStart(periodKey: String) -> Date? {
+        let parts = periodKey.split(separator: "-")
+        guard parts.count == 2, let year = Int(parts[0]), let month = Int(parts[1]) else { return nil }
+        return monthStart(year: year, month: month)
     }
 
     /// 该时刻所属自然年/月（用于 periodKey 与快照字段）

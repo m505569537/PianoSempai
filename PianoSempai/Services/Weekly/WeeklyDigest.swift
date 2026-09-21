@@ -152,14 +152,10 @@ enum DigestText {
     // MARK: 分行组装
 
     /// 「共 H 小时 M 分」；<1 小时只说分钟；0 次无此行
+    /// （时长文案统一走 DurationText，周报与月报同一套格式）
     private static func durationLine(_ digest: WeeklyDigest) -> String? {
         guard digest.sessions > 0, digest.totalDurationSec > 0 else { return nil }
-        let hours = digest.totalDurationSec / 3600
-        let minutes = (digest.totalDurationSec % 3600) / 60
-        if hours > 0 {
-            return minutes > 0 ? "共 \(hours) 小时 \(minutes) 分" : "共 \(hours) 小时"
-        }
-        return "共 \(minutes) 分"
+        return "共 " + DurationText.hoursMinutes(digest.totalDurationSec)
     }
 
     private static func goalLine(_ digest: WeeklyDigest) -> String {

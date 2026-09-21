@@ -24,6 +24,8 @@ struct MonthlyReportSnapshot: Equatable {
     var beyerCurrent: Int
     var hanonCurrent: Int
     var unlocked599: Bool
+    /// 599 已开始时的当前首号（未解锁 = nil）。S22 解锁行显「第 N 首」用真实值，不编。
+    var current599: Int?
     var projected599Week: Int
     // 热身与门禁
     /// 有 DailyPlan 的当月 = 热身完成天数 / 计划天数 * 100（四舍五入）；无计划 → nil，不填 0
@@ -60,6 +62,7 @@ struct MonthlyReportSnapshot: Equatable {
         beyerCurrent: Int = 1,
         hanonCurrent: Int = 1,
         unlocked599: Bool = false,
+        current599: Int? = nil,
         projected599Week: Int = 0,
         warmupCompletionPct: Int? = nil,
         overrideCount: Int = 0,
@@ -85,6 +88,7 @@ struct MonthlyReportSnapshot: Equatable {
         self.beyerCurrent = beyerCurrent
         self.hanonCurrent = hanonCurrent
         self.unlocked599 = unlocked599
+        self.current599 = current599
         self.projected599Week = projected599Week
         self.warmupCompletionPct = warmupCompletionPct
         self.overrideCount = overrideCount

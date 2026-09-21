@@ -1,11 +1,16 @@
 import SwiftData
 import SwiftUI
 
-// MARK: - S20 档案（P1 简版：本周统计 + take 时间线（筛选 chips）；趋势/周报入口置后续版本）
+// MARK: - S20 档案（P1 简版：本周统计 + take 时间线（筛选 chips）+ 月报入口）
+// 布局真值：docs/design-reference/screens/S20-archive/spec.md。
+// 导航：本视图是 tab 页（AppFrameView 的 5 tab 之一），自身没有 NavigationStack；
+//       take 详情沿用 sheet（TakeReportView），月报走 fullScreenCover（S22 无 tab，
+//       fullScreenCover 天然隐藏 tab bar，与 AppFrameView「无 tab 页一律 fullScreenCover/sheet」一致）。
 
 struct ArchiveView: View {
     @Query(sort: \Take.startedAt, order: .reverse) private var takes: [Take]
     @Query private var settingsList: [AppSettings]
+    @Query(sort: \MonthlyReport.periodKey) private var monthlyReports: [MonthlyReport]
 
     enum Filter: String, CaseIterable {
         case all = "全部"
@@ -18,17 +23,24 @@ struct ArchiveView: View {
     @State private var filter: Filter = .all
     @State private var selected: Take?
     @State private var now = Date()
+    /// 月报页（fullScreenCover；与 take 详情的 sheet 并存不冲突）
+    @State private var showMonthlyReport = false
+    /// 引用 chip 跳回来时的月份过滤（periodKey；nil = 不按月份过滤）
+    @State private var monthFilter: String?
 
     private var settings: AppSettings? { settingsList.first }
 
+    /// 最近一期月报（periodKey 最大；没有 = 还没生成过）
+    private var latestReport: MonthlyReport? { monthlyReports.last }
+
     private var filtered: [Take] {
-        takes.filter { take in
+        ArchiveMonthFilter.apply(takes: takes, periodKey: monthFilter).filter { take in
             switch filter {
-            case .all: true
-            case .warmup: take.taskType == "warmup"
-            case .main: take.taskType == "main"
-            case .reward: take.taskType == "reward"
-            case .free: take.isFreePlay
+            case .all: return true
+            case .warmup: return take.taskType == "warmup"
+            case .main: return take.taskType == "main"
+            case .reward: return take.taskType == "reward"
+            case .free: return take.isFreePlay
             }
         }
     }
@@ -43,6 +55,12 @@ struct ArchiveView: View {
 
                 weekStatsCard.padding(.top, 16)
 
+                monthlyEntryCard.padding(.top, 12)
+
+                if monthFilter != nil {
+                    monthFilterRow.padding(.top, 12)
+                }
+
                 Text("Take 时间线")
                     .font(.titleMd)
                     .foregroundStyle(Color.textPrimary)
@@ -51,9 +69,7 @@ struct ArchiveView: View {
                 filterChips.padding(.top, 10)
 
                 if filtered.isEmpty {
-                    Text(filter == .all
-                        ? "还没有 take。练习室弹一段，这里会出现记录。"
-                        : "这个筛选下还没有 take。")
+                    Text(emptyText)
                         .font(.bodySm)
                         .foregroundStyle(Color.textMuted)
                         .frame(maxWidth: .infinity)
@@ -88,8 +104,8 @@ struct ArchiveView: View {
                     .padding(.top, 8)
                 }
 
-                // 趋势图 / 周报：后续版本（brief P1 简版边界）
-                Text("趋势图与周报入口将在后续版本提供。")
+                // 趋势图：后续版本（brief P1 简版边界；月报入口已在上面提供，不再拿周报占位）
+                Text("趋势图将在后续版本提供。")
                     .font(.labelSm)
                     .foregroundStyle(Color.textMuted)
                     .padding(.top, 20)
@@ -101,7 +117,95 @@ struct ArchiveView: View {
         .sheet(item: $selected) { take in
             TakeReportView(take: take)
         }
+        .fullScreenCover(isPresented: $showMonthlyReport) {
+            MonthlyReportView(initialPeriodKey: latestReport?.periodKey) { periodKey in
+                monthFilter = periodKey
+            }
+        }
         .onAppear { now = Date() }
+    }
+
+    private var emptyText: String {
+        if monthFilter != nil { return "这个月还没有 take。" }
+        switch filter {
+        case .all: return "还没有 take。练习室弹一段，这里会出现记录。"
+        default: return "这个筛选下还没有 take。"
+        }
+    }
+
+    // MARK: 月报入口卡
+
+    private var monthlyEntryCard: some View {
+        Button {
+            showMonthlyReport = true
+        } label: {
+            NocturneCard {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("月度报告")
+                            .font(.titleMd)
+                            .foregroundStyle(Color.textPrimary)
+                        Text(monthlyEntrySubtitle)
+                            .font(.labelSm)
+                            .foregroundStyle(Color.textMuted)
+                            .lineLimit(2)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.textMuted)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("打开月度报告")
+    }
+
+    /// 入口副标题：有月报显「年月月报 + 观察简述」；没有则如实说当前月预览可看（不编一份）
+    private var monthlyEntrySubtitle: String {
+        guard let latestReport else {
+            let (year, month) = MonthlyCalendar.yearMonth(for: now)
+            return "\(year) 年 \(month) 月统计可先看；上月月报在每月 1 号生成"
+        }
+        let title = latestReport.observationStatus == "ok" && !latestReport.observationTitle.isEmpty
+            ? latestReport.observationTitle
+            : "统计已就绪"
+        return "\(latestReport.year) 年 \(latestReport.month) 月月报 · \(title)"
+    }
+
+    // MARK: 月份过滤行（引用 chip 从 S22 跳回来时出现）
+
+    private var monthFilterRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "line.3.horizontal.decrease")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.amber)
+            Text(monthFilterText)
+                .font(.labelSm)
+                .foregroundStyle(Color.amber)
+            Spacer()
+            Button {
+                monthFilter = nil
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.textMuted)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("取消按月份过滤")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.surface, in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.amber.opacity(0.3), lineWidth: 1))
+    }
+
+    private var monthFilterText: String {
+        guard let monthFilter, let monthStart = MonthlyCalendar.monthStart(periodKey: monthFilter) else {
+            return "按月份过滤"
+        }
+        let (year, month) = MonthlyCalendar.yearMonth(for: monthStart)
+        return "只看 \(year) 年 \(month) 月的 take"
     }
 
     private var weekStatsCard: some View {
@@ -177,5 +281,16 @@ struct ArchiveView: View {
             return "\(type) · 第\(from)–\(to)小节"
         }
         return type
+    }
+}
+
+// MARK: - 月份过滤（纯逻辑，可单测）
+
+/// S20 时间线的月份过滤：S22 观察卡的「引用 N 个 take」chip 点击后回档案，
+/// 按该 periodKey 过滤 take。nil = 不过滤（档案默认全量视图）。
+enum ArchiveMonthFilter {
+    static func apply(takes: [Take], periodKey: String?) -> [Take] {
+        guard let periodKey else { return takes }
+        return takes.filter { MonthlyCalendar.periodKey(for: $0.startedAt) == periodKey }
     }
 }
