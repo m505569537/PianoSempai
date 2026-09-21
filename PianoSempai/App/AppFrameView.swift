@@ -34,8 +34,10 @@ enum AppTab: CaseIterable, Identifiable {
 /// 等后续批次均从本框架以 fullScreenCover 呈现。
 struct AppFrameView: View {
     @ObservedObject private var midi = MIDIHub.shared
+    @Environment(\.modelContext) private var context
     @State private var tab: AppTab = AppFrameView.initialTab()
-    @State private var nekoToastVisible = false
+    /// 问 Neko FAB → S18 自由问答（fullScreenCover，天然隐藏 tab bar）
+    @State private var showChat = false
 
     /// DEBUG 视觉验收：simctl launch 传 --ui.tab.library / --ui.tab.practice 直落对应 tab
     static func initialTab() -> AppTab {
@@ -60,18 +62,18 @@ struct AppFrameView: View {
                     .padding(.trailing, 20)
                     .padding(.top, 6)
             }
-
-            if nekoToastVisible {
-                ToastCapsule(text: "AI 助教将在后续版本开放")
-            }
         }
         .background(Color.canvas)
+        .fullScreenCover(isPresented: $showChat) {
+            // S18 问 Neko：自由问答入口，不带任何练习数据（take 上下文由 S13 提供）
+            ChatView(mode: .freeform, context: context)
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 // 问 Neko FAB：独立悬浮于 tab 栏上方偏右（不进 5 tab）
                 HStack {
                     Spacer()
-                    NekoFAB { showNekoToast() }
+                    NekoFAB { showChat = true }
                         .padding(.trailing, 20)
                         .padding(.bottom, 12)
                 }
@@ -107,15 +109,6 @@ struct AppFrameView: View {
             ArchiveView()
         case .settings:
             SettingsView()
-        }
-    }
-
-    private func showNekoToast() {
-        guard !nekoToastVisible else { return }
-        withAnimation(.easeOut(duration: 0.2)) { nekoToastVisible = true }
-        Task {
-            try? await Task.sleep(for: .seconds(2))
-            withAnimation(.easeOut(duration: 0.25)) { nekoToastVisible = false }
         }
     }
 }

@@ -32,7 +32,7 @@ struct PracticeRoomView: View {
     @State private var showTempoPanel = false
     @State private var finishedSummary: TakeSummary?
     @State private var exitConfirm = false
-    @State private var nekoToast = false
+    @State private var showNekoChat = false
     @State private var lastHandledEventID: UUID?
     @State private var showMarkSheet = false
 
@@ -79,10 +79,6 @@ struct PracticeRoomView: View {
                         session.toast = nil
                     }
             }
-
-            if nekoToast {
-                ToastCapsule(text: "AI 助教将在后续版本开放")
-            }
         }
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showLoopSheet) {
@@ -104,6 +100,10 @@ struct PracticeRoomView: View {
         }
         .fullScreenCover(item: $finishedSummary) { summary in
             M6aTakeSavedView(summary: summary, onDone: { dismiss() })
+        }
+        .fullScreenCover(isPresented: $showNekoChat) {
+            // 练习中自由问答（不带未保存的实时数据，避免假数据）
+            ChatView(mode: .freeform, context: context)
         }
         .onAppear(perform: load)
         .onReceive(hub.$events) { _ in
@@ -153,11 +153,8 @@ struct PracticeRoomView: View {
                 .foregroundStyle(Color.amber)
                 .monospacedDigit()
             Button {
-                nekoToast = true
-                Task {
-                    try? await Task.sleep(for: .seconds(2))
-                    nekoToast = false
-                }
+                // 练习进行中无已保存 take：打开自由问答（与全局 FAB 同路径），可问通用练琴问题
+                showNekoChat = true
             } label: {
                 Image(systemName: "cat")
                     .font(.system(size: 16))

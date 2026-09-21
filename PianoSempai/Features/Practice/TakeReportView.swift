@@ -16,7 +16,8 @@ struct TakeReportView: View {
     @Query private var scoreFiles: [ScoreFile]
     @State private var showMarkSheet = false
     @State private var showPractice = false
-    @State private var nekoToast = false
+    /// S13「问 Neko 这一段」→ S18 对话（带本次 take + 判分上下文）
+    @State private var showChat = false
 
     private var analysis: P1TakeAnalysis {
         TakeAnalysisService.analyze(take: take, errorMarks: errorMarks)
@@ -111,10 +112,12 @@ struct TakeReportView: View {
                 referenceTempo: piece?.referenceTempo ?? take.tempoAvg
             )
         }
-        .overlay {
-            if nekoToast {
-                ToastCapsule(text: "AI 助教将在后续版本开放")
-            }
+        .fullScreenCover(isPresented: $showChat) {
+            // S18 问 Neko 这一段：带本次 take 与判分结果，同一 take 多次进来接着聊
+            ChatView(
+                mode: .take(take, analysis: scoringAnalysis, pieceTitle: piece?.title),
+                context: context
+            )
         }
     }
 
@@ -583,11 +586,7 @@ struct TakeReportView: View {
             }
             .buttonStyle(SecondaryButtonStyle(cornerRadius: 8))
             Button {
-                nekoToast = true
-                Task {
-                    try? await Task.sleep(for: .seconds(2))
-                    nekoToast = false
-                }
+                showChat = true
             } label: {
                 Text("问 Neko 这一段")
                     .font(.titleMd)
