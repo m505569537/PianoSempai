@@ -9,6 +9,10 @@ final class CoreMIDISource: MIDIEventSource {
     let isSimulated = false
     var onEvent: ((MIDIEvent) -> Void)?
     var onConnectionChanged: ((Bool) -> Void)?
+    /// 系统源名单变化（源出现/消失/外部建链通知）→ 随 onConnectionChanged 一起上报，
+    /// 让界面订阅统一事实源，不靠局部 @State 快照（外部建链时不刷新的修复）。
+    /// 回调线程与 CoreMIDI 通知一致（可能非主线程），订阅方需自行跳主线程。
+    var onSourcesChanged: (([String]) -> Void)?
 
     private var client: MIDIClientRef = 0
     private var port: MIDIPortRef = 0
@@ -69,6 +73,8 @@ final class CoreMIDISource: MIDIEventSource {
                 connectedEndpoints.insert(endpoint)
             }
         }
+        // 先报名单再报连接态：订阅方拿到 names 时连接态也已就绪
+        onSourcesChanged?(sourceNames)
         onConnectionChanged?(count > 0)
     }
 

@@ -43,6 +43,9 @@ final class MIDIHub: ObservableObject {
 
     @Published private(set) var events: [MIDIEvent] = []
     @Published private(set) var isConnected = false
+    /// 系统 CoreMIDI 源名单（真机源每次 connectAllSources 时刷新——含外部建链/断开）。
+    /// 统一事实源：界面订阅它即可在 GarageBand 等外部建立连接时自动刷新，不存局部快照。
+    @Published private(set) var systemSourceNames: [String] = []
     @Published var mode: Mode {
         didSet { installSource(mode) }
     }
@@ -114,6 +117,20 @@ final class MIDIHub: ObservableObject {
             } else {
                 Task { @MainActor in
                     self?.isConnected = connected
+                }
+            }
+        }
+        // 真机源随连接态附报系统源名单（外部建链时名单变化，界面据此刷新）
+        if let realSource = newSource as? CoreMIDISource {
+            realSource.onSourcesChanged = { [weak self] names in
+                if Thread.isMainThread {
+                    MainActor.assumeIsolated {
+                        self?.systemSourceNames = names
+                    }
+                } else {
+                    Task { @MainActor in
+                        self?.systemSourceNames = names
+                    }
                 }
             }
         }

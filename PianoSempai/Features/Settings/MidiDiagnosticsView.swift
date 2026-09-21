@@ -6,6 +6,7 @@ import SwiftUI
 struct MidiDiagnosticsView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var hub = MIDIHub.shared
+    @ObservedObject private var ble = BLEMIDIManager.shared
     @State private var showRecalibration = false
     @State private var lastEventAt = Date()
 
@@ -16,6 +17,7 @@ struct MidiDiagnosticsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     deviceCard.padding(.top, 12)
+                    bleCard.padding(.top, 12)
                     signalCard.padding(.top, 12)
 
                     Button {
@@ -62,11 +64,141 @@ struct MidiDiagnosticsView: View {
             .sheet(isPresented: $showRecalibration) {
                 VelocityRecalibrationView()
             }
+            .onAppear {
+                // BLE-MIDI 扫描（P0：App 侧扫描才会让 iOS 创建 CoreMIDI 源）
+                ble.start()
+            }
+            .onDisappear {
+                ble.stopScanning()
+            }
             .onReceive(hub.$events) { _ in
                 lastEventAt = Date()
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    // MARK: BLE-MIDI 扫描卡
+
+    private var bleCard: some View {
+        NocturneCard {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "dot.radiowaves.left.and.right")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Color.amber)
+                    Text("BLE-MIDI 扫描")
+                        .font(.titleMd)
+                        .foregroundStyle(Color.textPrimary)
+                    Spacer()
+                    Text(bleScanStateText)
+                        .font(.labelSm)
+                        .foregroundStyle(bleScanStateColor)
+                }
+
+                if let connected = ble.devices.first(where: { $0.state == .connected }) {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(hub.isConnected && hub.mode == .real ? Color.success : Color.amber)
+                            .frame(width: 7, height: 7)
+                        Text("\(connected.name)（\(hub.isConnected && hub.mode == .real ? "CoreMIDI 源已就绪" : "蓝牙已连，等待信号")）")
+                            .font(.bodyMd)
+                            .foregroundStyle(Color.textBody)
+                    }
+                } else if hub.isConnected && hub.mode == .real {
+                    // 外部建链（GarageBand 等）：本 App 没有发起 BLE 连接，但系统 CoreMIDI 源真实存在。
+                    // 与同屏设备卡保持一致，不显示自相矛盾的「未连接设备」
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(Color.success)
+                            .frame(width: 7, height: 7)
+                        Text("CoreMIDI 源已就绪（系统层连接，如 GarageBand 已建立）")
+                            .font(.bodyMd)
+                            .foregroundStyle(Color.textBody)
+                    }
+                } else {
+                    Text("未连接设备")
+                        .font(.bodyMd)
+                        .foregroundStyle(Color.textMuted)
+                }
+
+                if !ble.devices.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(ble.devices) { device in
+                            HStack(spacing: 8) {
+                                Text(device.name)
+                                    .font(.labelMd)
+                                    .foregroundStyle(Color.textBody)
+                                Spacer()
+                                Text("\(rssiText(device)) · \(bleStateText(device))")
+                                    .font(.labelMono(11))
+                                    .foregroundStyle(Color.textMuted)
+                            }
+                        }
+                    }
+                }
+
+                HStack(spacing: 12) {
+                    Button {
+                        ble.rescan()
+                    } label: {
+                        Text("重新扫描")
+                    }
+                    .buttonStyle(SecondaryButtonStyle(cornerRadius: 8))
+
+                    Button {
+                        if let connected = ble.devices.first(where: { $0.state == .connected }) {
+                            ble.disconnect(connected)
+                        }
+                    } label: {
+                        Text("断开")
+                    }
+                    .buttonStyle(SecondaryButtonStyle(cornerRadius: 8))
+                    .disabled(ble.devices.contains(where: { $0.state == .connected }) == false)
+                }
+                .padding(.top, 2)
+
+                Text("iOS 只有在 App 发起蓝牙 MIDI 连接后才会创建 CoreMIDI 源；系统设置里的「已连接」不算。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.textMuted)
+                Text("扫描不过滤服务：附近所有蓝牙设备都会列为候选，点「连接」后验证是否 MIDI 设备；V70 若已被 GarageBand 等建链，会直接接管。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.textMuted)
+            }
+        }
+    }
+
+    private var bleScanStateText: String {
+        switch ble.scanState {
+        case .scanning: "扫描中"
+        case .poweredOff: "蓝牙已关"
+        case .unauthorized: "未授权"
+        case .idle: ble.devices.contains(where: { $0.state == .connected }) ? "已连接" : "已停止"
+        }
+    }
+
+    private var bleScanStateColor: Color {
+        switch ble.scanState {
+        case .scanning: Color.amber
+        case .poweredOff, .unauthorized: Color.danger
+        case .idle: Color.textMuted
+        }
+    }
+
+    private func bleStateText(_ device: BLEMIDIDevice) -> String {
+        // 全扫描会捞到附近所有蓝牙设备：未带 MIDI 服务广播的是候选，不谎称「已发现」的 MIDI 设备
+        if device.state == .discovered, !device.advertisedMIDIService { return "候选" }
+        switch device.state {
+        case .discovered: return "已发现"
+        case .connecting: return "连接中"
+        case .connected: return "已连接"
+        case .failed: return "失败"
+        }
+    }
+
+    /// 接管来的外设没有扫描 RSSI（初始 0）：读不到就如实标未知，不显示假的 0 dBm
+    private func rssiText(_ device: BLEMIDIDevice) -> String {
+        device.rssi == 0 ? "信号未知" : "\(device.rssi) dBm"
     }
 
     private var deviceCard: some View {
@@ -76,7 +208,10 @@ struct MidiDiagnosticsView: View {
                     Circle()
                         .fill(hub.isConnected ? Color.success : Color.danger)
                         .frame(width: 7, height: 7)
-                    Text(hub.isConnected ? (hub.connectedDeviceName ?? "已连接") : "未连接")
+                    // 三态文案唯一来源（红线：模拟源永不显示 V70，绝不冒充真机连接）
+                    Text(hub.isConnected
+                         ? MIDIDeviceLabel.label(for: MIDIDeviceLabel.state(isConnected: true, mode: hub.mode))
+                         : MIDIDeviceLabel.waitingText(for: MIDIDeviceLabel.state(isConnected: false, mode: hub.mode)))
                         .font(.titleMd)
                         .foregroundStyle(Color.textPrimary)
                     Spacer()
@@ -85,6 +220,11 @@ struct MidiDiagnosticsView: View {
                             .font(.labelSm)
                             .foregroundStyle(Color.amber)
                     }
+                }
+                if let name = hub.connectedDeviceName {
+                    Text("事件源：\(name)")
+                        .font(.labelSm)
+                        .foregroundStyle(Color.textMuted)
                 }
                 HStack(spacing: 14) {
                     Text("事件 \(hub.events.count)")
