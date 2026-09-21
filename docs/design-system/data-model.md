@@ -2,7 +2,7 @@
 
 - 本文档是页面导航级 doc：数据模型、文件布局、状态机、写入权限。不含任何视觉细节。
 - 产品规则真值在 `PRD.md`（M1–M9）；本文档把 Grill 决策落成实现契约。
-- 技术栈：SwiftUI + SwiftData（iOS 17+）+ CoreMIDI/SwiftMIDI；零服务端；AI 仅火山方舟。
+- 技术栈：SwiftUI + SwiftData（iOS 17+）+ CoreMIDI/SwiftMIDI；零服务端；AI 为多服务商多模型有序故障转移链（单链、全多模态，每商 Key 独立 Keychain）。
 
 ## 1. 写入权矩阵（红线 3 的代码形态）
 

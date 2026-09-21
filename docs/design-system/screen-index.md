@@ -47,7 +47,7 @@
 | S22 | 月报详情 | 二级页 | S20 / 周日通知 | archive.md |
 | S23 | 我的 | tab5 | — | settings.md |
 | S24 | MIDI 诊断 | 二级页 | S23/S11b/S03 | settings.md |
-| S25 | 方舟 API Key | 二级页 | S23 | settings.md |
+| S25 | AI 助教 · 服务商链 | 二级页 | S23 | settings.md |
 | S26 | 数据导出/恢复 | 二级页 | S23 | settings.md |
 
 ## tab3「练习室」聚合说明
