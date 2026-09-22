@@ -39,6 +39,12 @@ targets:
           - SheetMusicLoader
           - SheetMusicCore
           - SheetMusicMIDI
+          # 示范播放（CURRENT.md Issue 2）：PlaybackEngine（AUMIDISynth/注入后端）、
+          # SoundfontResolver/PlaybackTimeline/MixerChannel、纯 Swift SF2 合成后端。
+          # swiftysynth 0.2.0（MIT）已是既有 Package.resolved pin，不新增解析。
+          - SheetMusicAudioCore
+          - SheetMusicAudioApple
+          - SheetMusicAudioSwiftySynth
       - package: ZIPFoundation
         product: ZIPFoundation
     settings:
@@ -85,6 +91,9 @@ targets:
         products:
           - SheetMusicLoader
           - SheetMusicCore
+          - SheetMusicMIDI
+          # SoundfontResolver / PlaybackTimeline 的单元测试需要（Stage A）
+          - SheetMusicAudioCore
 
 schemes:
   PianoSempai:

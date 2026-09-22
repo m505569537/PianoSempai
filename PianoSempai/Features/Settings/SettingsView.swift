@@ -25,6 +25,7 @@ struct SettingsView: View {
     @State private var showStorage = false
     @State private var showNotes = false
     @State private var showNotifications = false
+    @State private var showAttribution = false
 
     private var settings: AppSettings? { settingsList.first }
     private var pathState: CoursePathState? { pathStates.first }
@@ -105,6 +106,8 @@ struct SettingsView: View {
                 groupCard {
                     row(icon: "hand.raised", title: "隐私与六条红线") { showPrivacy = true }
                     hairline
+                    row(icon: "music.note", title: "示范音源署名") { showAttribution = true }
+                    hairline
                     staticRow(icon: "info.circle", title: "版本 v\(appVersion)")
                 }
 
@@ -125,6 +128,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showAPIKey) { ProviderChainSettingsView() }
         .sheet(isPresented: $showExport) { ExportView() }
         .sheet(isPresented: $showPrivacy) { PrivacyRedLinesView() }
+        .sheet(isPresented: $showAttribution) { SoundFontAttributionSheet() }
         .sheet(isPresented: $showStorage) { StorageSheet() }
         .sheet(isPresented: $showNotes) { NotesView() }
         .sheet(isPresented: $showNotifications) {

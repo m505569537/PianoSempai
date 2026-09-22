@@ -91,7 +91,9 @@ final class PracticeSession: ObservableObject {
 
     // MARK: 生命周期
 
-    func start(metronome: MetronomeService, countIn: Bool) {
+    /// metronomeOn：节拍器开关。预备拍也归它管——OFF 时直接进演奏，不打拍也不响；
+    /// 否则预备拍打满一小节，结束经 metronome.onCountInFinished 回调 beginPerforming()。
+    func start(metronome: MetronomeService, countIn: Bool, metronomeOn: Bool) {
         guard phase == .idle || phase == .finished else { return }
         startedAt = Date()
         marks = []
@@ -104,11 +106,35 @@ final class PracticeSession: ObservableObject {
         passStartWrongCount = 0
         if isFreePlay {
             beginPerforming()
-        } else if countIn && loopConfig.countIn {
+        } else if countIn && loopConfig.countIn && metronomeOn {
             phase = .counting
             metronome.start(bpm: tempoState.bpm, countInBars: 1)
         } else {
             beginPerforming()
+        }
+    }
+
+    /// 节拍器开关切换（视图调用）。语义：开关管住全部节拍器声音，含预备拍。
+    /// 关键不变量：绝不能把 phase 留在 .counting——那会让 onCountInFinished 永不触发，
+    /// 会话无声且不判分，只能靠「结束并保存」退出（历史上真机无声的次要根因之一）。
+    func toggleMetronome(on: Bool, metronome: MetronomeService) {
+        switch phase {
+        case .counting:
+            if on {
+                metronome.onCountInFinished = { [weak self] in self?.beginPerforming() }
+                metronome.start(bpm: tempoState.bpm, countInBars: 1)
+            } else {
+                metronome.stop()
+                beginPerforming() // 结束计数，直接进演奏，不卡死
+            }
+        case .performing:
+            if on {
+                metronome.start(bpm: tempoState.bpm, countInBars: 0)
+            } else {
+                metronome.stop()
+            }
+        case .idle, .finished:
+            if !on { metronome.stop() }
         }
     }
 

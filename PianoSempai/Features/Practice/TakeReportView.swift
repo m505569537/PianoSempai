@@ -1,3 +1,6 @@
+import Foundation
+import SheetMusicCore
+import SheetMusicLoader
 import SwiftData
 import SwiftUI
 
@@ -5,6 +8,10 @@ import SwiftUI
 // 数据源：P1 统计走 TakeAnalysisService（时长/音符数/错音率等）；
 // P2 六维/热力/置信/过关进度走 TakeReportPresentation（读 TakeAnalysis 派生缓存）。
 // 判分只读分析，课程状态只由 CourseEngine 写（红线 2/3）。
+//
+// S13c 听音（只读延伸）：B9 错音行「只听这小节的期望音」+ B10「只听我弹的」，
+// 两者共用同一个 TakePlaybackService（同一进程不要两套音频图并发播）；
+// 播放是纯回放，不写 take、不写课程状态（报告页只读铁律）。
 
 struct TakeReportView: View {
     let take: Take
@@ -18,6 +25,18 @@ struct TakeReportView: View {
     @State private var showPractice = false
     /// S13「问 Neko 这一段」→ S18 对话（带本次 take + 判分上下文）
     @State private var showChat = false
+    /// S13c 回放服务：B9 期望音预览与 B10「只听我弹的」共用（onDisappear 统一 teardown）
+    @State private var takePlayer = TakePlaybackService()
+    /// 本次 take 的原始演奏音符（与 ScoringOrchestrator 同一解析口径）；nil = 无 MIDI/空 take → 禁用
+    @State private var takeNotes: [PlayedNote]?
+    /// 「只听我弹的」正在播（按钮两态：播放 / 停止）
+    @State private var isTakePlaying = false
+    /// 播放代次：每次新播放 +1，用于作废上一轮的 isReady 轮询 / 结束复位（连点不串台）
+    @State private var playbackGeneration = 0
+    /// B9 参考谱期望音缓存（0-based 小节 → 音高集合）；懒解析一次，不每次重载谱
+    @State private var expectedPerMeasure: [[UInt8]]?
+    @State private var didLoadExpectedPerMeasure = false
+    @State private var didPreloadTakeNotes = false
 
     private var analysis: P1TakeAnalysis {
         TakeAnalysisService.analyze(take: take, errorMarks: errorMarks)
@@ -85,6 +104,10 @@ struct TakeReportView: View {
             .padding(.bottom, 24)
         }
         .background(Color.canvas)
+        // 提前预热「我弹的」：点按钮时大概率已 ready，直接出声
+        .onAppear { preloadTakeNotesIfNeeded() }
+        // 与其它全屏页一致：返回不留音频图（左上返回同样走这里）
+        .onDisappear { takePlayer.teardown() }
         .overlay(alignment: .topLeading) {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
@@ -130,6 +153,132 @@ struct TakeReportView: View {
             if !note.isEmpty { existing.note = note }
         } else {
             context.insert(ScoreErrorMark(scoreName: title, measure: measure, type: type, note: note))
+        }
+    }
+
+    // MARK: S13c 听音（B9 期望音 / B10 我弹的；只播放，不写任何数据）
+
+    /// 随 app 分发的 MuseScore_General.sf2（找不到 → 服务侧安全 no-op，不崩、不弹 Alert）
+    private var soundfontURL: URL? {
+        BundledSoundfontResolver.bundledURL()
+    }
+
+    /// 这条 take 有没有期望音可听（只判参考谱在不在，不解析谱面）。
+    /// 无参考谱（无真实谱且无内置公版谱）→ 错音行的菜单项不显示。
+    private var canPreviewExpected: Bool {
+        ScoringOrchestrator.referenceScoreURL(
+            scoreFile: practiceScoreFile,
+            bundledBook: piece?.book,
+            bundledNumber: piece?.number ?? 0
+        ) != nil
+    }
+
+    /// B9：只听错音那一小节的期望音（同一 onset / 同长的柱式和弦）。
+    /// 无参考谱、该小节无音或越界 → 静默 return（零打断）。
+    private func playExpected(for wrong: WrongNoteRecord) {
+        guard let table = expectedPerMeasureTable() else { return }
+        // 外层 index 是 0-based 小节；wrong.measure 是 1-based 展示值
+        let index = wrong.measure - 1
+        guard index >= 0, index < table.count else { return }
+        let pitches = table[index]
+        guard !pitches.isEmpty else { return }
+        let chord = pitches.map {
+            PlayedNote(pitch: $0, onsetSec: 0, endSec: 0.6, velocity: 96, isSuspicious: false)
+        }
+        // 期望音预览不是 take 播放态：按钮文案回「只听我弹的」，并切掉可能正在播的 take
+        isTakePlaying = false
+        takePlayer.stop()
+        takePlayer.prepareTake(notes: chord, soundfontURL: soundfontURL)
+        startPlaybackWhenReady()
+    }
+
+    /// 参考谱期望音（0-based 小节 → 音高集合）。懒解析并缓存，同一小节反复点只载一次谱。
+    private func expectedPerMeasureTable() -> [[UInt8]]? {
+        if didLoadExpectedPerMeasure { return expectedPerMeasure }
+        didLoadExpectedPerMeasure = true
+        guard let url = ScoringOrchestrator.referenceScoreURL(
+            scoreFile: practiceScoreFile,
+            bundledBook: piece?.book,
+            bundledNumber: piece?.number ?? 0
+        ), let score = try? ScoreLoader.loadScore(contentsOf: url) else {
+            expectedPerMeasure = nil
+            return nil
+        }
+        let table = ScoreExpectedPitches.extract(score: score)
+        expectedPerMeasure = table.isEmpty ? nil : table
+        return expectedPerMeasure
+    }
+
+    /// B10：.onAppear 预热「我弹的」——原始事件解析成演奏音符（判分同口径）后预装载序列。
+    /// 读盘是同步 IO，丢进 Task；MIDI 缺失/空 take → takeNotes 留 nil（按钮禁用），静默。
+    private func preloadTakeNotesIfNeeded() {
+        guard !didPreloadTakeNotes else { return }
+        didPreloadTakeNotes = true
+        let midiPath = take.midiFileURL
+        let interruptions = take.interruptionRanges
+        let duration = Double(take.durationSec)
+        Task { @MainActor in
+            guard let url = SandboxPaths.resolve(midiPath) else { return }
+            let events = (try? TakeStore.readEvents(from: url)) ?? []
+            guard !events.isEmpty else { return }
+            let parsed = MidiTakeParser.parse(
+                events: events,
+                interruptionRanges: interruptions,
+                streamEndSec: duration
+            )
+            guard !parsed.notes.isEmpty else { return }
+            takeNotes = parsed.notes
+            takePlayer.prepareTake(notes: parsed.notes, soundfontURL: soundfontURL)
+        }
+    }
+
+    /// 底部次按钮两态：播「我弹的」/ 停止。无音符时按钮已禁用，这里不再兜底。
+    private func toggleTakePlayback() {
+        guard let notes = takeNotes else { return }
+        if isTakePlaying {
+            takePlayer.stop()
+            isTakePlaying = false
+            return
+        }
+        isTakePlaying = true
+        takePlayer.stop() // 先切掉可能正在播的期望音预览
+        takePlayer.prepareTake(notes: notes, soundfontURL: soundfontURL)
+        let generation = startPlaybackWhenReady()
+        watchTakePlaybackEnd(generation: generation)
+    }
+
+    /// prepareTake 后音源可能还在后台解析（isReady == false，此时 play() 被安全 no-op）：
+    /// 轮询 isReady 最多 ~2s，ready 即播；超时静默放弃，不弹任何提示。
+    /// - Returns: 本次播放的代次（供结束复位的 Task 判过期）
+    @discardableResult
+    private func startPlaybackWhenReady() -> Int {
+        playbackGeneration += 1
+        let generation = playbackGeneration
+        Task { @MainActor in
+            var tries = 0
+            while !takePlayer.isReady, tries < 20 {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                tries += 1
+            }
+            // 期间又起了新的播放 → 这一轮已过期，交给新的那次
+            guard playbackGeneration == generation, takePlayer.isReady else { return }
+            takePlayer.play()
+        }
+        return generation
+    }
+
+    /// 播放结束复位按钮（服务无结束回调）：以真实 isAtEnd 为准，take 时长只是上限保护。
+    private func watchTakePlaybackEnd(generation: Int) {
+        let deadline = Date().addingTimeInterval(max(1, Double(take.durationSec)) + 1.5)
+        Task { @MainActor in
+            while !takePlayer.isAtEnd, Date() < deadline {
+                if playbackGeneration != generation { return } // 已被新播放/手动停止作废
+                try? await Task.sleep(nanoseconds: 200_000_000)
+            }
+            // 用户已手动停止 / 已换别的播放 → 不复活按钮状态
+            guard isTakePlaying, playbackGeneration == generation else { return }
+            isTakePlaying = false
+            takePlayer.stop()
         }
     }
 
@@ -209,14 +358,22 @@ struct TakeReportView: View {
                             .font(.titleMd)
                             .foregroundStyle(Color.textPrimary)
                         Spacer()
-                        Text("长按可标疑似谱错")
+                        Text("长按错音可听期望音/标谱错")
                             .font(.labelSm)
                             .foregroundStyle(Color.textMuted)
                     }
                     ForEach(analysis.wrongNotes, id: \.self) { wrong in
                         let marked = analysis.excludedMeasures.contains(wrong.measure)
+                        let canPreview = canPreviewExpected
                         WrongNoteRow(wrong: wrong, marked: marked)
                             .contextMenu {
+                                if canPreview {
+                                    Button {
+                                        playExpected(for: wrong)
+                                    } label: {
+                                        Label("只听这小节期望音", systemImage: "music.note")
+                                    }
+                                }
                                 Button {
                                     showMarkSheet = true
                                 } label: {
@@ -579,6 +736,14 @@ struct TakeReportView: View {
 
     private var actions: some View {
         VStack(spacing: 8) {
+            // B10「只听我弹的」：原样回放本次演奏（保真实时序，不做量化对齐）
+            Button {
+                toggleTakePlayback()
+            } label: {
+                Text(isTakePlaying ? "停止 ■" : "只听我弹的")
+            }
+            .buttonStyle(SecondaryButtonStyle(cornerRadius: 8))
+            .disabled(takeNotes == nil)
             Button {
                 showPractice = true
             } label: {

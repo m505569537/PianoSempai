@@ -118,7 +118,7 @@ struct FreePlayView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             // 进入即采 MIDI（spec：不需要先点录音）
-            session.start(metronome: metronome, countIn: false)
+            session.start(metronome: metronome, countIn: false, metronomeOn: metronomeOn)
         }
         .onReceive(hub.$events) { _ in
             guard let last = hub.events.last, last.id != lastHandledEventID else { return }

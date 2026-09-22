@@ -1,3 +1,5 @@
+import SheetMusicCore
+import SheetMusicLoader
 import SwiftData
 import SwiftUI
 
@@ -54,7 +56,7 @@ struct PieceDetailView: View {
     @Query private var scoreFiles: [ScoreFile]
     @State private var rangeStart = 1
     @State private var rangeEnd = 8
-    /// 主按钮去向（单一路由：practice → S11 练习室 / freePlay → S14 自由弹奏）
+    /// 主按钮去向（单一路由：practice → S11 练习室 / freePlay → S14 自由弹奏 / demo → 试听全曲）
     @State private var practiceRoute: PracticeRoute?
     /// 点「开始练习」时建档/取到的 Piece（传给练习室，落 take 的 pieceId）
     @State private var resolvedPiece: Piece?
@@ -193,7 +195,7 @@ struct PieceDetailView: View {
                     }
                     .buttonStyle(SecondaryButtonStyle(isEnabled: false, cornerRadius: 8))
                     .disabled(true)
-                    .padding(.top, 20)
+                    .padding(.top, 8)
 
                     Button {
                         if isFreePlayEntry {

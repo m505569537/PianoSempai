@@ -5,6 +5,8 @@ import SwiftData
 import SwiftUI
 
 // MARK: - S11 全屏练习室（+S11b 断连覆盖态；S12 循环 sheet；M6a 版）
+// +Stage B-2：示范卡（B4）/ 光标仲裁（B5）/ onDisappear teardown（B6）/
+//  performing 中拒绝示范（B7）/ 断连仍可听的「示范播放中」pill（B8）。
 // 零打断（spec）：错音/慢全程无 Alert；断连 → S11b 覆盖态；时间到自动保存。
 
 struct PracticeRoomView: View {
@@ -27,6 +29,9 @@ struct PracticeRoomView: View {
     @ObservedObject private var hub = MIDIHub.shared
     @StateObject private var session = PracticeSession()
     @State private var metronome = MetronomeService()
+    /// 整曲示范播放（Stage A 服务）：B4 第五张控制卡 / B5 光标 / B6 teardown / B8 pill。
+    /// 与主播放钮（▶/■「开始/停止判分演奏」）完全无关，两套语义不混。
+    @State private var demo = DemoPlaybackService()
 
     @State private var loadedScore: Score?
     @State private var loadError: String?
@@ -69,6 +74,16 @@ struct PracticeRoomView: View {
                 )
             }
 
+            // B8：「示范播放中」pill —— MIDI 断连不停示范（S11b 只暂停判分），
+            // 所以这个指示必须压在 scrim 之上仍读得清：实底 + amber 描边。
+            if demo.state == .playing {
+                VStack(spacing: 0) {
+                    demoPill
+                    Spacer(minLength: 0)
+                }
+                .padding(.top, 56)
+            }
+
             if let toast = session.toast {
                 Text(toast)
                     .font(.bodyMd)
@@ -109,6 +124,9 @@ struct PracticeRoomView: View {
             ChatView(mode: .freeform, context: context)
         }
         .onAppear(perform: load)
+        // B6：节拍器与示范音都必须收尾。左上返回也走这里——不留后台音频图。
+        //（teardown 必须显式调：deinit 到不了 @MainActor 的 DemoPlaybackService.teardown()）
+        .onDisappear { metronome.stop(); demo.teardown() }
         .onReceive(hub.$events) { _ in
             // 只处理未消费过的新事件（订阅/复现会重放当前数组）
             guard let last = hub.events.last, last.id != lastHandledEventID else { return }
@@ -117,6 +135,10 @@ struct PracticeRoomView: View {
         }
         .onChange(of: hub.isConnected) { _, connected in
             session.setConnected(connected)
+        }
+        .onChange(of: session.tempoState.bpm) { _, _ in
+            // 任何途径改了房间 BPM（步进/自适应），示范也实时跟随。
+            syncDemoSettings()
         }
         .onChange(of: session.timeUp) { _, up in
             if up {
@@ -205,11 +227,19 @@ struct PracticeRoomView: View {
         .padding(.top, 10)
     }
 
-    /// 光标映射：跟随引擎的小节索引 → ScoreCursor（拍级光标落在当前小节）
+    /// 光标仲裁（B5，优先级从高到低）：
+    /// 1. 示范正在播放 → 引擎的 `.item(ScoreItemID)` 级光标（和弦级，比跟弹光标更细）；
+    /// 2. 否则练习 performing/counting → 维持原 `.beat(...)`（拍级，落在当前小节）；
+    /// 3. 否则 nil。
+    /// 示范 paused 时不再跟踪 demo 光标（只在 playing 时跟），避免谱面停在一个误导光标上。
     private var cursor: ScoreCursor? {
-        session.phase == .performing || session.phase == .counting
-            ? .beat(measureIndex: session.followState.measureIndex, tickInMeasure: 0)
-            : nil
+        if demo.state == .playing, let demoCursor = demo.currentCursor {
+            return demoCursor
+        }
+        if session.phase == .performing || session.phase == .counting {
+            return .beat(measureIndex: session.followState.measureIndex, tickInMeasure: 0)
+        }
+        return nil
     }
 
     private var nextMeasureLabel: some View {
@@ -251,7 +281,7 @@ struct PracticeRoomView: View {
         String(format: "%d:%02d", sec / 60, sec % 60)
     }
 
-    // MARK: 四控件
+    // MARK: 五控件（节拍器 / ♩= / 循环 / 标记 / 示范）
 
     private var controlRow: some View {
         HStack(spacing: 8) {
@@ -266,6 +296,11 @@ struct PracticeRoomView: View {
             }
             controlCard(icon: "flag", label: "标记", value: session.marks.isEmpty ? "" : "\(session.marks.count)", highlighted: false) {
                 showMarkSheet = true // S13b：疑似谱错标记（时间点标签随提交一并记录）
+            }
+            // B4：第 5 张「示范」卡。label 沿用 controlCard 里既有的 .labelSm，不做布局手术
+            //（controlCard 已 frame(maxWidth:.infinity)，5 张等宽由 HStack 自动压缩）。
+            controlCard(icon: "speaker.wave.2", label: "示范", value: demoCardValue, highlighted: demo.state == .playing) {
+                toggleDemo()
             }
         }
     }
@@ -337,8 +372,9 @@ struct PracticeRoomView: View {
     private func togglePlay() {
         if session.phase == .idle || session.phase == .finished {
             metronome.onCountInFinished = { session.beginPerforming() }
-            session.start(metronome: metronome, countIn: true)
+            session.start(metronome: metronome, countIn: true, metronomeOn: metronomeOn)
             if metronomeOn, session.phase == .performing {
+                // 预备拍关着：这里补一次无预备拍的 start
                 metronome.start(bpm: session.tempoState.bpm, countInBars: 0)
             }
         } else {
@@ -348,11 +384,74 @@ struct PracticeRoomView: View {
 
     private func toggleMetronome() {
         metronomeOn.toggle()
-        if metronomeOn, session.phase == .performing {
-            metronome.start(bpm: session.tempoState.bpm, countInBars: 0)
-        } else {
-            metronome.stop()
+        // 阶段语义在 PracticeSession.toggleMetronome（可单测）：开关管住含预备拍在内的
+        // 全部节拍器声音，且绝不会把 phase 留在 .counting。
+        session.toggleMetronome(on: metronomeOn, metronome: metronome)
+        // 让示范也跟随房间的节拍器设定（demo 是独立音源，不主动同步就不会跟）。
+        syncDemoSettings()
+    }
+
+    /// 把练习室的节拍器开关 / BPM 同步给示范音源。
+    /// DemoPlaybackService 是独立于练习室判分的音源，默认节拍器关、速度=参考值，
+    /// 不会自己读房间状态，所以必须显式推：节拍器跟 `metronomeOn`，速度跟 `session.tempoState.bpm`。
+    /// 播放前调一次保证开播即正确；切换节拍器 / 调速时调，可在示范播放中 live 生效。
+    private func syncDemoSettings() {
+        demo.setMetronome(metronomeOn)
+        demo.setTempo(session.tempoState.bpm)
+    }
+
+    // MARK: 示范（B4 卡 / B7 拒绝 / B8 指示）
+
+    /// B4：「示范」卡值 —— playing 给已播放秒 mm:ss，paused 给 ▮▮，其余 OFF。
+    private var demoCardValue: String {
+        switch demo.state {
+        case .playing: format(max(0, Int(demo.currentTimeSeconds)))
+        case .paused: "▮▮"
+        default: "OFF" // .stopped / .exporting
         }
+    }
+
+    /// B4：示范播放开关（与主播放钮的「开始/停止判分演奏」是两套语义，互不干预）。
+    /// B7：练习进行中一律拒绝——只 toast、零 Alert、零打断，且示范音绝不写进正在录的 take。
+    private func toggleDemo() {
+        if session.phase == .performing || session.phase == .counting {
+            session.toast = "先停一下当前练习，再听示范"
+            return
+        }
+        guard demo.availability == .ready else {
+            session.toast = "未内置音源，暂无法听示范"
+            return
+        }
+        guard let score = loadedScore else { return } // 谱还没加载好：静默不动作（不强解包）
+        switch demo.state {
+        case .playing: demo.pauseOrStop() // 暂停（保留位置，再按继续）
+        case .paused:
+            syncDemoSettings()
+            demo.resume(score: score)
+        default:
+            // 开播前先把房间的节拍器开关/BPM 推给示范音源，再 prepare+播放（保证开播即跟随）。
+            syncDemoSettings()
+            // 未 prepare 过就先 prepare（音源 gate 已在上面挡过），再整曲播放
+            try? demo.prepare(score: score)
+            demo.playWhole(score: score)
+        }
+    }
+
+    /// B8：「示范播放中」pill —— 断连时示范仍可听，故指标压在 S11b scrim 之上；
+    /// amber 描边 + 实底保证被压暗时仍读得清；不吃点击（不挡谱面操作）。
+    private var demoPill: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "speaker.wave.2.fill")
+                .font(.system(size: 12, weight: .semibold))
+            Text("示范播放中")
+                .font(.labelMd)
+        }
+        .foregroundStyle(Color.amber)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.cardElevated.opacity(0.92), in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.amber.opacity(0.6), lineWidth: 1))
+        .allowsHitTesting(false)
     }
 
     private var finishButton: some View {

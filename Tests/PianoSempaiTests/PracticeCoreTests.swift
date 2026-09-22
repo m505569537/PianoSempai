@@ -139,7 +139,7 @@ final class PracticeCoreTests: XCTestCase {
         let session = PracticeSession()
         session.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 72)
         let metronome = MetronomeService()
-        session.start(metronome: metronome, countIn: false)
+        session.start(metronome: metronome, countIn: false, metronomeOn: false)
         session.beginPerforming()
 
         session.handle(MIDIEvent(kind: .noteOn(note: 60, velocity: 90), channel: 0, timeNanos: 1))
@@ -166,7 +166,7 @@ final class PracticeCoreTests: XCTestCase {
     func testNoCrashOnMIDIGapsAndOddSequences() {
         let session = PracticeSession()
         session.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 72)
-        session.start(metronome: MetronomeService(), countIn: false)
+        session.start(metronome: MetronomeService(), countIn: false, metronomeOn: false)
         session.beginPerforming()
 
         // 空洞/乱序/velocity=0 noteOn/重复 off/超界音高——只求不崩、计数正确
