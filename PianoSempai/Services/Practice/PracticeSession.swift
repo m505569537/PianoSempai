@@ -26,7 +26,9 @@ struct TakeSummary: Equatable {
 @MainActor
 final class PracticeSession: ObservableObject {
     enum Phase: Equatable {
-        case idle, counting, performing, finished
+        // paused = 用户主动暂停（S11 主圆钮「暂停/继续」），与 S11b 断连覆盖层区分：
+        // 断连只把 isConnected 置 false、phase 仍是 performing；暂停则真的停下心跳与判分。
+        case idle, counting, performing, paused, finished
     }
 
     @Published private(set) var phase: Phase = .idle
@@ -62,6 +64,10 @@ final class PracticeSession: ObservableObject {
     /// 会话时长上限（今日所选分钟数；nil = 不限时）。到点置 timeUp，由视图收尾自动保存
     var timeLimitSec: Int?
     private var timer: Timer?
+    /// 暂停记账（S11）：pauseStartedAt 为正在进行的暂停起点，totalPaused 为已累计暂停秒数。
+    /// 两者只服务于「活跃时间」= now - startedAt - 暂停；addMark()/playedNotes 仍按墙上时钟 startedAt。
+    private var pauseStartedAt: Date?
+    private(set) var totalPaused: TimeInterval = 0
     private var passStartWrongCount = 0
 
     init(isFreePlay: Bool = false) {
@@ -104,6 +110,8 @@ final class PracticeSession: ObservableObject {
         midiEventCount = 0
         timeUp = false
         elapsedSec = 0
+        pauseStartedAt = nil
+        totalPaused = 0
         interruptionStarts = []
         fileURL = try? TakeStore.makeFileURL()
         passStartWrongCount = 0
@@ -136,7 +144,8 @@ final class PracticeSession: ObservableObject {
             } else {
                 metronome.stop()
             }
-        case .idle, .finished:
+        case .idle, .finished, .paused:
+            // 暂停中节拍器由视图停（Stage B 恢复时再起）；这里只保证关开关时一定静音。
             if !on { metronome.stop() }
         }
     }
@@ -144,6 +153,11 @@ final class PracticeSession: ObservableObject {
     /// 预备拍结束（metronome.onCountInFinished 回调）
     func beginPerforming() {
         phase = .performing
+        startTimer()
+    }
+
+    /// 1 秒心跳。beginPerforming() 与 resume() 共用同一只 Timer（暂停期间必须停表，恢复时重启）。
+    private func startTimer() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in
@@ -152,25 +166,56 @@ final class PracticeSession: ObservableObject {
         }
     }
 
+    /// 用户暂停（S11 主圆钮）。仅 performing 有效；counting 期间的暂停不在本期范围。
+    /// 停表并把暂停起点记下来，让 elapsedSec / finish() 时长把这段墙上时间排除掉。
+    func pause(now: Date = Date()) {
+        guard phase == .performing else { return }
+        phase = .paused
+        pauseStartedAt = now
+        timer?.invalidate()
+        timer = nil
+    }
+
+    /// 继续（S11 主圆钮）。仅 paused 有效；就地续弹——startedAt/marks/playedNotes/
+    /// followState/计数器/elapsedSec 一律不动，只把暂停区间累加进 totalPaused 后重启心跳。
+    func resume(now: Date = Date()) {
+        guard phase == .paused, let pauseStart = pauseStartedAt else { return }
+        phase = .performing
+        totalPaused += now.timeIntervalSince(pauseStart)
+        pauseStartedAt = nil
+        startTimer()
+    }
+
+    /// 活跃时间（秒）：墙上时间扣掉暂停。暂停进行中也把这段算进去，公式保持防御性一致。
+    private func activeElapsed(now: Date) -> TimeInterval {
+        guard let startedAt else { return 0 }
+        var paused = totalPaused
+        if let pauseStart = pauseStartedAt {
+            paused += now.timeIntervalSince(pauseStart)
+        }
+        return max(0, now.timeIntervalSince(startedAt) - paused)
+    }
+
     /// 每秒心跳（纯决策，可单测；Timer 只负责喂当前时间）：
-    /// - 仅在 performing 且未到点时推进；
-    /// - 用 startedAt 现算整秒写入 elapsedSec（@Published，驱动进度条/计时重绘）；
-    /// - 达到时长上限则置 timeUp，由视图收尾。
+    /// - 仅在 performing 且未到点时推进（paused 期间没有 Timer，tick 被 phase 挡掉）；
+    /// - 用 startedAt 现算「活跃」整秒写入 elapsedSec（@Published，驱动进度条/计时重绘）；
+    /// - 达到时长上限则置 timeUp，由视图收尾。暂停时间不烧倒计时。
     /// 关键：elapsedSec 必须在这里每秒发布，否则视图里现算 Date() 没有重绘触发，计时冻在 0:00。
     func tick(now: Date) {
-        guard phase == .performing, !timeUp, let startedAt else { return }
-        elapsedSec = Int(now.timeIntervalSince(startedAt))
+        guard phase == .performing, !timeUp, startedAt != nil else { return }
+        elapsedSec = Int(activeElapsed(now: now))
         if let limit = timeLimitSec, elapsedSec >= limit {
             timeUp = true
         }
     }
 
     /// 结束（用户点"结束并生成报告"/ 时间到收尾）。幂等：重复调用返回同一 summary。
-    func finish() -> TakeSummary {
+    /// 时长同样只算活跃时间——暂停的几分钟不计入 take duration。
+    func finish(now: Date = Date()) -> TakeSummary {
         timer?.invalidate()
         timer = nil
         phase = .finished
-        let duration = startedAt.map { Int(Date().timeIntervalSince($0)) } ?? 0
+        let duration = startedAt == nil ? 0 : Int(activeElapsed(now: now))
         return TakeSummary(
             durationSec: duration,
             noteCount: followState.playedCount,
@@ -188,7 +233,9 @@ final class PracticeSession: ObservableObject {
     // MARK: 事件消费（MIDIHub.onEvent）
 
     func handle(_ event: MIDIEvent) {
-        guard phase == .performing, isConnected else { return } // 断连：判分暂停
+        // 断连：判分暂停。用户暂停（.paused）同样不判分——phase == .performing 已把 .paused 排除在外，
+        // 暂停期间弹的音一律忽略；resume 后从保留的 followState 继续判分。
+        guard phase == .performing, isConnected else { return }
         midiEventCount += 1
         if let url = fileURL {
             let record = RawMIDIEventRecord(
