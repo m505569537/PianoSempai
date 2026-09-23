@@ -1,6 +1,9 @@
 import SwiftUI
 
 // MARK: - S12 段落循环设置（底部抽屉；校验走 LoopService，非法区间拒绝开始）
+// 真值：docs/design-reference/screens/S12-loop-settings/code.html（id e326117680544db8897517772be93a57）。
+// 结构：抓手 + 标题行 / 滚动三卡（选择小节 · 循环方式 · 每遍之间）/ 吸底双钮 1:2。
+// 呈现保持 NocturneBottomDrawer（底部抽屉）：真值的整屏 vs 抽屉形态「待产品确认」，本屏不改外层。
 
 struct S12LoopSettingsSheet: View {
     @ObservedObject var session: PracticeSession
@@ -13,6 +16,8 @@ struct S12LoopSettingsSheet: View {
     @State private var gapSec: Int = 3
     @State private var countIn: Bool = true
     @State private var initialized = false
+    /// 快捷 chips 单选态（真值 §5.3：错误热点 / 当前段 / 全曲 / 手动，互斥）
+    @State private var quick: QuickPick = .current
 
     private var rangeValid: Bool {
         LoopService.isValid(start: start, end: end, totalMeasures: totalMeasures)
@@ -22,103 +27,28 @@ struct S12LoopSettingsSheet: View {
         NocturneBottomDrawer {
             DrawerGrabHandle()
 
-            HStack {
-                Text("段落循环")
-                    .font(.headlineSm)
-                    .foregroundStyle(Color.textPrimary)
-                Spacer()
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color.textMuted)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 10)
+            header
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 8)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    // 起/终点步进器
-                    HStack(spacing: 32) {
-                        measureStepper("起点", value: $start, min: 1, max: end - 1)
-                        measureStepper("终点", value: $end, min: start + 1, max: totalMeasures)
-                        Spacer()
-                    }
-                    .padding(.top, 16)
-
-                    measureBand.padding(.top, 14)
-
-                    quickChips.padding(.top, 12)
-
-                    Text("循环方式（单选）")
-                        .font(.bodyMd)
-                        .foregroundStyle(Color.textPrimary)
-                        .padding(.top, 20)
-                    modeRow(.loop, "逐遍循环（练完停 3 秒再来）")
-                    modeRow(.adaptiveUp, "达标后自动 +5 BPM")
-                    modeRow(.adaptiveDown, "崩了自动 −5 BPM（连崩 2 遍暂停，提示休息）")
-
-                    if mode == .adaptiveDown {
-                        HStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.triangle")
-                                .font(.system(size: 13))
-                                .foregroundStyle(Color.danger)
-                            Text("连崩 2 遍会提示休息（陈述建议，不强制）。")
-                                .font(.bodySm)
-                                .foregroundStyle(Color.danger)
-                        }
-                        .padding(10)
-                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.danger.opacity(0.5), lineWidth: 1))
-                        .padding(.top, 8)
-                    }
-
-                    HStack {
-                        Text("循环间隔")
-                            .font(.bodyMd)
-                            .foregroundStyle(Color.textPrimary)
-                        Spacer()
-                        stepperControls(value: $gapSec, min: 1, max: 10)
-                        Text("\(gapSec) 秒")
-                            .font(.bodyMd)
-                            .foregroundStyle(Color.textBody)
-                            .monospacedDigit()
-                            .frame(minWidth: 40)
-                    }
-                    .padding(.top, 16)
-
-                    Button {
-                        countIn.toggle()
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: countIn ? "checkmark.square.fill" : "square")
-                                .font(.system(size: 16))
-                                .foregroundStyle(countIn ? Color.amber : Color.textMuted)
-                            Text("开始前 1 小节节拍器预备拍")
-                                .font(.bodyMd)
-                                .foregroundStyle(Color.textPrimary)
-                            Spacer()
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.top, 14)
+                VStack(spacing: 16) {
+                    measureCard
+                    modeCard
+                    gapCard
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 16)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+                .padding(.bottom, 24)
             }
+            // 真值页面底 surface #161311（三张卡之下的画布）
+            .background(Color.s12Surface)
+            // 顶部环境光（真值 §3）：320×192 圆，primary/5，blur-3xl，-top96 居中
+            .overlay(alignment: .top) { ambientGlow }
+            .clipped()
 
-            HStack(spacing: 12) {
-                Button("取消") { dismiss() }
-                    .buttonStyle(SecondaryButtonStyle(cornerRadius: 8))
-                Button {
-                    applyAndStart()
-                } label: {
-                    Text(rangeValid ? "开始循环练习" : "区间无效")
-                }
-                .buttonStyle(PrimaryButtonStyle(isEnabled: rangeValid, cornerRadius: 8))
-                .disabled(!rangeValid)
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 16)
+            footer
         }
         .onAppear {
             guard !initialized else { return }
@@ -128,114 +58,449 @@ struct S12LoopSettingsSheet: View {
             mode = session.loopConfig.mode
             gapSec = session.loopConfig.gapSec
             countIn = session.loopConfig.countIn
+            // 打开即当前段（真值 §5.3 默认激活项），值与 loopConfig 一致
+            quick = .current
         }
     }
 
-    // MARK: 部件
+    // MARK: 整体部件
 
-    private func measureStepper(_ label: String, value: Binding<Int>, min minValue: Int, max maxValue: Int) -> some View {
-        HStack(spacing: 8) {
+    /// 顶部环境光（真值 §3）：320×192 圆，primary/5 = #F3BE67/5，blur-3xl，-top96 水平居中
+    private var ambientGlow: some View {
+        Circle()
+            .fill(Color.s12Ambient)
+            .frame(width: 320, height: 192)
+            .blur(radius: 48)
+            .offset(y: -96)
+            .allowsHitTesting(false)
+    }
+
+    /// 标题行（真值 §4）：repeat 20pt primary + 「段落循环」serif 20 + 32×32 圆关闭钮
+    private var header: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "repeat")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(Color.s12Primary)
+            Text("段落循环")
+                .font(.headlineSm)
+                .foregroundStyle(Color.s12OnSurface)
+            Spacer(minLength: 12)
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(Color.s12OnSurfaceVariant)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(S12CloseButtonStyle())
+        }
+    }
+
+    /// 吸底双钮（真值 §8）：取消 flex-1 / 开始 flex-[2]，即 1:2
+    private var footer: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Color.s12OutlineVariant25)
+                .frame(height: 1)
+
+            GeometryReader { proxy in
+                let unit = max(0, (proxy.size.width - 8) / 3)
+                HStack(spacing: 8) {
+                    Button { dismiss() } label: {
+                        Text("取消")
+                            .font(.bodyMd)
+                            .fontWeight(.medium)
+                            .foregroundStyle(Color.s12OnSurface)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                    }
+                    .buttonStyle(S12CancelButtonStyle())
+                    .frame(width: unit)
+
+                    Button { applyAndStart() } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 18, weight: .medium))
+                            Text(rangeValid ? "开始循环练习" : "区间无效")
+                                .font(.bodyMd)
+                                .fontWeight(.medium)
+                        }
+                        .foregroundStyle(Color.s12OnPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                    }
+                    .buttonStyle(S12StartButtonStyle(isEnabled: rangeValid))
+                    .disabled(!rangeValid)
+                    .frame(width: unit * 2)
+                }
+            }
+            .frame(height: 44)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+        }
+        .background(Color.s12FooterBg)
+    }
+
+    // MARK: 卡1 选择小节
+
+    private var measureCard: some View {
+        s12Card {
+            HStack(alignment: .firstTextBaseline) {
+                Text("选择小节")
+                    .font(.titleMd)
+                    .foregroundStyle(Color.s12OnSurface)
+                Spacer(minLength: 8)
+                // 右侧标注只用真实数据：总小节数（不写死曲名/条数）
+                Text("共 \(max(1, totalMeasures)) 小节")
+                    .font(.labelSm)
+                    .foregroundStyle(Color.s12OnSurfaceVariant)
+            }
+
+            HStack(spacing: 8) {
+                measureCell("起点小节", value: $start, min: 1, max: end - 1)
+                measureCell("终点小节", value: $end, min: start + 1, max: max(1, totalMeasures))
+            }
+            .padding(.top, 16)
+
+            measureStrip.padding(.top, 16)
+
+            quickChips.padding(.top, 12)
+        }
+    }
+
+    /// 起/终点步进格（真值 §5.1）：2 列 gap8；格底 surface-container-low、圆角 4、p8
+    private func measureCell(_ label: String, value: Binding<Int>, min minValue: Int, max maxValue: Int) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.bodyMd)
-                .foregroundStyle(Color.textBody)
-            stepperControls(value: value, min: minValue, max: maxValue)
-            Text("\(value.wrappedValue)")
-                .font(.labelMono(16, weight: .medium))
-                .foregroundStyle(Color.amber)
-                .monospacedDigit()
-                .frame(minWidth: 26)
-        }
-    }
-
-    private func stepperControls(value: Binding<Int>, min minValue: Int, max maxValue: Int) -> some View {
-        HStack(spacing: 6) {
-            stepButton("minus") { value.wrappedValue = max(minValue, value.wrappedValue - 1) }
-                .disabled(value.wrappedValue <= minValue)
-            stepButton("plus") { value.wrappedValue = min(maxValue, value.wrappedValue + 1) }
-                .disabled(value.wrappedValue >= maxValue)
-        }
-    }
-
-    private func stepButton(_ icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Color.textBody)
-                .frame(width: 28, height: 28)
-                .background(Color.surface, in: RoundedRectangle(cornerRadius: 6))
-        }
-        .buttonStyle(.plain)
-    }
-
-    /// 小节条带：totalMeasures 等分格，循环段琥珀；P2 接热点标记
-    private var measureBand: some View {
-        GeometryReader { proxy in
-            let total = max(1, totalMeasures)
-            let cellWidth = proxy.size.width / CGFloat(total)
-            ZStack(alignment: .topLeading) {
-                ForEach(1...total, id: \.self) { m in
-                    let inRange = m >= start && m <= end
-                    Rectangle()
-                        .fill(inRange ? Color.amber : Color.surface)
-                        .frame(width: cellWidth - 1.5, height: 28)
-                        .overlay(RoundedRectangle(cornerRadius: 2).strokeBorder(Color.borderInput, lineWidth: 0.5))
-                        .offset(x: CGFloat(m - 1) * cellWidth)
+                .font(.labelSm)
+                .foregroundStyle(Color.s12OnSurfaceVariant)
+            HStack(spacing: 4) {
+                stepButton("minus", enabled: value.wrappedValue > minValue) {
+                    value.wrappedValue = max(minValue, value.wrappedValue - 1)
+                    quick = .manual
+                }
+                Spacer(minLength: 0)
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text("\(value.wrappedValue)")
+                        .font(.headlineSm)
+                        .foregroundStyle(Color.s12OnSurface)
+                        .monospacedDigit()
+                    Text("小节")
+                        .font(.labelSm)
+                        .foregroundStyle(Color.s12OnSurfaceVariant)
+                }
+                Spacer(minLength: 0)
+                stepButton("plus", enabled: value.wrappedValue < maxValue) {
+                    value.wrappedValue = min(maxValue, value.wrappedValue + 1)
+                    quick = .manual
                 }
             }
         }
-        .frame(height: 28)
-        .overlay(alignment: .top) {
-            Text(rangeValid ? "\(start)–\(end) 小节" : "区间无效（1 ≤ 起 < 止 ≤ \(totalMeasures)）")
-                .font(.labelSm)
-                .foregroundStyle(rangeValid ? Color.textMuted : Color.danger)
-                .offset(y: 32)
-        }
-        .padding(.bottom, 24)
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.s12ContainerLow, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(Color.s12OutlineVariant30, lineWidth: 1)
+        )
     }
 
-    /// 快捷 chips：整段/全曲真实可用；热点相关 P2（显式禁用，不留死按钮）
+    /// 微型时间线（真值 §5.2）：totalMeasures 等分列、列等高；选中段 primary-container。
+    /// 不画假波形高度，也不画 21 号错误圆点（无真实逐小节热点来源）。
+    private var measureStrip: some View {
+        let total = max(1, totalMeasures)
+        let selectedCount = max(0, end - start + 1)
+        return VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                Text("第 1 小节")
+                    .font(.labelSm)
+                    .foregroundStyle(Color.s12Annotation)
+                Spacer(minLength: 4)
+                Text(rangeValid ? "\(start)–\(end) 选中 (\(selectedCount)小节)" : "区间无效")
+                    .font(.labelSm)
+                    .foregroundStyle(rangeValid ? Color.s12PrimaryContainer : Color.s12Error)
+                Spacer(minLength: 4)
+                Text("第 \(total) 小节")
+                    .font(.labelSm)
+                    .foregroundStyle(Color.s12Annotation)
+            }
+
+            HStack(alignment: .bottom, spacing: 2) {
+                ForEach(1...total, id: \.self) { m in
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(m >= start && m <= end ? Color.s12PrimaryContainer : Color.s12ContainerHighest60)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 20)
+                }
+            }
+            .padding(4)
+            // 列底对齐（真值 items-end）：20pt 等高柱贴在条带底部
+            .frame(height: 32, alignment: .bottom)
+            .background(Color.s12ContainerLowest, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(Color.s12OutlineVariant25, lineWidth: 1)
+            )
+        }
+    }
+
+    /// 快捷 chips（真值 §5.3）：单选互斥。错误热点暂无数据来源 → 显式禁用（不造假徽标/圆点）
     private var quickChips: some View {
-        HStack(spacing: 8) {
-            NocturneChip(title: "整段", isSelected: false) {
-                start = 1
-                end = max(2, min(8, totalMeasures))
-            }
-            NocturneChip(title: "全曲", isSelected: false) {
-                start = 1
-                end = totalMeasures
-            }
-            ZStack {
-                NocturneChip(title: "只练错误热点", isSelected: false) {}
-                    .disabled(true)
-                Text("P2")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(Color.canvas)
-                    .background(Circle().fill(Color.amber).frame(width: 14, height: 14))
-                    .offset(x: 34, y: -10)
+        HStack(spacing: 4) {
+            ForEach(QuickPick.allCases, id: \.self) { pick in
+                quickChip(pick)
             }
         }
     }
 
-    private func modeRow(_ tag: LoopMode, _ label: String) -> some View {
-        Button {
-            mode = tag
+    private func quickChip(_ pick: QuickPick) -> some View {
+        let selected = quick == pick
+        let enabled = pick.hasRealSource
+        return Button {
+            quick = pick
+            applyQuick(pick)
         } label: {
+            HStack(spacing: 4) {
+                if let icon = pick.icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 12, weight: .medium))
+                }
+                Text(pick.title)
+                    .font(.labelMd)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(selected ? Color.s12Primary : Color.s12OnSurfaceVariant)
+            .frame(maxWidth: .infinity)
+            .frame(height: 32)
+            .background(
+                selected ? Color.s12PrimaryContainer15 : Color.s12ContainerLow,
+                in: RoundedRectangle(cornerRadius: 4, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(selected ? Color.s12PrimaryContainer : Color.s12OutlineVariant40, lineWidth: 1)
+            )
+            .opacity(enabled ? 1 : 0.4)
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+    }
+
+    /// 快捷 chips 的真实行为：全曲 / 当前段有据可依；错误热点禁用；手动只标记用户驱动
+    private func applyQuick(_ pick: QuickPick) {
+        let total = max(1, totalMeasures)
+        // 总小节不足 2 时不存在合法区间，保持现值（CTA 会诚实禁用）
+        guard total >= 2 else { return }
+        let seeded: (start: Int, end: Int)
+        switch pick {
+        case .all:
+            seeded = (1, total)
+        case .current:
+            seeded = (session.loopConfig.startMeasure, session.loopConfig.endMeasure)
+        case .hotspot, .manual:
+            return
+        }
+        let clamped = LoopService.clamped(start: seeded.start, end: seeded.end, totalMeasures: total)
+        start = clamped.start
+        end = clamped.end
+    }
+
+    // MARK: 卡2 循环方式
+
+    private var modeCard: some View {
+        s12Card {
+            Text("循环方式")
+                .font(.titleMd)
+                .foregroundStyle(Color.s12OnSurface)
+
+            VStack(spacing: 4) {
+                modeRow(.loop, title: "逐遍循环（默认）", note: "原速稳定练习")
+                modeRow(.adaptiveUp, title: "每遍提速 +5 BPM", note: "渐进肌肉记忆")
+                modeRow(.adaptiveDown, title: "崩了自动 −5 BPM 重来", note: "智能降级缓冲")
+            }
+            .padding(.top, 8)
+
+            // 常驻提示（真值 §6）：不随选项折叠；adaptiveDown 的行为仍在 LoopService
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "pawprint.fill")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color.s12Primary)
+                Text("连崩 2 遍自动暂停，Neko 会建议降速或分手")
+                    .font(.bodySm)
+                    .foregroundStyle(Color.s12OnSurfaceVariant)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Color.s12OutlineVariant20)
+                    .frame(height: 1)
+            }
+        }
+    }
+
+    private func modeRow(_ tag: LoopMode, title: String, note: String) -> some View {
+        let selected = mode == tag
+        return Button { mode = tag } label: {
             HStack(spacing: 10) {
                 ZStack {
                     Circle()
-                        .strokeBorder(mode == tag ? Color.amber : Color.borderInput, lineWidth: 1)
+                        .strokeBorder(selected ? Color.s12Primary : Color.s12OutlineVariant80, lineWidth: 1)
                         .frame(width: 16, height: 16)
-                    Circle().fill(Color.amber).frame(width: 8, height: 8)
-                        .opacity(mode == tag ? 1 : 0)
+                    Circle()
+                        .fill(Color.s12Primary)
+                        .frame(width: 8, height: 8)
+                        .opacity(selected ? 1 : 0)
                 }
-                Text(label)
+                Text(title)
                     .font(.bodyMd)
-                    .foregroundStyle(Color.textPrimary)
-                Spacer()
+                    .fontWeight(selected ? .medium : .regular)
+                    .foregroundStyle(selected ? Color.s12OnSurface : Color.s12OnSurfaceVariant)
+                Spacer(minLength: 8)
+                Text(note)
+                    .font(.labelSm)
+                    .foregroundStyle(Color.s12Outline)
             }
-            .frame(minHeight: 44)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                selected ? Color.s12ContainerLow : Color.s12ContainerLow60,
+                in: RoundedRectangle(cornerRadius: 4, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(selected ? Color.s12PrimaryContainer60 : Color.s12OutlineVariant30, lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: 卡3 每遍之间
+
+    private var gapCard: some View {
+        s12Card {
+            Text("每遍之间")
+                .font(.titleMd)
+                .foregroundStyle(Color.s12OnSurface)
+
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Image(systemName: "hourglass")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Color.s12Outline)
+                    Text("间隔准备时间")
+                        .font(.bodyMd)
+                        .foregroundStyle(Color.s12OnSurface)
+                    Spacer(minLength: 8)
+                    gapStepper
+                }
+                .padding(.top, 8)
+                .padding(.bottom, 8)
+
+                Rectangle()
+                    .fill(Color.s12OutlineVariant20)
+                    .frame(height: 1)
+
+                HStack(spacing: 8) {
+                    Image(systemName: "metronome")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Color.s12Outline)
+                    Text("节拍器预备拍 1 小节")
+                        .font(.bodyMd)
+                        .foregroundStyle(Color.s12OnSurface)
+                    Spacer(minLength: 8)
+                    countInToggle
+                }
+                .padding(.top, 8)
+            }
+            .padding(.top, 8)
+        }
+    }
+
+    /// 间隔秒数步进器（真值 §7.1）：值 14pt medium，min-w56 居中
+    private var gapStepper: some View {
+        HStack(spacing: 4) {
+            stepButton("minus", enabled: gapSec > 1) { gapSec = max(1, gapSec - 1) }
+            Text("\(gapSec) 秒")
+                .font(.bodyMd)
+                .fontWeight(.medium)
+                .foregroundStyle(Color.s12OnSurface)
+                .monospacedDigit()
+                .frame(minWidth: 56)
+            stepButton("plus", enabled: gapSec < 10) { gapSec = min(10, gapSec + 1) }
+        }
+        .padding(4)
+        .background(Color.s12ContainerLow, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(Color.s12OutlineVariant30, lineWidth: 1)
+        )
+    }
+
+    /// 节拍器预备拍开关（真值 §7.2）：48×24 全圆角，ON primary-container，旋钮 #100E0C + 6pt primary 点
+    private var countInToggle: some View {
+        Button { countIn.toggle() } label: {
+            ZStack(alignment: countIn ? .trailing : .leading) {
+                Capsule()
+                    .fill(countIn ? Color.s12PrimaryContainer : Color.s12ContainerHighest60)
+                Circle()
+                    .fill(Color.s12ContainerLowest)
+                    .frame(width: 20, height: 20)
+                    .padding(2)
+                    .overlay(
+                        Circle()
+                            .fill(Color.s12Primary)
+                            .frame(width: 6, height: 6)
+                    )
+            }
+            .frame(width: 48, height: 24)
+            .animation(.easeInOut(duration: 0.16), value: countIn)
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(countIn ? "开" : "关")
+    }
+
+    // MARK: 共用小件
+
+    /// −/＋ 钮（真值 §5.1/§7.1）：28×28、圆角 2、surface-container-high 底、1pt outline-variant/20、字形 16pt
+    private func stepButton(_ icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(Color.s12OnSurface)
+                .frame(width: 28, height: 28)
+                .contentShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+        }
+        .buttonStyle(S12StepButtonStyle())
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.4)
+    }
+
+    /// 卡片外壳（真值 §5/§6/§7）：surface-container 底、圆角 8、1pt outline-variant/30、p16、顶边内高光
+    private func s12Card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.s12Container, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.s12OutlineVariant30, lineWidth: 1)
+        )
+        .overlay(alignment: .top) {
+            LinearGradient(
+                colors: [.clear, .white.opacity(0.05), .clear],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(height: 1)
+            .allowsHitTesting(false)
+        }
     }
 
     private func applyAndStart() {
@@ -250,4 +515,164 @@ struct S12LoopSettingsSheet: View {
         // TODO(P2)：错误计数接 M5 完整对齐判分；当前按简单匹配错音口径（brief 授权）
         dismiss()
     }
+}
+
+// MARK: - 快捷 chips 单选枚举（真值 §5.3 顺序：错误热点 / 当前段 / 全曲 / 手动）
+
+private enum QuickPick: String, CaseIterable {
+    case hotspot, current, all, manual
+
+    var title: String {
+        switch self {
+        case .hotspot: return "错误热点"
+        case .current: return "当前段"
+        case .all: return "全曲"
+        case .manual: return "手动"
+        }
+    }
+
+    /// 错误热点的 filled error 图标（真值 §5.3）
+    var icon: String? {
+        switch self {
+        case .hotspot: return "exclamationmark.circle.fill"
+        default: return nil
+        }
+    }
+
+    /// 是否有真实数据来源：逐小节热点暂无（P2），只能诚实禁用，不造假徽标
+    var hasRealSource: Bool { self != .hotspot }
+}
+
+// MARK: - 底部双钮样式（真值 §8）
+
+/// 取消钮：透明底 + 1pt outline-variant/60，按下填 surface-container
+private struct S12CancelButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                configuration.isPressed ? Color.s12Container : Color.clear,
+                in: RoundedRectangle(cornerRadius: 4, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(Color.s12OutlineVariant60, lineWidth: 1)
+            )
+    }
+}
+
+/// 开始钮：primary-container 底，按下变 primary；禁用时整体淡出（真值未画禁用态）
+private struct S12StartButtonStyle: ButtonStyle {
+    var isEnabled: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(isEnabled ? 1 : 0.4)
+            .background(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(configuration.isPressed && isEnabled ? Color.s12Primary : Color.s12PrimaryContainer)
+            )
+    }
+}
+
+/// 关闭钮：32×32 圆热区，按下填 surface-container（真值 hover 态）
+private struct S12CloseButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                configuration.isPressed ? Color.s12Container : Color.clear,
+                in: Circle()
+            )
+    }
+}
+
+/// −/＋ 钮：surface-container-high 底，按下变 surface-bright（真值 hover 态）+ 1pt outline-variant/20
+private struct S12StepButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                configuration.isPressed ? Color.s12SurfaceBright : Color.s12ContainerHigh,
+                in: RoundedRectangle(cornerRadius: 2, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .strokeBorder(Color.s12OutlineVariant20, lineWidth: 1)
+            )
+    }
+}
+
+// MARK: - S12 真值字面量色（Stitch config 的 Material3 token；全局 DesignSystem token 未覆盖，仅本文件使用）
+
+fileprivate extension Color {
+    /// hex → sRGB（S12 真值局部色专用）
+    init(hex: UInt32, opacity: Double = 1.0) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xFF) / 255.0,
+            green: Double((hex >> 8) & 0xFF) / 255.0,
+            blue: Double(hex & 0xFF) / 255.0,
+            opacity: opacity
+        )
+    }
+
+    // 表面族（truth surface-*）
+    /// surface #161311 页面底 / 滚动画布（真值 config background、surface）
+    static let s12Surface = Color(hex: 0x161311)
+    /// surface-container #221F1D 三张卡底
+    static let s12Container = Color(hex: 0x221F1D)
+    /// surface-container-low #1E1B19 步进格 / 单选行底 / chip 底
+    static let s12ContainerLow = Color(hex: 0x1E1B19)
+    /// surface-container-low/60 未选中单选行底
+    static let s12ContainerLow60 = Color(hex: 0x1E1B19, opacity: 0.6)
+    /// surface-container-lowest #100E0C 时间线条带底、开关旋钮
+    static let s12ContainerLowest = Color(hex: 0x100E0C)
+    /// surface-container-high #2D2927 −/＋ 钮底
+    static let s12ContainerHigh = Color(hex: 0x2D2927)
+    /// surface-bright #3C3836 −/＋ 钮按下底（真值 hover 态）
+    static let s12SurfaceBright = Color(hex: 0x3C3836)
+    /// surface-container-highest/60 时间线未选列、开关 OFF 轨
+    static let s12ContainerHighest60 = Color(hex: 0x383432, opacity: 0.6)
+    /// footer 底 surface-container-low/95（真值另有 backdrop-blur-md，静态吸底无内容可糊）
+    static let s12FooterBg = Color(hex: 0x1E1B19, opacity: 0.95)
+    /// 顶部环境光 primary/5
+    static let s12Ambient = Color(hex: 0xF3BE67, opacity: 0.05)
+
+    // 主色族
+    /// primary #F3BE67 标题图标、单选选中、chip 激活字、pets 图标、开关中心点
+    static let s12Primary = Color(hex: 0xF3BE67)
+    /// primary-container #D4A24E 时间线选中列、选中边框/60、开关 ON、主 CTA、选中 chip 描边
+    static let s12PrimaryContainer = Color(hex: 0xD4A24E)
+    /// primary-container/15 选中 chip 底
+    static let s12PrimaryContainer15 = Color(hex: 0xD4A24E, opacity: 0.15)
+    /// primary-container/60 选中单选行边框
+    static let s12PrimaryContainer60 = Color(hex: 0xD4A24E, opacity: 0.6)
+    /// on-primary #432C00 主 CTA 字色
+    static let s12OnPrimary = Color(hex: 0x432C00)
+
+    // 文字族
+    /// on-surface #E9E1DD 主文字、取消钮
+    static let s12OnSurface = Color(hex: 0xE9E1DD)
+    /// on-surface-variant #D3C4B2 次级文字、close 图标
+    static let s12OnSurfaceVariant = Color(hex: 0xD3C4B2)
+    /// on-surface-variant/70 时间线标注行两端
+    static let s12Annotation = Color(hex: 0xD3C4B2, opacity: 0.7)
+    /// outline #9C8F7E 说明 / 右注 / 卡3 图标
+    static let s12Outline = Color(hex: 0x9C8F7E)
+
+    // 边框族（outline-variant #4F4537 各透明度）
+    /// outline-variant/20 −/＋ 钮描边、卡内分隔线、常驻提示顶线
+    static let s12OutlineVariant20 = Color(hex: 0x4F4537, opacity: 0.2)
+    /// outline-variant/25 时间线条带描边、footer 顶线
+    static let s12OutlineVariant25 = Color(hex: 0x4F4537, opacity: 0.25)
+    /// outline-variant/30 卡片描边、步进格描边
+    static let s12OutlineVariant30 = Color(hex: 0x4F4537, opacity: 0.3)
+    /// outline-variant/40 未选中 chip 描边
+    static let s12OutlineVariant40 = Color(hex: 0x4F4537, opacity: 0.4)
+    /// outline-variant/60 取消钮描边
+    static let s12OutlineVariant60 = Color(hex: 0x4F4537, opacity: 0.6)
+    /// outline-variant/80 未选中 radio 环
+    static let s12OutlineVariant80 = Color(hex: 0x4F4537, opacity: 0.8)
+
+    // 错误族（仅「错误热点」禁用 chip 图标与区间无效文案；无热点数据，不画 21 号假圆点）
+    /// error #FFB4AB
+    static let s12Error = Color(hex: 0xFFB4AB)
 }

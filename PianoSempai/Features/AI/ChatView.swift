@@ -1,7 +1,12 @@
 import SwiftData
 import SwiftUI
 
-// M7.1 Stage B2 · S18 问 Neko 对话（布局真值：docs/design-reference/screens/S18-chat/spec.md）。
+// M7.1 Stage B2 · S18 问 Neko 对话（视觉真值：docs/design-reference/screens/S18-chat/spec.md，
+// Stitch 390pt 稿 —— 带 grab handle 的 sheet 式全屏页）。
+//
+// 真值要点：我方气泡深琥珀灰底浅字（非琥珀实底）、证据引用 chips 收在 Neko 气泡内部、
+// 输入框聚焦转琥珀边、发送钮 32×32 圆角 12pt 方形、脚注「不会替你解锁过关」。
+// 附件/摄像机钮与视频气泡在真值里存在但功能 blocked（S18b / backlog V 系列）→ 本 Stage 不画死元素。
 //
 // 边界（红线 3）：AI 输出只渲染、只作建议。回答里若出现动作建议，只渲染为文字，
 // 本 Stage 不提供任何执行入口——不改课程/判分/设置状态。M7.1 纯文字：无附件/视频/TTS。
@@ -13,6 +18,9 @@ struct ChatView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var store: ChatStore
     @State private var draft = ""
+    /// 输入框聚焦态（真值：focus-within 输入框边框转琥珀 70%）。
+    /// 必须走 @FocusState：.focused() 修饰符在 TextField 上不可靠。
+    @FocusState private var inputFocused: Bool
 
     init(mode: ChatMode, context: ModelContext) {
         self.mode = mode
@@ -38,46 +46,87 @@ struct ChatView: View {
         .onAppear { store.refreshAvailability() }
     }
 
-    // MARK: 顶部（X 关闭 + 居中 serif 标题）
+    // MARK: 顶部（sheet 式：grab handle + 头像/标题 + ✕）
 
     private var header: some View {
-        ZStack {
-            Text(store.headerTitle)
-                .font(.headlineSm)
-                .foregroundStyle(Color.textPrimary)
-                .lineLimit(1)
+        VStack(spacing: 0) {
+            // grab handle：40×4 全圆角 #443E3A，居中，上 12 / 下 12（sheet 式全屏页标识）
             HStack {
+                Spacer(minLength: 0)
+                Capsule()
+                    .fill(Color.s18GrabHandle)
+                    .frame(width: 40, height: 4)
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 12)
+            .padding(.bottom, 12)
+
+            // 标题行：左簇（猫脸头像 + serif 标题）｜右（✕ dismiss）
+            HStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    nekoAvatar
+                    Text(store.headerTitle)
+                        .font(.system(size: 18, weight: .semibold, design: .serif))
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color.textBody)
-                        .frame(width: 44, height: 44)
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(Color.textMuted)
+                        .frame(width: 32, height: 32)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("关闭")
-                Spacer()
             }
         }
-        .padding(.horizontal, 8)
-        .frame(height: 44)
-        .background(Color.canvas)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                Color.canvas.opacity(0.95)
+            }
+            .overlay(alignment: .bottom) {
+                // 底边发丝线 #332D29 60%
+                Rectangle()
+                    .fill(Color.border.opacity(0.6))
+                    .frame(height: 1)
+            }
+            .ignoresSafeArea(edges: .top)
+        )
+    }
+
+    /// 头像：32×32 正圆，琥珀 15% 底 + 琥珀 40% 边，猫脸 18pt 琥珀（真值 §3.1）
+    private var nekoAvatar: some View {
+        ZStack {
+            Circle()
+                .fill(Color.amber.opacity(0.15))
+            Image(systemName: "cat")
+                .font(.system(size: 18))
+                .foregroundStyle(Color.amber)
+        }
+        .frame(width: 32, height: 32)
+        .overlay(Circle().strokeBorder(Color.amber.opacity(0.4), lineWidth: 1))
     }
 
     // MARK: 上下文条（本次回答基于哪次练习；降级如实提示）
 
     private var contextBar: some View {
         VStack(alignment: .leading, spacing: 6) {
+            // 上下文 chip：前置 6×6 琥珀呼吸点（真值 animate-pulse，替代图标）；
+            // 文案仍取 store 真实文本，不改来源
             HStack(spacing: 6) {
-                Image(systemName: store.hasTakeContext ? "music.note" : "bubble.left")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.textMuted)
+                ChatPulseDot()
                 Text(store.contextChipText)
                     .font(.labelSm)
                     .foregroundStyle(Color.textMuted)
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color.surface, in: Capsule())
+            .padding(.vertical, 4)
+            .background(Color.card, in: Capsule())
             .overlay(Capsule().strokeBorder(Color.border, lineWidth: 1))
 
             // 该 take 无判分结果等降级：明说只带了部分数据，不假装完整
@@ -89,8 +138,8 @@ struct ChatView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 20)
-        .padding(.top, 4)
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
         .padding(.bottom, 8)
     }
 
@@ -119,7 +168,7 @@ struct ChatView: View {
                         .frame(height: 1)
                         .id(Self.bottomAnchor)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .padding(.top, 4)
                 .padding(.bottom, 16)
             }
@@ -141,40 +190,52 @@ struct ChatView: View {
     @ViewBuilder
     private func messageRow(_ message: ChatMessage) -> some View {
         if message.isUser {
-            // 我的气泡：右对齐琥珀底深字，最大宽 78%，尾角小（S18 spec 视觉规范）
+            // 我的气泡：右对齐深琥珀灰底 + 描边、浅字，最大宽 85%，右上角 2pt（真值 §3.2）
             GeometryReader { proxy in
                 HStack {
                     Spacer(minLength: 0)
                     Text(message.text)
                         .font(.bodyMd)
-                        .foregroundStyle(Color.canvas)
+                        .foregroundStyle(Color.textPrimary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(
-                            Color.amber,
-                            in: UnevenRoundedRectangle(
-                                cornerRadii: RectangleCornerRadii(
-                                    topLeading: 12, bottomLeading: 12, bottomTrailing: 4, topTrailing: 12
-                                ),
-                                style: .continuous
-                            )
-                        )
-                        .frame(maxWidth: proxy.size.width * 0.78, alignment: .trailing)
+                        .background(Color.s18UserBubble, in: userBubbleShape)
+                        .overlay(userBubbleShape.strokeBorder(Color.s18UserBubbleBorder, lineWidth: 1))
+                        .frame(maxWidth: proxy.size.width * 0.85, alignment: .trailing)
                 }
             }
         } else {
-            // Neko 气泡：左对齐 card 表面 + 发丝边，带猫标识
-            VStack(alignment: .leading, spacing: 6) {
+            // Neko 气泡：左对齐，最大宽 92%；正文 + 证据 chips + 服务商行都在同一个气泡内
+            GeometryReader { proxy in
                 nekoBubble(message)
-                evidenceChips(message)
-                providerLine(message)
+                    .frame(maxWidth: proxy.size.width * 0.92, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
+    /// 我方气泡形：圆角 16pt、右上角 2pt（真值 rounded-2xl + rounded-tr-sm）
+    private var userBubbleShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            cornerRadii: RectangleCornerRadii(
+                topLeading: 16, bottomLeading: 16, bottomTrailing: 16, topTrailing: 2
+            ),
+            style: .continuous
+        )
+    }
+
+    /// Neko 气泡形：圆角 16pt、左上角 2pt（真值 rounded-2xl + rounded-tl-sm）
+    private var nekoBubbleShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            cornerRadii: RectangleCornerRadii(
+                topLeading: 2, bottomLeading: 16, bottomTrailing: 16, topTrailing: 16
+            ),
+            style: .continuous
+        )
+    }
+
+    /// Neko 气泡：单个卡 = 署名簇 + 正文 + 证据引用 chips + 服务商行（真值：chips 在气泡内部）
     private func nekoBubble(_ message: ChatMessage) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 5) {
                 Image(systemName: "cat")
                     .font(.system(size: 12))
@@ -185,27 +246,30 @@ struct ChatView: View {
             }
             Text(message.text)
                 .font(.bodyMd)
-                .foregroundStyle(Color.textBody)
+                .foregroundStyle(Color.textPrimary)
+                .leading(22.4, fontSize: 14) // 真值行高 1.6
                 .fixedSize(horizontal: false, vertical: true)
+            evidenceChips(message)
+            providerLine(message)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.card, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border, lineWidth: 1))
+        .background(Color.card, in: nekoBubbleShape)
+        .overlay(nekoBubbleShape.strokeBorder(Color.border, lineWidth: 1))
     }
 
-    /// 证据引用 chips：只显示 evidence 里真实存在的字段（deviationMs 为 nil 就不显示偏差）
+    /// 证据引用 chips：只显示 evidence 里真实存在的字段（deviationMs 为 nil 就不显示偏差）。
+    /// 真值：收在气泡内正文下方、flex-wrap gap6；单 chip bgDark 底 + 发丝边、r6、px8 py2、11pt。
     @ViewBuilder
     private func evidenceChips(_ message: ChatMessage) -> some View {
         let refs = message.evidenceRefs
         if !refs.isEmpty {
             WrapChipRow(spacing: 6, rowSpacing: 6) {
-                ForEach(refs) { ref in
+                ForEach(refs, id: \.id) { ref in
                     HStack(spacing: 4) {
                         Text(EvidenceChipText.measure(ref))
                             .font(.labelSm)
-                            .foregroundStyle(Color.textBody)
+                            .foregroundStyle(Color.textMuted)
                         if let deviation = EvidenceChipText.deviation(ref) {
                             Text(deviation)
                                 .font(.labelMono(11))
@@ -214,9 +278,9 @@ struct ChatView: View {
                         }
                     }
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.surface, in: Capsule())
-                    .overlay(Capsule().strokeBorder(Color.border, lineWidth: 1))
+                    .padding(.vertical, 2)
+                    .background(Color.canvas, in: RoundedRectangle(cornerRadius: 6))
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.border, lineWidth: 1))
                 }
             }
         }
@@ -255,8 +319,8 @@ struct ChatView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Color.card, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border, lineWidth: 1))
+        .background(Color.card, in: nekoBubbleShape)
+        .overlay(nekoBubbleShape.strokeBorder(Color.border, lineWidth: 1))
     }
 
     /// 三点呼吸相位（本地算，不引外部动画依赖）
@@ -308,8 +372,8 @@ struct ChatView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 14)
             .padding(.vertical, 14)
-            .background(Color.card, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.border, lineWidth: 1))
+            .background(Color.card, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border, lineWidth: 1))
     }
 
     /// 全链失败：错误气泡展示各商·各模型失败原因，消息保留可重试（不吞错）
@@ -363,27 +427,25 @@ struct ChatView: View {
 
     // MARK: 常驻脚注 + 输入栏
 
-    /// Neko 只有建议权（红线 3，S18 spec：常驻脚注）
+    /// Neko 只有建议权（红线 3，S18 spec：常驻脚注，真值逐字文案）
     private var footnote: some View {
-        Text("Neko 只有建议权，过关由你的弹奏数据判定。")
+        Text("Neko 只有建议权，不会替你解锁过关")
             .font(.labelSm)
-            .foregroundStyle(Color.textMuted.opacity(0.8))
+            .foregroundStyle(Color.textMuted.opacity(0.75))
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.horizontal, 16)
+            .padding(.top, 10)
             .padding(.bottom, 2)
     }
 
     private var inputBar: some View {
-        HStack(alignment: .bottom, spacing: 10) {
-            TextField("说说你想练什么…", text: $draft, axis: .vertical)
+        HStack(alignment: .bottom, spacing: 8) {
+            TextField("问问这一段…", text: $draft, axis: .vertical)
                 .font(.bodyMd)
                 .foregroundStyle(Color.textPrimary)
                 .tint(Color.amber)
                 .lineLimit(1...4)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(Color.card, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.borderInput, lineWidth: 1))
+                .focused($inputFocused)
                 .disabled(!store.hasAvailableProvider)
             Button {
                 send()
@@ -391,21 +453,56 @@ struct ChatView: View {
                 Image(systemName: "arrow.up")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(canSend ? Color.canvas : Color.textMuted)
-                    .frame(width: 40, height: 40)
-                    .background(canSend ? Color.amber : Color.borderInput, in: Circle())
+                    .frame(width: 32, height: 32)
+                    .background(
+                        canSend ? Color.amber : Color.borderInput,
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    )
             }
             .buttonStyle(.plain)
             .disabled(!canSend)
             .accessibilityLabel("发送")
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 6)
-        .padding(.bottom, 10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(inputFocused ? Color.amber.opacity(0.7) : Color.border, lineWidth: 1)
+        )
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 20)
+        .background(alignment: .top) {
+            // 容器顶边 #332D29 70%
+            Rectangle()
+                .fill(Color.border.opacity(0.7))
+                .frame(height: 1)
+        }
     }
 
     private func send() {
         store.send(text: draft)
         draft = ""
+    }
+}
+
+// MARK: - 呼吸圆点（上下文 chip 前置；真值 animate-pulse）
+
+/// 6×6 琥珀点持续呼吸（真值：w-1.5 h-1.5 bg-amberAccent animate-pulse）
+private struct ChatPulseDot: View {
+    @State private var lit = false
+
+    var body: some View {
+        Circle()
+            .fill(Color.amber)
+            .frame(width: 6, height: 6)
+            .opacity(lit ? 1 : 0.45)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
+                    lit = true
+                }
+            }
     }
 }
 
@@ -421,9 +518,11 @@ private struct WrapChipLayout: Layout {
         var x: CGFloat = 0
         var y: CGFloat = 0
         var lineHeight: CGFloat = 0
+        var contentWidth: CGFloat = 0
         for subview in subviews {
             let size = subview.sizeThatFits(.unspecified)
             if x > 0, x + size.width > maxWidth {
+                contentWidth = max(contentWidth, x - spacing)
                 x = 0
                 y += lineHeight + rowSpacing
                 lineHeight = 0
@@ -431,7 +530,9 @@ private struct WrapChipLayout: Layout {
             x += size.width + spacing
             lineHeight = max(lineHeight, size.height)
         }
-        return CGSize(width: maxWidth, height: y + lineHeight)
+        contentWidth = max(contentWidth, x - spacing)
+        // 收在气泡内：宽度按实际内容算（不占满可用宽），否则气泡会被 chip 行撑成整宽
+        return CGSize(width: min(maxWidth, max(contentWidth, 0)), height: y + lineHeight)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) {
@@ -465,6 +566,28 @@ private struct WrapChipRow<Content: View>: View {
     var body: some View {
         layout { content }
     }
+}
+
+// MARK: - S18 屏内私有色（不写入 Assets / 不改全局 token）
+
+fileprivate extension Color {
+    /// hex → sRGB（S18 真值局部色专用）
+    init(hex: UInt32, opacity: Double = 1.0) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xFF) / 255.0,
+            green: Double((hex >> 8) & 0xFF) / 255.0,
+            blue: Double(hex & 0xFF) / 255.0,
+            opacity: opacity
+        )
+    }
+
+    /// 顶部 grab handle #443E3A（真值内联色；token 无此色）
+    static let s18GrabHandle = Color(hex: 0x443E3A)
+    /// 我方气泡底 #2E261F（真值 userBubbleBg）
+    static let s18UserBubble = Color(hex: 0x2E261F)
+    /// 我方气泡描边 #4A3B2C（真值 userBubbleBorder）
+    static let s18UserBubbleBorder = Color(hex: 0x4A3B2C)
 }
 
 // MARK: - 预览夹具（内存容器；不打网络、不碰 Keychain）

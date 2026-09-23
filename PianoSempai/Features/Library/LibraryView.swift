@@ -794,67 +794,242 @@ struct S08bImportFailDialog: View {
 
     var body: some View {
         ZStack {
-            Color.scrim.ignoresSafeArea().onTapGesture {}
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 10) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color.danger)
-                    Text("这个文件没能解析")
-                        .font(.headlineSm)
-                        .foregroundStyle(Color.textPrimary)
-                }
-                Text("\(fileName)")
-                    .font(.bodySm)
-                    .foregroundStyle(Color.textMuted)
-                    .padding(.top, 8)
+            // 真值 §2：scrim black/75 + 约 6pt 背景模糊；scrim 点击行为真值未定，故不关闭（空 onTap）。
+            Color.black.opacity(0.75)
+                .background(.ultraThinMaterial)
+                .ignoresSafeArea()
+                .onTapGesture {}
 
-                // 错误详情卡（surface-low + mono 错误码）
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(error.detail)
-                        .font(.bodySm)
-                        .leading(18, fontSize: 12)
-                        .foregroundStyle(Color.textBody)
-                    Text("错误代码：\(error.code.rawValue)")
-                        .font(.labelMono(11))
-                        .foregroundStyle(Color.danger)
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.surface, in: RoundedRectangle(cornerRadius: 6))
-                .padding(.top, 14)
-
+            VStack(spacing: 16) {
+                header
+                fileInfoRow
+                detailBox
+                // 解释正文：服务层真实建议（error.hint），不抄真值固定句
                 Text(error.hint)
-                    .font(.bodySm)
-                    .leading(18, fontSize: 12)
-                    .foregroundStyle(Color.textBody)
-                    .padding(.top, 12)
-
-                Text("· 支持 .xml / .mxl / .mscz / .mid\n· PDF 请放进 PDF 资料库（不能跟弹）")
-                    .font(.labelSm)
-                    .leading(16, fontSize: 11)
+                    .font(.system(size: 12.5))
+                    .leading(20, fontSize: 12.5)
                     .foregroundStyle(Color.textMuted)
-                    .padding(.top, 10)
-
-                HStack(spacing: 10) {
-                    Button("查看导入帮助", action: onHelp)
-                        .font(.bodySm)
-                        .foregroundStyle(Color.textBody)
-                    Spacer()
-                    Button("重新选择文件", action: onRetry)
-                        .font(.bodyMd)
-                        .foregroundStyle(Color.amber)
-                    Button("我知道了", action: onDismiss)
-                        .font(.bodyMd)
-                        .foregroundStyle(Color.textBody)
-                }
-                .padding(.top, 18)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                formatHints
+                buttons
             }
             .padding(20)
-            .background(Color.cardElevated, in: RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border, lineWidth: 1))
-            .padding(.horizontal, 36)
+            .frame(maxWidth: .infinity, alignment: .top)
+            .background(Color.card, in: RoundedRectangle(cornerRadius: 22))
+            .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(Color.border, lineWidth: 1))
+            .shadow(color: .black.opacity(0.45), radius: 24, y: 10)
+            .padding(.horizontal, 16)
         }
+    }
+
+    // MARK: 头部（真值 §3.1：48 图标托 r16 + serif 19 标题，居中）
+
+    private var header: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.danger.opacity(0.12))
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.danger.opacity(0.30), lineWidth: 1)
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 24, weight: .light))
+                    .foregroundStyle(Color.danger)
+            }
+            .frame(width: 48, height: 48)
+            .padding(.bottom, 12)
+
+            Text("这个文件没能解析")
+                .font(.system(size: 19, weight: .semibold, design: .serif))
+                .tracking(-0.3)
+                .foregroundStyle(Color.textPrimary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: 文件信息行（真值 §3.2：独立卡 + 文档托 + mono 徽章）
+
+    private var fileInfoRow: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.card)
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color.border, lineWidth: 1)
+                Image(systemName: "doc.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Color.amber)
+            }
+            .frame(width: 32, height: 32)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(fileName)
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                // 副信息（文件大小 · 时间）需调用方传源 URL 才能真实取得；当前只传文件名，
+                // 故整行省略，不写死「2.3 MB · 刚刚」。
+            }
+
+            Spacer(minLength: 8)
+
+            Text(codeBadge)
+                .font(.labelMono(10))
+                .textCase(.uppercase)
+                .foregroundStyle(Color.danger)
+                .fixedSize()
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(Color.danger.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.danger.opacity(0.25), lineWidth: 1))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.canvas, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border.opacity(0.8), lineWidth: 1))
+    }
+
+    /// 右徽章短标：按真实错误码映射（真值为「MXL 错误」示例，不写死）
+    private var codeBadge: String {
+        switch error.code {
+        case .parseFailed: "解析错误"
+        case .msczCompat: "工程兼容"
+        case .unsupportedFormat: "格式不支持"
+        case .copyFailed: "拷贝失败"
+        }
+    }
+
+    // MARK: 错误详情框（真值 §3.3：#1C1917 底、左 2pt 红边 + 其余三边 border）
+
+    private var detailBox: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            (
+                Text("错误详情：")
+                    .font(.labelMono(12.5, weight: .semibold))
+                    .foregroundStyle(Color.danger)
+                + Text(error.detail)
+                    .foregroundStyle(Color(hex: 0xF1ECE1))
+            )
+            .font(.labelMono(12.5))
+            .leading(18, fontSize: 12.5)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // 无「随诊断日志保存到本机」的真实机制，只显真实错误码
+            Text("错误代码 \(error.code.rawValue)")
+                .font(.labelMono(11))
+                .foregroundStyle(Color.textMuted)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.canvas, in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            // 左缘 2pt 红边随 12pt 圆角裁切；上/下/右由描边负责
+            HStack(spacing: 0) {
+                Rectangle()
+                    .fill(Color.danger)
+                    .frame(width: 2)
+                Spacer(minLength: 0)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border, lineWidth: 1))
+    }
+
+    // MARK: 格式提示（真值 §3.5：顶边 border/60、pt8、纵向间距 8）
+
+    private var formatHints: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Rectangle()
+                .fill(Color.border.opacity(0.6))
+                .frame(height: 1)
+
+            HStack(alignment: .top, spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(Color.amber.opacity(0.1))
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.amber)
+                }
+                .frame(width: 16, height: 16)
+
+                (
+                    Text("支持格式：")
+                    + Text(".musicxml / .mxl / .mid")
+                        .font(.labelMono(11.5))
+                        .foregroundStyle(Color.textPrimary)
+                    + Text(" .mscz 兼容性试用中")
+                        .font(.labelMono(11.5))
+                        .foregroundStyle(Color.amber)
+                )
+                .font(.system(size: 11.5))
+                .foregroundStyle(Color.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(alignment: .top, spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(Color.border)
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.textMuted)
+                }
+                .frame(width: 16, height: 16)
+
+                (
+                    Text("PDF 请放进 ")
+                    + Text("PDF 资料库")
+                        .foregroundStyle(Color.textPrimary)
+                        .underline(color: Color.border)
+                    + Text("，不能跟弹。")
+                )
+                .font(.system(size: 11.5))
+                .foregroundStyle(Color.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.top, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: 按钮组（真值 §3.6：主 44 / 次 40 / 幽灵 32，全宽上下堆叠）
+
+    private var buttons: some View {
+        VStack(spacing: 8) {
+            Button(action: onDismiss) {
+                Text("我知道了")
+                    .font(.system(size: 14.5, weight: .medium))
+                    .foregroundStyle(Color.canvas)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+            }
+            .buttonStyle(.plain)
+            .background(Color.amber, in: RoundedRectangle(cornerRadius: 12))
+
+            Button(action: onRetry) {
+                Text("重新选择文件")
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(Color.textPrimary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+            }
+            .buttonStyle(.plain)
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border, lineWidth: 1))
+
+            Button(action: onHelp) {
+                Text("查看导入帮助")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Color.textMuted)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 32)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.top, 8)
     }
 }
 

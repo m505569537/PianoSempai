@@ -21,6 +21,8 @@ struct OnboardingFlowView: View {
                 S02PermissionsView(onContinue: { advance(to: .midiWizard) })
             case .midiWizard:
                 S03MidiWizardView(
+                    // ‹ 返回：第 1 步回 S02 权限页（真值 §2 的「返回」在本流程没有上一步可退）
+                    onBack: { advance(to: .permissions) },
                     onSkip: { dismissToFrame() },
                     onDone: { advance(to: .placement) }
                 )

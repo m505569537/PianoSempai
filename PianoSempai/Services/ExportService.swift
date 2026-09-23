@@ -321,12 +321,27 @@ enum ExportService {
 
     private static func sandboxEntries(baseDir: URL, subdirectory: String, zipPrefix: String, fileManager: FileManager) -> [ExportEntry] {
         let dir = baseDir.appendingPathComponent(subdirectory, isDirectory: true)
-        guard let files = try? fileManager.contentsOfDirectory(atPath: dir.path) else { return [] }
-        return files.compactMap { name in
-            let url = dir.appendingPathComponent(name)
-            guard let data = try? Data(contentsOf: url) else { return nil }
-            return ExportEntry(path: "\(zipPrefix)/\(name)", data: data)
+        // 递归枚举：真机 take MIDI 落在 midi/yyyy/MM/ 嵌套子目录（TakeStore.makeFileURL），
+        // 旧的非递归 contentsOfDirectory 只读顶层 → 漏掉全部 take MIDI。
+        // 目录不存在时 enumerator 返回 nil，保持对缺失目录返回 [] 的容错。
+        guard let enumerator = fileManager.enumerator(at: dir, includingPropertiesForKeys: [.isRegularFileKey]) else {
+            return []
         }
+        let baseComponents = dir.resolvingSymlinksInPath().pathComponents
+        var entries: [ExportEntry] = []
+        for case let url as URL in enumerator {
+            // 只读常规文件，跳过目录
+            guard (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { continue }
+            guard let data = try? Data(contentsOf: url) else { continue }
+            // zip 内路径保留相对子目录结构：midi/2026/9/take-x.midi.jsonl
+            let components = url.resolvingSymlinksInPath().pathComponents
+            guard components.count > baseComponents.count, components.starts(with: baseComponents) else { continue }
+            let relative = components.dropFirst(baseComponents.count).joined(separator: "/")
+            entries.append(ExportEntry(path: "\(zipPrefix)/\(relative)", data: data))
+        }
+        // 稳定顺序：同内容多次导出 zip 条目序一致（可复现）
+        entries.sort { $0.path < $1.path }
+        return entries
     }
 
     // MARK: 恢复（整库）
@@ -347,10 +362,18 @@ enum ExportService {
         // 1) 文件写回（不覆盖 metadata.json）
         for entry in entries where entry.path.hasPrefix("midi/") || entry.path.hasPrefix("scores/") || entry.path.hasPrefix("pdfs/") {
             let parts = entry.path.split(separator: "/")
-            guard parts.count == 2 else { continue }
-            let dir = baseDir.appendingPathComponent(String(parts[0]), isDirectory: true)
-            try fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
-            try entry.data.write(to: dir.appendingPathComponent(String(parts[1])))
+            guard parts.count >= 2 else { continue }
+            let relativeParts = parts.dropFirst()
+            // 防路径穿越：拒绝 .. / . 组件（旧 parts.count==2 限制曾顺带挡住深路径，这里显式保留）
+            guard !relativeParts.contains(where: { $0 == ".." || $0 == "." }) else { continue }
+            // parts[0] 为顶层域（midi/scores/pdfs），其余拼回相对子路径（支持任意深度嵌套，如 midi/yyyy/MM/…）
+            let domain = String(parts[0])
+            let relativeSubpath = relativeParts.joined(separator: "/")
+            let targetURL = baseDir
+                .appendingPathComponent(domain, isDirectory: true)
+                .appendingPathComponent(relativeSubpath)
+            try fileManager.createDirectory(at: targetURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try entry.data.write(to: targetURL)
             fileCount += 1
         }
 

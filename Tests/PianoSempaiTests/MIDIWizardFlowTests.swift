@@ -55,4 +55,26 @@ final class MIDIWizardFlowTests: XCTestCase {
             systemDevices: ["V70"], selectedDevice: nil, mode: .simulated
         ))
     }
+
+    // MARK: 验证步判定（2 秒监听窗）
+
+    /// 监听窗内收到有效 Note On → 通过
+    func testNoteOnInsideWindowPasses() {
+        XCTAssertTrue(MIDIVerifyGate.passes(windowArmed: true, windowExpired: false, velocity: 72))
+    }
+
+    /// 窗口空过之后才到的音：三格照常更新，但不放行（用户可「再听一次」重开窗口）
+    func testNoteOnOutsideWindowDoesNotPass() {
+        XCTAssertFalse(MIDIVerifyGate.passes(windowArmed: false, windowExpired: true, velocity: 72))
+    }
+
+    /// 监听窗还没武装（未进入验证步）→ 不放行
+    func testNoteOnWithoutWindowDoesNotPass() {
+        XCTAssertFalse(MIDIVerifyGate.passes(windowArmed: false, windowExpired: false, velocity: 72))
+    }
+
+    /// velocity=0 视为无效 Note On（BLE 丢 Note Off 的截断事件同型），不通过
+    func testZeroVelocityDoesNotPass() {
+        XCTAssertFalse(MIDIVerifyGate.passes(windowArmed: true, windowExpired: false, velocity: 0))
+    }
 }

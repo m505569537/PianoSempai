@@ -2,6 +2,9 @@ import SwiftData
 import SwiftUI
 
 // MARK: - S23 我的（五组设置；无账号/登录/云同步/商店行——红线）
+// 视觉对齐真值 /tmp/stitch-truth/revised/S23.md：页面大标题 + 个人状态卡 + 五组 inset-grouped
+// （设备 / 课程与提醒 / AI 助教 Neko / 数据 / 关于），另保留真实合规的「乐谱来源与许可」组。
+// 右值一律取真实字段，取不到显「—」；不写死周数/型号/日期/模型/容量/时刻。所有 sheet 跳转与写权逻辑不变。
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var context
@@ -10,6 +13,8 @@ struct SettingsView: View {
     @Query private var placementResults: [PlacementResult]
     @Query private var takes: [Take]
     @Query(sort: \AIProvider.sortOrder) private var providers: [AIProvider]
+    /// 力度校准记录（按时间倒序；右值取最近一条的 createdAt，无记录显「—」）
+    @Query(sort: \VelocityCalibration.createdAt, order: .reverse) private var calibrations: [VelocityCalibration]
 
     @ObservedObject private var hub = MIDIHub.shared
     @State private var keyStore = KeychainProviderKeyStore()
@@ -26,6 +31,8 @@ struct SettingsView: View {
     @State private var showNotes = false
     @State private var showNotifications = false
     @State private var showAttribution = false
+    /// 沙盒占用（Documents 递归求和；进入页面时算一次，避免每次 body 重算）
+    @State private var storageText = "—"
 
     private var settings: AppSettings? { settingsList.first }
     private var pathState: CoursePathState? { pathStates.first }
@@ -38,20 +45,21 @@ struct SettingsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 24) { // 组与组间距 24
                 Text("我的")
                     .font(.displayLg)
                     .foregroundStyle(Color.textPrimary)
-                    .padding(.top, 8)
+                    .tracking(-0.5)
 
-                avatarCard.padding(.top, 16)
+                avatarCard
 
-                groupLabel("设备")
-                groupCard {
+                groupSection(title: "设备") {
                     row(
-                        icon: hub.isConnected ? "pianokeys" : "exclamationmark.circle",
-                        title: MIDIDeviceLabel.label(for: MIDIDeviceLabel.state(isConnected: hub.isConnected, mode: hub.mode)),
-                        valueColor: hub.isConnected ? Color.textBody : Color.danger
+                        icon: "pianokeys",
+                        tint: .amber,
+                        title: "电钢琴",
+                        value: deviceValue,
+                        statusDot: hub.isConnected ? .connected : .muted
                     ) {
                         // 去连接 = 恢复 onboarding 的 S03 向导
                         settings?.onboardingDismissed = false
@@ -59,26 +67,53 @@ struct SettingsView: View {
                         settings?.onboardingCompleted = false
                     }
                     hairline
-                    row(icon: "waveform.path.ecg", title: "MIDI 诊断") { showDiagnostics = true }
+                    row(
+                        icon: "waveform.path.ecg",
+                        title: "MIDI 诊断",
+                        value: hub.isConnected && !hub.events.isEmpty ? "事件正常" : "—"
+                    ) {
+                        showDiagnostics = true
+                    }
                     hairline
-                    row(icon: "slider.horizontal.3", title: "力度校准") { showCalibration = true }
+                    row(
+                        icon: "slider.horizontal.3",
+                        title: "力度校准",
+                        value: lastCalibrationText,
+                        valueMono: true
+                    ) {
+                        showCalibration = true
+                    }
                     hairline
-                    row(icon: "video", title: "视频保留：每曲最近 8 条") { showRetention = true }
+                    row(icon: "video", title: "视频保留", value: "每曲最近 8 条") {
+                        showRetention = true
+                    }
                 }
 
-                groupLabel("课程与提醒")
-                groupCard {
+                groupSection(title: "课程与提醒") {
                     row(icon: "map", title: "课程路线总览") { showRoute = true }
                     hairline
-                    row(icon: "bell", title: "通知：周日 21:00 · 工作日 20:30") { showNotifications = true }
+                    // 无真实时刻字段：只显开关态，不抄任何写死时刻
+                    row(
+                        icon: "bell",
+                        title: "通知时间",
+                        value: settings?.notificationConfigured == true ? "已开启" : "未开启"
+                    ) {
+                        showNotifications = true
+                    }
                     hairline
-                    row(icon: "target", title: "周目标：\(settings?.weeklyGoal ?? 3) 次 × 30 分钟") { showWeeklyGoal = true }
+                    row(
+                        icon: "flag",
+                        title: "周目标",
+                        value: "\(settings?.weeklyGoal ?? 3) 次 × 30 分钟"
+                    ) {
+                        showWeeklyGoal = true
+                    }
                 }
 
-                groupLabel("AI 助教")
-                groupCard {
+                groupSection(title: "AI 助教 Neko", badge: "Plus") {
                     row(
                         icon: "key",
+                        tint: .amber,
                         title: "AI 助教 · 服务商链",
                         value: chainSummary.settingsRowValue,
                         valueColor: chainSummary.available > 0 ? Color.textMuted : Color.amber,
@@ -87,39 +122,47 @@ struct SettingsView: View {
                         showAPIKey = true
                     }
                     hairline
-                    row(icon: "note.text", title: "练琴笔记") { showNotes = true }
+                    // 无「默认模型」字段：按链上 sortOrder 取第一个启用服务商的首个模型，都没有显「—」
+                    staticRow(
+                        icon: "sparkles",
+                        title: "默认模型",
+                        value: firstEnabledProviderModel.map { "首选 \($0)" } ?? "—",
+                        valueMono: true
+                    )
+                    hairline
+                    row(icon: "books.vertical", title: "练琴笔记") { showNotes = true }
                 }
 
-                groupLabel("数据")
-                groupCard {
+                groupSection(title: "数据") {
                     row(icon: "square.and.arrow.up", title: "导出我的全部数据") { showExport = true }
                     hairline
-                    row(icon: "externaldrive", title: "存储占用") { showStorage = true }
+                    // 恢复入口已在 ExportView 内（预览差异 → 确认 → 自动快照）：直接开同一页，不新增假页面
+                    row(icon: "clock.arrow.circlepath", title: "从备份恢复") { showExport = true }
+                    hairline
+                    row(icon: "externaldrive", title: "存储占用", value: storageText, valueMono: true) {
+                        showStorage = true
+                    }
                 }
 
-                groupLabel("乐谱来源与许可")
-                groupCard {
+                groupSection(title: "乐谱来源与许可") {
                     scoreSourcesCard
                 }
 
-                groupLabel("关于")
-                groupCard {
-                    row(icon: "hand.raised", title: "隐私与六条红线") { showPrivacy = true }
+                groupSection(title: "关于") {
+                    row(icon: "hand.raised", title: "隐私与红线") { showPrivacy = true }
                     hairline
                     row(icon: "music.note", title: "示范音源署名") { showAttribution = true }
                     hairline
-                    staticRow(icon: "info.circle", title: "版本 v\(appVersion)")
+                    staticRow(icon: "info.circle", title: "版本", value: "v\(appVersion)", valueMono: true)
                 }
 
-                Text("第 4 tab 恒为「档案」· 本页无账号/云同步/商店入口")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color.textMuted.opacity(0.7))
-                    .padding(.top, 16)
-                    .padding(.bottom, 24)
+                pageFooter
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
         }
         .background(Color.canvas)
+        .onAppear(perform: measureStorage)
         .sheet(isPresented: $showDiagnostics) { MidiDiagnosticsView() }
         .sheet(isPresented: $showCalibration) { VelocityRecalibrationView() }
         .sheet(isPresented: $showRetention) { RetentionRuleSheet() }
@@ -140,47 +183,101 @@ struct SettingsView: View {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
     }
 
-    // MARK: 头像卡
+    // MARK: 个人状态卡（整卡可点 → 课程路线总览；右值全真实，未定级不写死第几周）
 
     private var avatarCard: some View {
-        NocturneCard {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle().strokeBorder(Color.amber, lineWidth: 1.5)
-                            .frame(width: 52, height: 52)
-                        Image(systemName: "cat")
-                            .font(.system(size: 24))
-                            .foregroundStyle(Color.amber)
-                    }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Neko 的学生")
+        Button {
+            showRoute = true
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(Color.amber)
+                    Text("猫")
+                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .foregroundStyle(Color.canvas)
+                }
+                .frame(width: 48, height: 48)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(profileMainLine)
                             .font(.titleMd)
                             .foregroundStyle(Color.textPrimary)
-                        Text(routeLine)
-                            .font(.bodySm)
-                            .foregroundStyle(Color.textMuted)
-                            .monospacedDigit()
+                            .lineLimit(1)
+                        // 已定级才跟脉冲点；未定级不闪
+                        if hasPlacement, pathState != nil {
+                            PulseDot()
+                        }
                     }
-                    Spacer()
+                    Text(profileSubLine)
+                        .font(.bodySm)
+                        .foregroundStyle(Color.textMuted)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
-                HStack {
-                    Spacer()
-                    Text("课程路线总览")
-                        .font(.labelMd)
-                        .foregroundStyle(Color.amber)
-                }
-                .contentShape(Rectangle())
-                .onTapGesture { showRoute = true }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.textMuted.opacity(0.7))
             }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.card)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.border, lineWidth: 1))
+            .contentShape(RoundedRectangle(cornerRadius: 16))
         }
+        .buttonStyle(SettingsRowButtonStyle())
     }
 
-    private var routeLine: String {
-        guard hasPlacement, let pathState else { return "尚未定级" }
-        let goal = settings?.weeklyGoal ?? 3
-        return "第 \(pathState.weekNumber) 周 · 拜厄\(pathState.currentBeyer) · 本周 \(goal)×30 分钟"
+    private var profileMainLine: String {
+        guard hasPlacement, let pathState else { return "自学钢琴 · 尚未定级" }
+        return "自学钢琴 · 第 \(pathState.weekNumber) 周"
     }
+
+    private var profileSubLine: String {
+        guard hasPlacement, let pathState else { return "完成定级后生成路线" }
+        return "路线：拜厄 \(pathState.currentBeyer) · 哈农 \(pathState.currentHanon) 并行"
+    }
+
+    // MARK: 右值真实字段
+
+    /// 设备行右值：真实连接时用 hub 上报的源名（缺失回落「电钢琴」），绝不写死型号；未连接如实显「未连接」
+    private var deviceValue: String {
+        hub.isConnected ? "\(hub.connectedDeviceName ?? "电钢琴") · 已连接" : "未连接"
+    }
+
+    /// 最近一次力度校准日期（M月D日）；无记录显「—」
+    private var lastCalibrationText: String {
+        guard let latest = calibrations.first else { return "—" }
+        return Self.monthDayFormatter.string(from: latest.createdAt)
+    }
+
+    /// 链上按 sortOrder 第一个启用服务商的首个非空模型 id（都没有 → nil → 显「—」）
+    private var firstEnabledProviderModel: String? {
+        for provider in providers where provider.enabled {
+            if let model = provider.modelIds.first(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                return model
+            }
+        }
+        return nil
+    }
+
+    /// 沙盒占用：Documents 递归求和（与 StorageSheet.folderSize 同法）；算不出显「—」
+    private func measureStorage() {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let bytes = StorageSheet.folderSize(docs)
+        storageText = bytes > 0 ? "约 " + ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file) : "—"
+    }
+
+    private static let monthDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_Hans_CN")
+        formatter.dateFormat = "M月d日"
+        return formatter
+    }()
 
     // MARK: 乐谱来源与许可
 
@@ -229,77 +326,191 @@ struct SettingsView: View {
 
     // MARK: 组样式
 
-    private func groupLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.labelMd)
-            .foregroundStyle(Color.textMuted)
-            .padding(.top, 20)
+    /// 组标题 12pt medium muted/80 + tracking-wide（标题逐字；不做 uppercase——会把「Neko」改成「NEKO」）
+    private func groupLabel(_ text: String, badge: String? = nil) -> some View {
+        HStack(spacing: 6) {
+            Text(text)
+                .font(.labelMd)
+                .foregroundStyle(Color.textMuted.opacity(0.8))
+                .tracking(0.6)
+            if let badge {
+                Text(badge)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.amber)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(Color.amber.opacity(0.1), in: RoundedRectangle(cornerRadius: 2))
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 2)
     }
 
     private var hairline: some View {
-        Rectangle().fill(Color.border).frame(height: 1)
+        Rectangle().fill(Color.border.opacity(0.6)).frame(height: 1)
     }
 
+    /// 组卡：card 底 / 1pt border / 圆角 16 / overflow-hidden
     private func groupCard(@ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 0) { content() }
-            .padding(.horizontal, 14)
-            .background(Color.card, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.border, lineWidth: 1))
-            .padding(.top, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.card)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.border, lineWidth: 1))
     }
 
-    private func row(icon: String, title: String, value: String? = nil, valueColor: Color = Color.textMuted, pulse: Bool = false, action: @escaping () -> Void) -> some View {
+    /// 一组 = 组标题（px2）+ 组卡，标题与卡间距 6
+    private func groupSection(title: String, badge: String? = nil, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            groupLabel(title, badge: badge)
+            groupCard { content() }
+        }
+    }
+
+    /// 行按压底 white/3%（真值 active:bg-white/[0.03]）
+    private struct SettingsRowButtonStyle: ButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .background(Color.white.opacity(configuration.isPressed ? 0.03 : 0))
+        }
+    }
+
+    /// 琥珀脉冲点（6×6）：个人卡周数 / 服务商链无可用时
+    private struct PulseDot: View {
+        var color: Color = Color.amber
+        var size: CGFloat = 6
+
+        @State private var dimmed = false
+
+        var body: some View {
+            Circle()
+                .fill(color)
+                .frame(width: size, height: size)
+                .opacity(dimmed ? 0.3 : 1)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                        dimmed = true
+                    }
+                }
+        }
+    }
+
+    /// 图标盒风格：琥珀语义行（电钢琴、服务商链）/ 普通行
+    private enum RowTint {
+        case amber, plain
+    }
+
+    /// 行右状态点（8×8；连接态带辉光）
+    private enum RowStatusDot {
+        case connected, muted
+    }
+
+    private func iconBox(_ icon: String, tint: RowTint) -> some View {
+        let isAmber = tint == .amber
+        return ZStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isAmber ? Color.amber.opacity(0.1) : Color.white.opacity(0.05))
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(isAmber ? Color.amber.opacity(0.2) : Color.white.opacity(0.1), lineWidth: 1)
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(isAmber ? Color.amber : Color.textMuted)
+        }
+        .frame(width: 28, height: 28)
+    }
+
+    private func statusDotView(_ kind: RowStatusDot) -> some View {
+        let color: Color = kind == .connected ? Color.success : Color.textMuted
+        return Circle()
+            .fill(color)
+            .frame(width: 8, height: 8)
+            .shadow(color: kind == .connected ? color.opacity(0.5) : .clear, radius: 3)
+    }
+
+    /// 行：28×28 圆角 8 图标盒 + 14pt medium 标题 + 右值/状态点 + chevron；行高约 48
+    private func row(
+        icon: String,
+        tint: RowTint = .plain,
+        title: String,
+        value: String? = nil,
+        valueMono: Bool = false,
+        valueColor: Color = Color.textMuted,
+        statusDot: RowStatusDot? = nil,
+        pulse: Bool = false,
+        showsChevron: Bool = true,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 15))
-                    .foregroundStyle(Color.textBody)
-                    .frame(width: 22)
+            HStack(spacing: 12) {
+                iconBox(icon, tint: tint)
                 Text(title)
-                    .font(.bodyMd)
+                    .font(.bodyMd.weight(.medium))
                     .foregroundStyle(Color.textPrimary)
+                    .lineLimit(1)
                 if pulse {
-                    Circle()
-                        .fill(Color.amber)
-                        .frame(width: 6, height: 6)
-                        .opacity(breathing ? 0.3 : 1)
-                        .onAppear {
-                            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
-                                breathing = true
-                            }
-                        }
+                    PulseDot()
                 }
-                Spacer()
-                if let value {
-                    Text(value)
-                        .font(.bodySm)
-                        .foregroundStyle(valueColor)
+                Spacer(minLength: 6)
+                HStack(spacing: 6) {
+                    if let statusDot {
+                        statusDotView(statusDot)
+                    }
+                    if let value {
+                        Text(value)
+                            .font(valueMono ? .labelMono(12) : .bodySm)
+                            .foregroundStyle(valueColor)
+                            .lineLimit(1)
+                    }
+                    if showsChevron {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Color.textMuted.opacity(0.7))
+                    }
                 }
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.textMuted)
             }
+            .padding(.horizontal, 14)
             .frame(minHeight: 48)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SettingsRowButtonStyle())
     }
 
-    private func staticRow(icon: String, title: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 15))
-                .foregroundStyle(Color.textBody)
-                .frame(width: 22)
+    /// 不可点行（本页无独立页的条目：不给假跳转，无 chevron）
+    private func staticRow(
+        icon: String,
+        title: String,
+        value: String? = nil,
+        valueMono: Bool = false,
+        valueColor: Color = Color.textMuted
+    ) -> some View {
+        HStack(spacing: 12) {
+            iconBox(icon, tint: .plain)
             Text(title)
-                .font(.bodyMd)
-                .foregroundStyle(Color.textBody)
-            Spacer()
+                .font(.bodyMd.weight(.medium))
+                .foregroundStyle(Color.textPrimary)
+                .lineLimit(1)
+            Spacer(minLength: 6)
+            if let value {
+                Text(value)
+                    .font(valueMono ? .labelMono(12) : .bodySm)
+                    .foregroundStyle(valueColor)
+                    .lineLimit(1)
+            }
         }
+        .padding(.horizontal, 14)
         .frame(minHeight: 48)
     }
 
-    @State private var breathing = false
+    /// 末组外页脚（真值逐字）
+    private var pageFooter: some View {
+        Text("PianoSempai · 静夜琴房")
+            .font(.system(size: 11, design: .serif))
+            .foregroundStyle(Color.textMuted.opacity(0.7))
+            .tracking(1.5)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 4)
+            .padding(.bottom, 24)
+    }
 }
 
 // MARK: - 课程路线总览（真实数据只读展示）

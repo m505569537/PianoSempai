@@ -4,10 +4,18 @@ import SheetMusicUI
 import SwiftData
 import SwiftUI
 
-// MARK: - S11 全屏练习室（+S11b 断连覆盖态；S12 循环 sheet；M6a 版）
+// MARK: - S11 全屏练习室（+S11b 断连态；S12 循环 sheet；M6a 版）
 // +Stage B-2：示范卡（B4）/ 光标仲裁（B5）/ onDisappear teardown（B6）/
 //  performing 中拒绝示范（B7）/ 断连仍可听的「示范播放中」pill（B8）。
-// 零打断（spec）：错音/慢全程无 Alert；断连 → S11b 覆盖态；时间到自动保存。
+// +S11 Stage B（对齐 Stitch 真值 65f044723e6a4fb8aba32ec46412075e）：
+//  三段式顶栏（Neko+MIDI pill / serif 标题 / 关闭即结算）/ 纸张卡 / 五格合一控件坞 /
+//  56pt 暂停·继续圆钮（session.pause()/resume()，暂停时间不计入 take）。
+// +S11b Stage（对齐 Stitch 真值 d141b071ee7343a1b086da9995c5c891，以 code.html 为准）：
+//  断连三段式顶栏（返回 / serif 真实数据标题 / 未连接脉冲胶囊 + smart_toy）＋ 实底重连横幅 ＋
+//  只盖谱纸卡的 #1C1917/75 模糊遮罩（不再全屏压暗：顶栏重连钮与底部诊断卡必须保持可点）＋
+//  五格控件坞就地禁用（保持原色）＋ 全宽禁用主钮 ＋ MIDI 诊断卡。
+//  诚实范围：真值断连坞的「预备拍/双手」两格 App 没有对应功能，不造假控件——沿用五格坞禁用。
+// 零打断（spec）：错音/慢全程无 Alert；时间到自动保存。
 
 struct PracticeRoomView: View {
     let taskType: String // warmup / main / reward
@@ -29,8 +37,8 @@ struct PracticeRoomView: View {
     @ObservedObject private var hub = MIDIHub.shared
     @StateObject private var session = PracticeSession()
     @State private var metronome = MetronomeService()
-    /// 整曲示范播放（Stage A 服务）：B4 第五张控制卡 / B5 光标 / B6 teardown / B8 pill。
-    /// 与主播放钮（▶/■「开始/停止判分演奏」）完全无关，两套语义不混。
+    /// 整曲示范播放（Stage A 服务）：控制坞第 5 格 / B5 光标 / B6 teardown / B8 pill。
+    /// 与主圆钮（▶ 开始 / ⏸ 暂停·继续判分）完全无关，两套语义不混。
     @State private var demo = DemoPlaybackService()
 
     @State private var loadedScore: Score?
@@ -39,38 +47,41 @@ struct PracticeRoomView: View {
     @AppStorage(ScoreDisplayPrefs.measuresPerLineKey) private var measuresPerLine = 0
     @State private var metronomeOn = false
     @State private var showLoopSheet = false
-    @State private var showTempoPanel = false
     @State private var finishedSummary: TakeSummary?
     @State private var exitConfirm = false
     @State private var showNekoChat = false
     @State private var lastHandledEventID: UUID?
     @State private var showMarkSheet = false
+    /// 「识别中」翠绿呼吸点（真值 §6.2）：1.2s opacity 1↔0.35 往复。
+    @State private var recognitionPulse = false
+    /// S11b：「未连接」胶囊圆点脉冲（真值 §3）：2s opacity 0.9↔0.45、scale 1↔1.15 往复。
+    @State private var disconnectedPulse = false
+    /// S11b 诊断卡入口（真值 §7）：弹出已存在的 S24 MidiDiagnosticsView。
+    @State private var showMidiDiagnostics = false
+    /// S11b 顶栏 hover（真值 §3：返回 hover→main、smart_toy hover→琥珀）。
+    /// iPhone 触摸下不触发；仅 iPad/触控板指针环境生效。
+    @State private var hoverBack = false
+    @State private var hoverNeko = false
 
     private var totalMeasures: Int { loadedScore.map(ScoreExpectedPitches.measureCount) ?? 0 }
 
     var body: some View {
         ZStack {
             VStack(alignment: .leading, spacing: 0) {
-                if hub.isConnected { header } else { disconnectedHeader }
-                scoreArea
-                nextMeasureLabel.padding(.top, 6)
-                progressLine.padding(.top, 10)
-                controlRow.padding(.top, 16)
-                if showTempoPanel {
-                    tempoPanel.padding(.top, 8)
+                // S11b：断连是另一套版面（真值 §2：横幅 / 遮罩谱卡 / 禁用控件 / 诊断卡），
+                // 与连接态共用同一张纸张谱卡，不搞两套谱面实现。
+                if hub.isConnected {
+                    header
+                    connectedColumn
+                } else {
+                    disconnectedHeader
+                    disconnectedColumn
                 }
-                playButton.padding(.top, 18)
-                finishButton.padding(.top, 14)
             }
-            .padding(.horizontal, 20)
             .background(Color.canvas)
 
-            if !hub.isConnected {
-                S11bDisconnectedOverlay(waitingText: waitingText)
-            }
-
-            // B8：「示范播放中」pill —— MIDI 断连不停示范（S11b 只暂停判分），
-            // 所以这个指示必须压在 scrim 之上仍读得清：实底 + amber 描边。
+            // B8：「示范播放中」pill —— MIDI 断连不停示范（S11b 只暂停判分）。
+            // 断连遮罩只盖谱纸卡（不再全屏压暗），这个指示照旧压在最上层、实底 + 琥珀描边保证可读。
             if demo.state == .playing {
                 VStack(spacing: 0) {
                     demoPill
@@ -97,16 +108,21 @@ struct PracticeRoomView: View {
         .sheet(isPresented: $showLoopSheet) {
             S12LoopSettingsSheet(session: session, totalMeasures: totalMeasures)
         }
+        .sheet(isPresented: $showMidiDiagnostics) {
+            // S11b 诊断卡入口（真值 §7）：S24 诊断页本身已存在，断连态同样可用。
+            MidiDiagnosticsView()
+        }
         .sheet(isPresented: $showMarkSheet) {
             S13bMarkSheet(
                 scoreName: displayTitle,
                 measure: session.followState.measureIndex + 1
-            ) { type, note in
+            ) { type, note, includeWithNeko in
                 context.insert(ScoreErrorMark(
                     scoreName: displayTitle,
                     measure: session.followState.measureIndex + 1,
                     type: type,
-                    note: note
+                    note: note,
+                    includeWithNeko: includeWithNeko
                 ))
                 session.addMark() // 时间点标签
             }
@@ -147,42 +163,153 @@ struct PracticeRoomView: View {
         }
     }
 
-    // MARK: 头部
+    // MARK: 内容列（连接态 / 断连态各一套版面，共用谱卡）
 
+    /// 连接态内容列（S11 Stage B，不变）：纸张卡（弹性高度）｜下一小节｜进度｜五格坞｜56pt 圆钮。
+    /// 保持上一批已验收的 20pt 左右留白。
+    private var connectedColumn: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            scoreArea
+            nextMeasureLabel.padding(.top, 6)
+            progressLine.padding(.top, 10)
+            controlDock.padding(.top, 16)
+            playRow.padding(.top, 18)
+        }
+        .padding(.horizontal, 20)
+    }
+
+    /// 断连态内容列（真值 §2 顺序）：重连横幅 → 带遮罩的谱纸卡（弹性）→ 禁用五格坞 →
+    /// 全宽禁用主钮 → MIDI 诊断卡。px12 与顶栏对齐；谱卡吃掉剩余高度，底部留 12pt 呼吸
+    /// （外层未 ignoresSafeArea，home indicator 安全区由系统让位）。
+    private var disconnectedColumn: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            reconnectBanner
+                .padding(.top, 8)
+            // scoreArea 自带 .padding(.top, 10)，正好当真值 gap10 用，不重复加。
+            scoreArea
+            // 五格坞就地禁用：保持原色，只剥夺交互（真值 §6.1 明确不用 opacity .4）。
+            controlDock
+                .disabled(true)
+                .padding(.top, 10)
+            disconnectedPlayButton
+                .padding(.top, 8)
+            diagnosticsCard
+                .padding(.top, 10)
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 12)
+    }
+
+    // MARK: 头部（S11 Stage B：真值 §3 三段式）
+
+    /// 三段式顶栏：左 Neko 幽灵钮 + MIDI pill｜中 serif 标题 + 真实数据副行｜右关闭钮。
+    /// 容器：dark #1C1917 ~95% + backdrop blur，底边 1pt white/5 发丝线，内容 px14、垂直居中。
     private var header: some View {
         HStack(spacing: 8) {
-            Button {
-                if session.phase == .performing {
-                    exitConfirm = true
-                } else {
-                    dismiss()
-                }
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(Color.textBody)
-                    .frame(width: 36, height: 36)
+            nekoPill
+            midiPill
+            Spacer(minLength: 8)
+            headerTitle
+            Spacer(minLength: 8)
+            // TODO: equalizer (mix) — pending product
+            closeButton
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity)
+        .background(.ultraThinMaterial)
+        .background(Color.canvas.opacity(0.95))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.white.opacity(0.05))
+                .frame(height: 1)
+        }
+    }
+
+    /// 问 Neko 幽灵钮（真值：全圆角、bg white/5、1pt white/10 边、琥珀猫形 + serif 11pt）。
+    /// 行为不变：打开练习中自由问答（不带未保存的实时数据，避免假数据）。
+    private var nekoPill: some View {
+        Button {
+            showNekoChat = true
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "cat")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.amber)
+                Text("问 Neko")
+                    .font(.system(size: 11, design: .serif))
+                    .foregroundStyle(Color.textPrimary.opacity(0.9))
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.white.opacity(0.05), in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// MIDI 已连接 pill：纯状态展示（是否进 S24 诊断待产品确认，故不做成按钮、不留死按钮）。
+    private var midiPill: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(Color.amber)
+                .frame(width: 6, height: 6)
+            Text("MIDI 已连接")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(Color.amber.opacity(0.9))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.card, in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.amber.opacity(0.25), lineWidth: 1))
+    }
+
+    /// 中：serif 14pt semibold 曲名（tracking wide）+ 10pt muted 真实数据副行。
+    private var headerTitle: some View {
+        VStack(spacing: 1) {
             Text(displayTitle)
-                .font(.headlineSm)
+                .font(.system(size: 14, weight: .semibold, design: .serif))
+                .tracking(0.5)
                 .foregroundStyle(Color.textPrimary)
                 .lineLimit(1)
-            Spacer()
-            Text("♩=\(session.tempoState.bpm)")
-                .font(.labelMono(14, weight: .medium))
-                .foregroundStyle(Color.amber)
+            Text(headerSubtitle)
+                .font(.system(size: 10))
+                .foregroundStyle(Color.textMuted)
                 .monospacedDigit()
-            Button {
-                // 练习进行中无已保存 take：打开自由问答（与全局 FAB 同路径），可问通用练琴问题
-                showNekoChat = true
-            } label: {
-                Image(systemName: "cat")
-                    .font(.system(size: 16))
-                    .foregroundStyle(Color.amber)
-                    .frame(width: 32, height: 32)
-            }
+                .lineLimit(1)
         }
-        .padding(.top, 8)
+    }
+
+    /// 副行只用真实数据：循环区间（loopConfig 已按总小节数钳制）+ 房间 BPM。
+    /// 谱还没加载好时区间谈不上，只给 BPM——不编造小节号。
+    private var headerSubtitle: String {
+        let bpm = "♩=\(session.tempoState.bpm)"
+        guard loadedScore != nil else { return bpm }
+        return "\(session.loopConfig.startMeasure)–\(session.loopConfig.endMeasure) 小节 · \(bpm)"
+    }
+
+    /// 右：关闭钮（真值：28pt 圆、bg white/4、18pt muted X）。
+    /// 演奏中（含预备拍 / 暂停）先弹退出确认——「结束并保存」即结算与报告入口
+    /// （替代已移除的独立「结束并生成报告」按钮）；其余态直接 dismiss。
+    private var closeButton: some View {
+        Button {
+            switch session.phase {
+            case .performing, .counting, .paused:
+                exitConfirm = true
+            case .idle, .finished:
+                dismiss()
+            }
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Color.textMuted)
+                .frame(width: 28, height: 28)
+                .background(Color.white.opacity(0.04), in: Circle())
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var displayTitle: String {
@@ -190,45 +317,279 @@ struct PracticeRoomView: View {
         return scoreFile?.title ?? "练习"
     }
 
-    /// 已进入练习室后的「等待重连」文案（覆盖层居中卡用；口径与旧内联一致）。
+    /// 已进入练习室后的「等待重连」文案（谱纸卡遮罩居中卡用）。
+    /// 红线 2：模拟源永不冒充真机 V70。`MIDIDeviceLabel.waitingText(.disconnected)` 恒返回 V70，
+    /// 故这里按当前 mode 分派到对应标签态，仍整套复用 MIDIDeviceLabel 的文案来源（不硬编码设备名）。
     private var waitingText: String {
-        MIDIDeviceLabel.waitingText(
-            for: MIDIDeviceLabel.state(isConnected: hub.isConnected, mode: hub.mode)
-        )
+        let state: MIDIDeviceLabel.State = hub.mode == .simulated ? .simulatedConnected : .disconnected
+        return MIDIDeviceLabel.waitingText(for: state)
     }
 
-    /// 断连顶栏（问题1）：断连时用它「替换」正常 header —— 只有一套顶栏，
-    /// 不会再像旧实现那样把半透明横幅压在 header 上造成两套文字穿插。
-    /// 左：返回（走与正常 header 相同的退出确认）；中：MIDI 已断开 · 暂停；右：重新连接。
+    /// 断连三段式顶栏（真值 §3）：左返回｜中 serif 标题（真实数据）＋ Take 副行｜
+    /// 右「未连接」脉冲胶囊 ＋ smart_toy。容器 px12、pt16/pb8，底边 1pt #332D29/60 发丝线。
+    /// 断连时整套替换正常 header（只有一套顶栏，不做半透明横幅叠层）。
     private var disconnectedHeader: some View {
         HStack(spacing: 8) {
-            Button {
-                exitConfirm = true
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(Color.danger)
-                    .frame(width: 36, height: 36)
+            disconnectedBackButton
+            Spacer(minLength: 8)
+            disconnectedHeaderTitle
+            Spacer(minLength: 8)
+            HStack(spacing: 6) {
+                disconnectedCapsule
+                disconnectedNekoButton
             }
-            HStack(spacing: 5) {
-                Circle().fill(Color.danger).frame(width: 7, height: 7)
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 16)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.s11CardBorder.opacity(0.6))
+                .frame(height: 1)
+        }
+    }
+
+    /// 左：36×36 圆角 8 返回钮。glyph 用 chevron.left（SF Symbols 没有 arrow_back_ios_new），
+    /// 字号按 36pt 热区的视觉重量取 17pt；hover→main。行为不变：走退出确认（exitConfirm）。
+    private var disconnectedBackButton: some View {
+        Button {
+            exitConfirm = true
+        } label: {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(hoverBack ? Color.textPrimary : Color.textMuted)
+                .frame(width: 36, height: 36)
+                .contentShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+        .onHover { hoverBack = $0 }
+    }
+
+    /// 中：serif 14pt medium 单行居中截断（max 190）＋ 10pt muted 副行。
+    /// 标题只用真实数据：曲名 ＋（有谱才有的）循环区间 ＋ 房间 BPM；不编造小节号。
+    private var disconnectedHeaderTitle: some View {
+        VStack(spacing: 1) {
+            Text(disconnectedHeaderTitleText)
+                .font(.system(size: 14, weight: .medium, design: .serif))
+                .tracking(-0.2) // tracking-tight
+                .foregroundStyle(Color.textPrimary)
+                .lineLimit(1)
+                .multilineTextAlignment(.center)
+            Text("Take · 练习进行中")
+                .font(.system(size: 10))
+                .foregroundStyle(Color.textMuted)
+                .tracking(0.8) // tracking-wider
+                .lineLimit(1)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: 190)
+    }
+
+    /// 断连顶栏标题（真值 §3：「拜厄 45 · 17–24小节 · ♩=60」）：谱未加载好时不给区间。
+    private var disconnectedHeaderTitleText: String {
+        var parts = [displayTitle]
+        if loadedScore != nil {
+            parts.append("\(session.loopConfig.startMeasure)–\(session.loopConfig.endMeasure)小节")
+        }
+        parts.append("♩=\(session.tempoState.bpm)")
+        return parts.joined(separator: " · ")
+    }
+
+    /// 右：「未连接」胶囊（真值 §3）——bg #3A2522/80、1pt #C97064/50 边、全圆角；
+    /// 1.5pt 圆点 2s 脉冲（opacity 0.9↔0.45、scale 1↔1.15）＋ 11pt medium #E8A59E 文案。
+    private var disconnectedCapsule: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(Color.danger) // #C97064
+                .frame(width: 6, height: 6)
+                .scaleEffect(disconnectedPulse ? 1.15 : 1)
+                .opacity(disconnectedPulse ? 0.45 : 0.9)
+            Text("未连接")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color.s11DangerText)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 2)
+        .background(Color.s11DangerContainer.opacity(0.8), in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.danger.opacity(0.5), lineWidth: 1))
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) {
+                disconnectedPulse = true
+            }
+        }
+    }
+
+    /// 右：smart_toy 位（32×32 圆角 8，19pt muted，hover→琥珀）。语义不变：问 Neko。
+    /// SF Symbols 无 smart_toy 对应字形，沿用 App 既有的 Neko 猫形 glyph。
+    private var disconnectedNekoButton: some View {
+        Button {
+            showNekoChat = true
+        } label: {
+            Image(systemName: "cat")
+                .font(.system(size: 16))
+                .foregroundStyle(hoverNeko ? Color.amber : Color.textMuted)
+                .frame(width: 32, height: 32)
+                .contentShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+        .onHover { hoverNeko = $0 }
+    }
+
+    // MARK: S11b 断连态组件（真值 d141b071ee7343a1b086da9995c5c891）
+
+    /// ② 重连横幅（真值 §4）：实底 #3A2522 ＋ 1pt #C97064/40 边、圆角 12、p12；
+    /// 右下 #C97064/10 柔光斑（pointer-events-none，不挡重连钮）。主行 gap8：28×28 图标盒 ＋
+    /// 13pt 标题 ＋ 实底 #C97064 全圆角「重新连接」（白字 11pt ＋ refresh）→ 既有 reconnect()。
+    private var reconnectBanner: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "wifi.slash") // 真值 bluetooth_disabled；SF Symbols 无对应字形
+                    .font(.system(size: 18))
+                    .foregroundStyle(Color.s11DangerText)
+                    .frame(width: 28, height: 28)
+                    .background(Color.danger.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
                 Text("MIDI 已断开 · 判分已暂停")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Color.danger)
-                    .lineLimit(1)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.textPrimary)
+                    .tracking(0.3) // tracking-wide
+                Spacer(minLength: 8)
+                Button(action: reconnect) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("重新连接")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.danger, in: Capsule())
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
             }
-            Spacer()
-            Button(action: reconnect) {
-                Text("重新连接")
-                    .font(.bodySm)
-                    .foregroundStyle(Color.danger)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .overlay(Capsule().strokeBorder(Color.danger, lineWidth: 1))
+            Text("已弹奏的内容保留在本次 take，重连后从断点继续，不丢音符。")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.s11DangerText.opacity(0.9))
+                .lineSpacing(3) // leading-relaxed
+                .padding(.top, 6)
+                .padding(.leading, 36) // 与主行标题文字左对齐（28 图标盒 + gap8）
+        }
+        .padding(12)
+        .background(Color.s11DangerContainer, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.danger.opacity(0.4), lineWidth: 1))
+        .overlay(alignment: .bottomTrailing) {
+            // 环境光斑（真值：-right24 -bottom24、96×96、#C97064/10、blur-xl）
+            Circle()
+                .fill(Color.danger.opacity(0.1))
+                .frame(width: 96, height: 96)
+                .blur(radius: 24)
+                .offset(x: 24, y: 24)
+                .allowsHitTesting(false)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12)) // overflow-hidden：光斑不出容器
+    }
+
+    /// ③ 全宽禁用主钮（真值 §6.2，替代 S11 的 56pt 圆钮）：py12、圆角 12、bg #262220、
+    /// 1pt #332D29 边；14pt serif muted 文案 ＋ 18pt lock 图标，gap8；.disabled(true)。
+    private var disconnectedPlayButton: some View {
+        // 断连态无可执行动作：不 fabricate 任何「强制开始/结束」入口，只做禁用展示。
+        Button(action: {}) {
+            HStack(spacing: 8) {
+                Image(systemName: "lock.fill") // 真值 lock_clock；SF Symbols 无对应字形
+                    .font(.system(size: 18, weight: .medium))
+                Text("练习已暂停 (等待设备)")
+                    .font(.system(size: 14, weight: .medium, design: .serif))
+                    .tracking(0.5)
+            }
+            .foregroundStyle(Color.textMuted)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(Color.card, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.s11CardBorder, lineWidth: 1))
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .disabled(true)
+    }
+
+    /// ④ 诊断提示卡（真值 §7）：bg #262220、1pt #332D29 边、圆角 12、p12，两端对齐。
+    /// 左：16pt 琥珀 info ＋ 排查文案；右：12pt 琥珀文字钮 → S24 MidiDiagnosticsView（断连可用）。
+    private var diagnosticsCard: some View {
+        HStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Color.amber)
+                    .padding(.top, 2)
+                Text("提示：检查蓝牙是否被其他设备占用；USB 线可直接插上替代蓝牙。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.textMuted)
+                    .lineSpacing(3)
+            }
+            Button {
+                showMidiDiagnostics = true
+            } label: {
+                Text("打开 MIDI 诊断 →")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.amber)
+                    .fixedSize()
             }
             .buttonStyle(.plain)
         }
-        .padding(.top, 8)
+        .padding(12)
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.s11CardBorder, lineWidth: 1))
+    }
+
+    /// ② 谱纸卡遮罩（真值 §5.3）：只盖谱纸卡（不是全屏）——#1C1917/75 ＋ 细背景模糊，
+    /// 圆角贴合纸卡 16；居中 48pt 圆徽（#262220 ＋ 琥珀/40 边 ＋ 24pt 琥珀 pause）＋
+    /// serif 主文（设备名走 MIDIDeviceLabel，不硬编码 V70）＋ 11pt muted 副文。
+    /// 断点行只用真实数据：session.followState.measureIndex（无谱时不显示，不编造小节号）。
+    private var disconnectedScoreMask: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                Circle()
+                    .fill(Color.card)
+                    .frame(width: 48, height: 48)
+                Circle()
+                    .strokeBorder(Color.amber.opacity(0.4), lineWidth: 1)
+                    .frame(width: 48, height: 48)
+                Image(systemName: "pause.fill")
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundStyle(Color.amber)
+            }
+            .shadow(color: .black.opacity(0.35), radius: 12, y: 6)
+            Text(waitingText)
+                .font(.system(size: 14, weight: .medium, design: .serif))
+                .foregroundStyle(Color.textPrimary)
+                .tracking(0.3)
+                .multilineTextAlignment(.center)
+                .padding(.top, 10)
+            Text("保持琴盖开启并靠近手机")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.textMuted)
+                .multilineTextAlignment(.center)
+                .padding(.top, 4)
+            if loadedScore != nil {
+                Text("断点：第 \(session.followState.measureIndex + 1) 小节 · 已保留")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color.amber)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 6)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // 两层背景：material 沉到最底层去模糊谱面，75% 暗色盖在它上面压暗
+        // （chain 顺序反了会让实色挡在 material 之前、把可模糊的内容吃掉）。
+        .background(Color.canvas.opacity(0.75))
+        .background(.ultraThinMaterial)
+        // 圆角贴合纸卡 16：遮罩铺满纸卡矩形Bounds，必须裁掉四角才不冒尖。
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        // 纯展示层：不接触摸，谱面在遮罩下仍可滚动查看（断点在哪一眼能看到）。
+        .allowsHitTesting(false)
     }
 
     // MARK: 谱区（真实引擎渲染）
@@ -244,23 +605,36 @@ struct PracticeRoomView: View {
                 // 弹性高度：谱区填满底部控件以上的全部可用空间（问题5），
                 // 不再写死屏高 0.42；外层 VStack 的 Spacer 让位给这里。
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.scorePaper, in: RoundedRectangle(cornerRadius: 8))
             } else if let loadError {
                 Text(loadError)
                     .font(.bodySm)
                     .foregroundStyle(Color.danger)
                     .frame(maxWidth: .infinity, minHeight: 120)
-                    .background(Color.scorePaper, in: RoundedRectangle(cornerRadius: 8))
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, minHeight: 120)
-                    .background(Color.scorePaper, in: RoundedRectangle(cornerRadius: 8))
+            }
+        }
+        .padding(12)
+        // S11 Stage B 纸张卡（真值 §4）：#FBF8F2 / 圆角 16 / 1pt #EBE4D5 / 强阴影。
+        // 高度沿用上一批已验收的弹性（maxHeight .infinity），不写死真值的 min480/max520。
+        // 颗粒层按 brief 可选项省略；真实 cursor/自动滚动原样不动（不编造小节框坐标）。
+        .background(Color.s11Paper, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.s11PaperBorder, lineWidth: 1))
+        .shadow(color: .black.opacity(0.35), radius: 18, y: 10)
+        // S11b：断连时只把遮罩盖在这张纸卡上（真值 §5.3），不动顶栏/控件/诊断卡的热区。
+        .overlay {
+            if !hub.isConnected {
+                disconnectedScoreMask
             }
         }
         .padding(.top, 10)
         .overlay(alignment: .topTrailing) {
             if loadedScore != nil {
-                layoutMenu.padding(10)
+                // 断连态谱卡被遮罩「冻结」，右上角布局菜单一并禁用（保持原色、不响应）。
+                layoutMenu
+                    .disabled(!hub.isConnected)
+                    .padding(10)
             }
         }
     }
@@ -370,88 +744,198 @@ struct PracticeRoomView: View {
         String(format: "%d:%02d", sec / 60, sec % 60)
     }
 
-    // MARK: 五控件（节拍器 / ♩= / 循环 / 标记 / 示范）
+    // MARK: 控件坞（S11 Stage B：真值 §6.1 —— 五个功能合成同一个坞）
 
-    private var controlRow: some View {
-        HStack(spacing: 8) {
-            controlCard(icon: "metronome", label: "节拍器", value: metronomeOn ? "ON" : "OFF", highlighted: metronomeOn) {
-                toggleMetronome()
-            }
-            controlCard(icon: "tuningfork", label: "♩=", value: "\(session.tempoState.bpm)", highlighted: false) {
-                withAnimation { showTempoPanel.toggle() }
-            }
-            controlCard(icon: "arrow.triangle.2.circlepath", label: "循环", value: "\(session.loopConfig.startMeasure)–\(session.loopConfig.endMeasure)", highlighted: false) {
-                showLoopSheet = true
-            }
-            controlCard(icon: "flag", label: "标记", value: session.marks.isEmpty ? "" : "\(session.marks.count)", highlighted: false) {
-                showMarkSheet = true // S13b：疑似谱错标记（时间点标签随提交一并记录）
-            }
-            // B4：第 5 张「示范」卡。label 沿用 controlCard 里既有的 .labelSm，不做布局手术
-            //（controlCard 已 frame(maxWidth:.infinity)，5 张等宽由 HStack 自动压缩）。
-            controlCard(icon: "speaker.wave.2", label: "示范", value: demoCardValue, highlighted: demo.state == .playing) {
-                toggleDemo()
-            }
+    /// 一个坞、五格（真值 grid-cols-5）：节拍器 / 速度（内嵌 −＋ 步进）/ 循环 / 标记 / 示范。
+    /// 五个既有功能一个不少，逐个仍走原路径（就地开关 / 开 S12 / 开 S13b / toggleDemo）。
+    private var controlDock: some View {
+        HStack(spacing: 5) {
+            dockCell(
+                icon: "metronome",
+                label: "节拍器",
+                value: metronomeOn ? "ON" : "OFF",
+                valueColor: metronomeOn ? Color.amber : Color.textMuted,
+                highlighted: metronomeOn,
+                dot: metronomeOn,
+                action: toggleMetronome
+            )
+            tempoCell
+            dockCell(
+                icon: "repeat",
+                label: "循环",
+                value: "\(session.loopConfig.startMeasure)–\(session.loopConfig.endMeasure)小节",
+                valueColor: loopActive ? Color.amber : Color.textMuted,
+                highlighted: loopActive,
+                action: { showLoopSheet = true } // S12：段落循环设置
+            )
+            dockCell(
+                icon: "flag",
+                label: "标记",
+                value: session.marks.isEmpty ? "" : "\(session.marks.count)",
+                valueColor: Color.textMuted,
+                highlighted: false,
+                action: { showMarkSheet = true } // S13b：疑似谱错标记（时间点标签随提交一并记录）
+            )
+            dockCell(
+                icon: "speaker.wave.2",
+                label: "示范",
+                value: demoCardValue,
+                valueColor: demo.state == .playing ? Color.amber : Color.textMuted,
+                highlighted: demo.state == .playing,
+                action: toggleDemo
+            )
         }
+        .padding(6)
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.s11DockBorder, lineWidth: 1))
+        .shadow(color: .black.opacity(0.4), radius: 16, y: 8)
     }
 
-    private func controlCard(icon: String, label: String, value: String, highlighted: Bool, action: @escaping () -> Void) -> some View {
+    /// 坞内一格（真值：圆角 12；未激活 bg white/3 + 1pt white/5；激活 bg amber/10 + 1pt amber/70）。
+    /// 普通按钮 + contentShape 保证整格可点；按压缩放交给 buttonStyle 默认按下反馈。
+    private func dockCell(
+        icon: String,
+        label: String,
+        value: String,
+        valueColor: Color = Color.textMuted,
+        highlighted: Bool,
+        dot: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Image(systemName: icon)
-                    .font(.system(size: 17))
+                    .font(.system(size: 16))
+                    .overlay(alignment: .topTrailing) {
+                        if dot {
+                            // 真值 §6.1：节拍器开启时图标右上角 1.5pt 琥珀小圆点
+                            Circle()
+                                .fill(Color.amber)
+                                .frame(width: 6, height: 6)
+                                .offset(x: 5, y: -5)
+                        }
+                    }
                 Text(label)
-                    .font(.labelSm)
+                    .font(.system(size: 11, weight: highlighted ? .semibold : .medium))
                 Text(value)
-                    .font(.labelMono(11, weight: .medium))
+                    .font(.labelMono(8.5, weight: .medium))
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .foregroundStyle(valueColor)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 56)
-            .foregroundStyle(highlighted ? Color.canvas : Color.textBody)
-            .background(highlighted ? Color.amber : Color.card, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(highlighted ? Color.clear : Color.border, lineWidth: 1))
+            .padding(.vertical, 6)
+            .foregroundStyle(highlighted ? Color.amber : Color.textBody)
+            .background(
+                highlighted ? Color.amber.opacity(0.10) : Color.white.opacity(0.03),
+                in: RoundedRectangle(cornerRadius: 12)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12).strokeBorder(
+                    highlighted ? Color.amber.opacity(0.7) : Color.white.opacity(0.05),
+                    lineWidth: 1
+                )
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
     }
 
-    private var tempoPanel: some View {
-        HStack(spacing: 16) {
-            Text("♩= 步进（40–\(session.tempoState.referenceBpm)）")
-                .font(.labelSm)
+    /// 速度格（真值 §6.1 #1：非按钮，内嵌 −/值/＋ 三段步进器）。
+    /// 取代旧 tempoPanel 弹层：步进直接改房间 BPM，示范经 onChange(tempoState.bpm) 实时跟随。
+    private var tempoCell: some View {
+        VStack(spacing: 3) {
+            Text("速度")
+                .font(.system(size: 10))
                 .foregroundStyle(Color.textMuted)
-            Button { session.changeTempo(by: -1) } label: {
-                Image(systemName: "minus").frame(width: 36, height: 32)
-                    .background(Color.surface, in: RoundedRectangle(cornerRadius: 6))
+            HStack(spacing: 3) {
+                tempoStepButton(symbol: "minus") { session.changeTempo(by: -1) }
+                Text("\(session.tempoState.bpm)")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.textPrimary)
+                    .monospacedDigit()
+                    .frame(minWidth: 13)
+                    .minimumScaleFactor(0.7)
+                tempoStepButton(symbol: "plus") { session.changeTempo(by: 1) }
             }
-            .buttonStyle(.plain)
-            Button { session.changeTempo(by: 1) } label: {
-                Image(systemName: "plus").frame(width: 36, height: 32)
-                    .background(Color.surface, in: RoundedRectangle(cornerRadius: 6))
-            }
-            .buttonStyle(.plain)
-            Spacer()
+            Text("♩ 拍/分")
+                .font(.system(size: 8.5))
+                .foregroundStyle(Color.textMuted.opacity(0.8))
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+        .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.05), lineWidth: 1))
     }
 
-    // MARK: 播放 / 结束
+    /// 速度格内的 20pt 步进钮（真值：圆角 4、bg white/5）。
+    private func tempoStepButton(symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color.textMuted)
+                .frame(width: 20, height: 20)
+                .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 4))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// 循环格激活态：区间真实合法（loopConfig 已按总小节数钳制；无谱时谈不上循环）。
+    /// 说明：当前引擎里循环恒定开启（ScoreFollowEngine loopEnabled: true），没有独立开关，
+    /// 故以「区间是否有效」作为这一格的 amber 依据，不编造开关态。
+    private var loopActive: Bool {
+        guard totalMeasures > 0 else { return false }
+        return LoopService.isValid(
+            start: session.loopConfig.startMeasure,
+            end: session.loopConfig.endMeasure,
+            totalMeasures: totalMeasures
+        )
+    }
+
+    // MARK: 主圆钮（暂停 / 继续）+ 识别指示（S11 Stage B）
+
+    /// 56pt 琥珀圆钮（真值 §6.2，旧 64）+ 琥珀投影；「识别中」挂在右侧（right8）。
+    private var playRow: some View {
+        playButton
+            .overlay(alignment: .trailing) {
+                if isRecognizing {
+                    recognitionIndicator
+                        .padding(.trailing, 8)
+                }
+            }
+    }
 
     private var playButton: some View {
         Button {
             togglePlay()
         } label: {
             Image(systemName: playIcon)
-                .font(.system(size: 24, weight: .bold))
+                .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(Color.canvas)
-                .frame(width: 64, height: 64)
+                .frame(width: 56, height: 56)
                 .background(playDisabled ? Color.borderInput : Color.amber, in: Circle())
+                // 真值：0 8px 24px amber/40；禁用态不发光
+                .shadow(color: playDisabled ? .clear : Color.amber.opacity(0.4), radius: 12, y: 8)
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .disabled(playDisabled)
         .frame(maxWidth: .infinity)
     }
 
+    /// 图标/语义按 phase（真值 §6.2 + Stage A pause/resume）：
+    /// - idle/finished：play.fill → 起跑（含预备拍）；
+    /// - performing：pause.fill → session.pause() 并停节拍器（停表不停会话）；
+    /// - paused：play.fill → session.resume()，节拍器按房间开关原地续起（无预备拍）；
+    /// - counting：维持原 ■（停止即结算）——预备拍期间不暂停，避免卡在 onCountInFinished。
     private var playIcon: String {
-        session.phase == .performing || session.phase == .counting ? "stop.fill" : "play.fill"
+        switch session.phase {
+        case .performing: "pause.fill"
+        case .counting: "stop.fill"
+        case .idle, .paused, .finished: "play.fill"
+        }
     }
 
     private var playDisabled: Bool {
@@ -459,16 +943,52 @@ struct PracticeRoomView: View {
     }
 
     private func togglePlay() {
-        if session.phase == .idle || session.phase == .finished {
+        switch session.phase {
+        case .idle, .finished:
             metronome.onCountInFinished = { session.beginPerforming() }
             session.start(metronome: metronome, countIn: true, metronomeOn: metronomeOn)
             if metronomeOn, session.phase == .performing {
                 // 预备拍关着：这里补一次无预备拍的 start
                 metronome.start(bpm: session.tempoState.bpm, countInBars: 0)
             }
-        } else {
-            finishAndSave() // ■ 停止 = 结算
+        case .performing:
+            // Stage A：用户暂停（不是结算）。停心跳与判分，节拍器一并停；elapsedSec 不计这段。
+            session.pause()
+            metronome.stop()
+        case .paused:
+            // 继续：心跳重启，节拍器按房间开关原地续起（无预备拍，不重新计数）。
+            session.resume()
+            if metronomeOn {
+                metronome.start(bpm: session.tempoState.bpm, countInBars: 0)
+            }
+        case .counting:
+            // 预备拍期间不可暂停：维持原「停止即结算」出口，不会把会话卡死。
+            finishAndSave()
         }
+    }
+
+    /// 识别指示（真值 §6.2）：只在「真的在判分」时出现 —— performing 且 MIDI 已连接。
+    /// 暂停（.paused）/断连都不亮，不冒充"在听"。
+    private var isRecognizing: Bool {
+        session.phase == .performing && hub.isConnected
+    }
+
+    private var recognitionIndicator: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(Color.s11Recognizing)
+                .frame(width: 6, height: 6)
+                .opacity(recognitionPulse ? 0.35 : 1)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                        recognitionPulse = true
+                    }
+                }
+            Text("识别中")
+                .font(.system(size: 10))
+                .foregroundStyle(Color.textMuted)
+        }
+        .transition(.opacity)
     }
 
     private func toggleMetronome() {
@@ -489,9 +1009,9 @@ struct PracticeRoomView: View {
         demo.setTempo(session.tempoState.bpm)
     }
 
-    // MARK: 示范（B4 卡 / B7 拒绝 / B8 指示）
+    // MARK: 示范（坞内第 5 格 / B7 拒绝 / B8 指示）
 
-    /// B4：「示范」卡值 —— playing 给已播放秒 mm:ss，paused 给 ▮▮，其余 OFF。
+    /// 「示范」格值 —— playing 给已播放秒 mm:ss，paused 给 ▮▮，其余 OFF。
     private var demoCardValue: String {
         switch demo.state {
         case .playing: format(max(0, Int(demo.currentTimeSeconds)))
@@ -500,7 +1020,7 @@ struct PracticeRoomView: View {
         }
     }
 
-    /// B4：示范播放开关（与主播放钮的「开始/停止判分演奏」是两套语义，互不干预）。
+    /// 示范播放开关（与主圆钮的「开始 / 暂停·继续判分演奏」是两套语义，互不干预）。
     /// B7：练习进行中一律拒绝——只 toast、零 Alert、零打断，且示范音绝不写进正在录的 take。
     private func toggleDemo() {
         if session.phase == .performing || session.phase == .counting {
@@ -526,7 +1046,7 @@ struct PracticeRoomView: View {
         }
     }
 
-    /// B8：「示范播放中」pill —— 断连时示范仍可听，故指标压在 S11b scrim 之上；
+    /// B8：「示范播放中」pill —— 断连时示范仍可听，故指示照旧压在谱卡遮罩之上；
     /// amber 描边 + 实底保证被压暗时仍读得清；不吃点击（不挡谱面操作）。
     private var demoPill: some View {
         HStack(spacing: 6) {
@@ -543,21 +1063,15 @@ struct PracticeRoomView: View {
         .allowsHitTesting(false)
     }
 
-    private var finishButton: some View {
-        Button {
-            finishAndSave()
-        } label: {
-            Text("结束并生成报告")
-        }
-        .buttonStyle(SecondaryButtonStyle())
-        .disabled(playDisabled && session.phase != .performing)
-    }
-
     // MARK: 收尾
 
+    /// 结算入口：X → 退出确认对话框的「结束并保存」（Stage B 起它取代独立「结束并生成报告」按钮），
+    /// 以及时间到自动保存。`.paused` 也算数——finish() 自己按活跃时间结算（暂停段不计入）。
     private func finishAndSave() {
         metronome.stop()
-        guard session.phase == .performing || session.phase == .counting || session.timeUp else {
+        guard session.phase == .performing || session.phase == .counting || session.phase == .paused
+            || session.timeUp
+        else {
             dismiss()
             return
         }
@@ -654,50 +1168,6 @@ struct PracticeRoomView: View {
     }
 }
 
-// MARK: - S11b 断连覆盖态（仅压暗谱面 + 居中等待卡；顶栏由父层 disconnectedHeader 替换）
-
-struct S11bDisconnectedOverlay: View {
-    let waitingText: String
-    @State private var showDistanceHint = false
-
-    var body: some View {
-        ZStack {
-            // 压暗谱面（不销毁已录 MIDI）；不再放任何顶栏，避免与父层顶栏重叠。
-            Color.scrim.opacity(0.3).ignoresSafeArea()
-
-            // 居中等待卡：谱面隐约可见，重连/退出走父层顶栏。
-            VStack(spacing: 10) {
-                Image(systemName: "wifi.slash")
-                    .font(.system(size: 32))
-                    .foregroundStyle(Color.textMuted)
-                Text(waitingText)
-                    .font(.bodyMd)
-                    .foregroundStyle(Color.textBody)
-                Text("重连后从断点继续，不丢音符")
-                    .font(.labelSm)
-                    .foregroundStyle(Color.textMuted)
-                if showDistanceHint {
-                    Text("也可以检查：琴是否休眠 / 蓝牙距离")
-                        .font(.labelSm)
-                        .foregroundStyle(Color.textMuted)
-                }
-            }
-            .multilineTextAlignment(.center)
-            .padding(28)
-            .background(Color.canvas.opacity(0.82), in: RoundedRectangle(cornerRadius: 12))
-            .padding(.horizontal, 40)
-        }
-        .task {
-            try? await Task.sleep(for: .seconds(10))
-            showDistanceHint = true // 10 秒未重连在卡片内追加提示（不弹 Alert）
-        }
-        // 纯展示层：scrim 与卡片都不接收触摸，否则全屏 scrim 会盖掉父层顶栏
-        // 的「返回 / 重新连接」和底部控件（实测断连后整屏点不动的 P0 回归）。
-        // 底部哪些控件该禁用由父层各按钮的 disabled 状态决定，与本层无关。
-        .allowsHitTesting(false)
-    }
-}
-
 // MARK: - M6a take 保存占位（S13 全量报告 M6b；此处只展示真实统计）
 
 struct M6aTakeSavedView: View {
@@ -754,4 +1224,27 @@ struct M6aTakeSavedView: View {
 
 extension TakeSummary: Identifiable {
     public var id: Int { midiEventCount * 1_000_003 + durationSec + marks.count }
+}
+
+// MARK: - S11 真值字面色（DesignSystem token 未覆盖到的真值 hex，仅本文件使用）
+
+fileprivate extension Color {
+    /// 纸张 #FBF8F2（真值 §4）。注意 `Color.scorePaper` 是 #F5F0E6，与真值不同，故用字面量。
+    static let s11Paper = Color(red: 0xFB / 255, green: 0xF8 / 255, blue: 0xF2 / 255)
+    /// 纸卡 1pt 描边 #EBE4D5（真值 §4）
+    static let s11PaperBorder = Color(red: 0xEB / 255, green: 0xE4 / 255, blue: 0xD5 / 255)
+    /// 控件坞 1pt 描边 #3C3530（真值 §6.1）
+    static let s11DockBorder = Color(red: 0x3C / 255, green: 0x35 / 255, blue: 0x30 / 255)
+    /// 「识别中」翠绿 #34D399（真值 §6.2）
+    static let s11Recognizing = Color(red: 0x34 / 255, green: 0xD3 / 255, blue: 0x99 / 255)
+    /// S11b 卡片/控件 1pt 描边 #332D29（真值 §3/§6/§7）。
+    /// `Color.borderInput` 是 #333531，与真值微差，故用字面量。
+    static let s11CardBorder = Color(red: 0x33 / 255, green: 0x2D / 255, blue: 0x29 / 255)
+    /// S11b danger 容器底 #3A2522（真值 §3 胶囊 /80、§4 横幅实底）
+    static let s11DangerContainer = Color(red: 0x3A / 255, green: 0x25 / 255, blue: 0x22 / 255)
+    /// S11b danger 浅色文字 #E8A59E（真值 §3 胶囊字、§4 横幅图标与副行）
+    static let s11DangerText = Color(red: 0xE8 / 255, green: 0xA5 / 255, blue: 0x9E / 255)
+    // 其余 S11b 色板与 DesignSystem token 一致，直接复用：
+    // #1C1917→Color.canvas、#262220→Color.card、#C97064→Color.danger、
+    // #D4A24E→Color.amber、#F5F2ED→Color.textPrimary、#9C948B→Color.textMuted。
 }

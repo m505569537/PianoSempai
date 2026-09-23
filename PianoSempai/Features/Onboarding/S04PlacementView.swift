@@ -15,15 +15,55 @@ struct S04PlacementView: View {
         case selfReport = 0, sightread, calibration
     }
 
+    /// §4 表单行（真值五行「标签 + 值」；点行打开底部 Sheet 选择）
+    enum RowField: String, CaseIterable, Identifiable {
+        case years, books, times, duration, genres
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .years: "琴龄"
+            case .books: "现有教材"
+            case .times: "每周可练次数"
+            case .duration: "每次时长"
+            case .genres: "偏好风格"
+            }
+        }
+
+        var options: [String] {
+            switch self {
+            case .years: ["半年内", "约 1 年", "约 2 年", "3 年以上", "5 年以上"]
+            case .books: ["拜厄", "哈农", "车尔尼599", "大汤", "布格缪勒", "巴赫初级"]
+            case .times: ["1-2 次", "3 次", "4-5 次", "每天"]
+            case .duration: ["15 分钟", "30 分钟", "30 分钟（偶尔 45）", "45 分钟以上"]
+            case .genres: ["古典", "日式轻音乐", "流行", "爵士", "其他"]
+            }
+        }
+
+        /// 教材 / 曲风为多选（chips），其余单选
+        var isMultiSelect: Bool {
+            switch self {
+            case .books, .genres: true
+            default: false
+            }
+        }
+    }
+
     @State private var subStep: SubStep = .selfReport
 
-    // 自评字段（默认值按真实用户画像，S04 spec）
+    // 自评字段（默认值按真实用户画像，S04 spec §4/§9）
     @State private var yearsExperience = "约 2 年"
     @State private var books: Set<String> = ["拜厄", "哈农"]
     @State private var timesPerWeek = "3 次"
-    @State private var durationPref = "30 分钟，偶尔 45"
+    @State private var durationPref = "30 分钟（偶尔 45）"
     @State private var genres: Set<String> = ["古典", "日式轻音乐"]
-    @State private var recentPiece = ""
+    /// §5 目标保留曲库（默认空：只有用户真录入曲子才出 chip，Stitch 图上的《Summer》只是示例，不作默认值）
+    @State private var carryPieces: [String] = []
+    /// §4 表单行底部选择器（点行打开）
+    @State private var activeRow: RowField?
+    /// §5 添加曲目输入
+    @State private var showAddPiece = false
+    @State private var newPiece = ""
 
     // 视奏
     @StateObject private var session = SightReadSession()
@@ -66,11 +106,6 @@ struct S04PlacementView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             navBar
-            Text("入学评估 · \(subStep.rawValue + 1)/3")
-                .font(.labelMd)
-                .foregroundStyle(Color.textMuted)
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
 
             switch subStep {
             case .selfReport: selfReportStep
@@ -87,14 +122,16 @@ struct S04PlacementView: View {
             startedAt = Date()
         }
         .onDisappear { hub.onEvent = nil }
-        .confirmationDialog("评估只需要 3 分钟，随时可以继续", isPresented: $showExitConfirm, titleVisibility: .visible) {
+        // 时长口径按 Stitch 真值统一为「约 20 分钟」（导航行胶囊，spec §2）；旧流程「3 分钟」文案已移除，
+        // 确认弹窗只作进度承诺、不写分钟数。六个自评字段仍由 saveReport 全量落库。
+        .confirmationDialog("进度会保留，随时可以继续评估", isPresented: $showExitConfirm, titleVisibility: .visible) {
             Button("稍后评估", role: .none) { saveReport(); onLater() }
             Button("继续评估", role: .cancel) {}
         }
     }
 
     private var navBar: some View {
-        HStack {
+        HStack(spacing: 12) {
             Button {
                 if subStep == .selfReport {
                     showExitConfirm = true
@@ -107,109 +144,80 @@ struct S04PlacementView: View {
                     .foregroundStyle(Color.textBody)
                     .frame(width: 36, height: 36)
             }
-            Spacer()
+            Spacer(minLength: 8)
+            // 真值 §2 步骤指示：自评 / 三段测试 / 校准（旧 spec 的「1/3」数字标号不存在）
+            StepIndicator(current: subStep.rawValue, count: 3, titles: ["自评", "三段测试", "校准"])
+            Spacer(minLength: 8)
+            Text("约 20 分钟")
+                .font(.labelSm)
+                .foregroundStyle(Color.textMuted)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.card, in: Capsule())
+                .overlay(Capsule().strokeBorder(Color.border.opacity(0.8), lineWidth: 1))
         }
         .padding(.horizontal, 12)
         .padding(.top, 4)
     }
 
-    // MARK: 1/3 自评
+    // MARK: 1/3 自评（真值：标题区 → 表单卡 → 曲库卡 → 说明卡 → 胶囊 CTA）
 
     private var selfReportStep: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text("先聊聊你的起点")
-                    .font(.headlineLg)
+                // §3 标题区
+                Text("开始前，先了解你")
+                    .font(.system(size: 26, weight: .bold, design: .serif))
                     .foregroundStyle(Color.textPrimary)
                     .padding(.top, 8)
+                Text("评估只用于规划你的起点，不是考试，可以随时退出。")
+                    .font(.system(size: 13))
+                    .leading(21, fontSize: 13)
+                    .foregroundStyle(Color.textMuted)
+                    .padding(.top, 8)
 
-                NocturneCard {
-                    VStack(alignment: .leading, spacing: 0) {
-                        formRow("弹琴多久了？") {
-                            Menu {
-                                ForEach(["半年内", "约 1 年", "约 2 年", "3 年以上", "5 年以上"], id: \.self) { option in
-                                    Button(option) { yearsExperience = option }
-                                }
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Text(yearsExperience).font(.bodyMd).foregroundStyle(Color.textBody)
-                                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 11)).foregroundStyle(Color.textMuted)
-                                }
-                            }
-                        }
-                        divider
-                        formRow("每周练几次？") {
-                            Menu {
-                                ForEach(["1-2 次", "3 次", "4-5 次", "每天"], id: \.self) { option in
-                                    Button(option) { timesPerWeek = option }
-                                }
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Text(timesPerWeek).font(.bodyMd).foregroundStyle(Color.textBody)
-                                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 11)).foregroundStyle(Color.textMuted)
-                                }
-                            }
-                        }
-                        divider
-                        formRow("每次大约多久？") {
-                            Menu {
-                                ForEach(["15 分钟", "30 分钟", "30 分钟，偶尔 45", "45 分钟以上"], id: \.self) { option in
-                                    Button(option) { durationPref = option }
-                                }
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Text(durationPref).font(.bodyMd).foregroundStyle(Color.textBody)
-                                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 11)).foregroundStyle(Color.textMuted)
-                                }
-                            }
-                        }
-                    }
+                // §4 表单分组卡（5 行均有默认值，不阻塞继续）
+                selfReportFormCard
+                    .padding(.top, 20)
+
+                // §5 目标保留曲库卡
+                carryPiecesCard
+                    .padding(.top, 16)
+
+                // §6 说明卡
+                nextStepCard
+                    .padding(.top, 16)
+
+                // §7 底部操作：全宽胶囊琥珀 CTA + 居中幽灵链接
+                Button {
+                    saveReport()
+                    subStep = .sightread
+                } label: {
+                    Text("开始三段测试")
                 }
+                .buttonStyle(PrimaryButtonStyle(cornerRadius: 25))
                 .padding(.top, 20)
 
-                chipGroupCard(
-                    title: "正在用的教材（可多选）",
-                    options: ["拜厄", "哈农", "车尔尼599", "大汤", "布格缪勒", "巴赫初级"],
-                    selection: $books
-                )
-
-                chipGroupCard(
-                    title: "喜欢的曲风？",
-                    options: ["古典", "日式轻音乐", "流行", "爵士", "其他"],
-                    selection: $genres
-                )
-
-                NocturneCard {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("最近在弹的曲子（选填）")
-                            .font(.bodyMd)
-                            .foregroundStyle(Color.textPrimary)
-                        TextField("如：久石让《Summer》", text: $recentPiece)
-                            .font(.bodyMd)
-                            .foregroundStyle(Color.textPrimary)
-                            .padding(10)
-                            .background(Color.card, in: RoundedRectangle(cornerRadius: 6))
-                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.borderInput, lineWidth: 1))
-                    }
-                }
-
-                HStack(spacing: 12) {
-                    Button("稍后评估") { showExitConfirm = true }
-                        .buttonStyle(GhostButtonStyle())
-                        .frame(maxWidth: .infinity)
-                    Button {
-                        saveReport()
-                        subStep = .sightread
-                    } label: {
-                        Text("开始三段测试")
-                    }
-                    .buttonStyle(PrimaryButtonStyle(cornerRadius: 8))
-                    .frame(maxWidth: .infinity)
-                }
-                .padding(.top, 20)
-                .padding(.bottom, 24)
+                // 幽灵链接居中（GhostButtonStyle 自带上下 12pt，即真值 mt 12）
+                Button("稍后评估，先随便看看") { showExitConfirm = true }
+                    .buttonStyle(GhostButtonStyle())
             }
             .padding(.horizontal, 20)
+            .padding(.bottom, 24)
+        }
+        .sheet(item: $activeRow) { field in
+            rowPickerSheet(field)
+        }
+        .alert("添加曲目", isPresented: $showAddPiece) {
+            TextField("如：久石让《Summer》", text: $newPiece)
+            Button("添加") {
+                let piece = newPiece.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !piece.isEmpty, !carryPieces.contains(piece) {
+                    carryPieces.append(piece)
+                }
+                newPiece = ""
+            }
+            Button("取消", role: .cancel) { newPiece = "" }
         }
     }
 
@@ -217,41 +225,249 @@ struct S04PlacementView: View {
         Rectangle().fill(Color.border).frame(height: 1)
     }
 
-    private func formRow(_ label: String, @ViewBuilder value: () -> some View) -> some View {
-        HStack {
-            Text(label)
-                .font(.bodyMd)
-                .foregroundStyle(Color.textPrimary)
-            Spacer()
-            value()
+    /// §4 表单分组卡：圆角 16，行间 1pt 发丝线
+    private var selfReportFormCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            formValueRow(.years)
+            divider
+            formValueRow(.books)
+            divider
+            formValueRow(.times)
+            divider
+            formValueRow(.duration)
+            divider
+            formValueRow(.genres)
         }
-        .frame(minHeight: 52)
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.border, lineWidth: 1))
     }
 
-    private func chipGroupCard(title: String, options: [String], selection: Binding<Set<String>>) -> some View {
-        NocturneCard {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(title)
+    /// §4 表单行：左标签 + 琥珀右值 + chevron；整行可点，打开底部选择 Sheet
+    private func formValueRow(_ field: RowField) -> some View {
+        Button { activeRow = field } label: {
+            HStack {
+                Text(field.title)
                     .font(.bodyMd)
                     .foregroundStyle(Color.textPrimary)
-                FlowChips(
-                    options: options,
-                    isSelected: { selection.wrappedValue.contains($0) },
-                    toggle: { selection.wrappedValue.formSymmetricDifference([$0]) }
-                )
+                Spacer()
+                HStack(spacing: 6) {
+                    Text(valueLabel(field))
+                        .font(.bodyMd)
+                        .foregroundStyle(Color.amber)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Color.textMuted)
+                }
+            }
+            .frame(minHeight: 52)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// §4 右值渲染（多选按选项序拼接，避免 Set 乱序）
+    private func valueLabel(_ field: RowField) -> String {
+        switch field {
+        case .years: return yearsExperience
+        case .times: return timesPerWeek
+        case .duration: return durationPref
+        case .books:
+            let picked = RowField.books.options.filter { books.contains($0) }
+            return picked.isEmpty ? "未选择" : picked.joined(separator: " · ")
+        case .genres:
+            let picked = RowField.genres.options.filter { genres.contains($0) }
+            return picked.isEmpty ? "未选择" : picked.joined(separator: " · ")
+        }
+    }
+
+    /// §4 点行打开的底部 Sheet：单选即点即走，多选 chips + 完成
+    private func rowPickerSheet(_ field: RowField) -> some View {
+        NavigationStack {
+            Group {
+                if field.isMultiSelect {
+                    ScrollView {
+                        FlowChips(
+                            options: field.options,
+                            isSelected: { isSelected(field, $0) },
+                            toggle: { toggle(field, $0) }
+                        )
+                        .padding(20)
+                    }
+                } else {
+                    List {
+                        ForEach(field.options, id: \.self) { option in
+                            Button {
+                                select(field, option)
+                                activeRow = nil
+                            } label: {
+                                HStack {
+                                    Text(option)
+                                        .font(.bodyMd)
+                                        .foregroundStyle(Color.textPrimary)
+                                    Spacer()
+                                    if isSelected(field, option) {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundStyle(Color.amber)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .listRowBackground(Color.card)
+                            .listRowSeparatorTint(Color.border)
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                }
+            }
+            .background(Color.canvas)
+            .navigationTitle(field.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完成") { activeRow = nil }
+                        .font(.titleMd)
+                        .foregroundStyle(Color.amber)
+                }
             }
         }
-        .padding(.top, 12)
+        .preferredColorScheme(.dark)
+        .presentationDetents([.medium])
+    }
+
+    private func isSelected(_ field: RowField, _ option: String) -> Bool {
+        switch field {
+        case .books: books.contains(option)
+        case .genres: genres.contains(option)
+        default: false
+        }
+    }
+
+    private func toggle(_ field: RowField, _ option: String) {
+        switch field {
+        case .books: books.formSymmetricDifference([option])
+        case .genres: genres.formSymmetricDifference([option])
+        default: break
+        }
+    }
+
+    private func select(_ field: RowField, _ option: String) {
+        switch field {
+        case .years: yearsExperience = option
+        case .times: timesPerWeek = option
+        case .duration: durationPref = option
+        case .books, .genres: break
+        }
+    }
+
+    /// §5 目标保留曲库卡：圆角 16，chips wrap + 虚线「添加曲目」
+    private var carryPiecesCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                Image(systemName: "music.note")
+                    .font(.system(size: 17))
+                    .foregroundStyle(Color.amber)
+                Text("我要随身携带的曲子")
+                    .font(.bodyMd)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.textPrimary)
+                Spacer()
+                Text("目标保留曲库")
+                    .font(.labelSm)
+                    .foregroundStyle(Color.textMuted)
+            }
+            FlowLayout(spacing: 8) {
+                ForEach(carryPieces, id: \.self) { piece in
+                    carryPieceChip(piece)
+                }
+                addPieceButton
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.border, lineWidth: 1))
+    }
+
+    /// §5 已选曲目 chip：琥珀 10% 底 + 70% 描边，右侧 16×16 移除键
+    private func carryPieceChip(_ piece: String) -> some View {
+        HStack(spacing: 6) {
+            Text(piece)
+                .font(.bodyMd)
+                .fontWeight(.medium)
+                .foregroundStyle(Color.amber)
+            Button {
+                carryPieces.removeAll { $0 == piece }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Color.amber)
+                    .frame(width: 16, height: 16)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 8)
+        .padding(.vertical, 6)
+        .background(Color.amber.opacity(0.1), in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.amber.opacity(0.7), lineWidth: 1))
+    }
+
+    /// §5 添加按钮：全圆角 + 虚线描边
+    private var addPieceButton: some View {
+        Button { showAddPiece = true } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "plus")
+                    .font(.system(size: 12, weight: .medium))
+                Text("添加曲目")
+                    .font(.bodyMd)
+            }
+            .foregroundStyle(Color.textMuted)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.card.opacity(0.5), in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.border, style: StrokeStyle(lineWidth: 1, dash: [4])))
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// §6 说明卡：card 60% 底 + 圆角 12，info 图标顶对齐
+    private var nextStepCard: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "info.circle")
+                .font(.system(size: 19))
+                .foregroundStyle(Color.amber)
+            (
+                Text("下一步：")
+                    .font(.bodySm)
+                    .fontWeight(.medium)
+                    .foregroundStyle(Color.textPrimary)
+                + Text("你将完成 3 个小测试——最拿手的一首、视奏陌生片段、技术探针（音阶与哈农）。")
+                    .font(.bodySm)
+                    .foregroundStyle(Color.textMuted)
+            )
+            .leading(20, fontSize: 12)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.card.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border.opacity(0.8), lineWidth: 1))
     }
 
     private func saveReport() {
         let report = PlacementSelfReport()
         report.yearsExperience = yearsExperience
-        report.books = Array(books)
+        // 按选项序落库，避免 Set 无序导致每次顺序不同
+        report.books = RowField.books.options.filter { books.contains($0) }
         report.timesPerWeek = timesPerWeek
         report.durationPref = durationPref
-        report.genres = Array(genres)
-        report.recentPiece = recentPiece
+        report.genres = RowField.genres.options.filter { genres.contains($0) }
+        // §5 曲库 chips 合并落 recentPiece（模型暂无列表字段，P1 不改 schema）
+        report.recentPiece = carryPieces.joined(separator: "、")
         context.insert(report)
     }
 

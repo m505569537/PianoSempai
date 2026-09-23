@@ -42,12 +42,30 @@ enum PracticeRoute: Identifiable {
     }
 }
 
+/// S09 卡片（真值 §3.3）：bg `#262220`、1pt 边 `#332D29`、圆角 **16**、内边距 16、轻投影。
+/// 共享 `NocturneCard` 固定 8pt 圆角且被 S07/S08/S13 等多屏复用，不为本屏改全局组件，
+/// 故在本文件内加一个 16pt 变体。`Color.card` / `Color.border` 正是这两个 hex（见 Color+Nocturne）。
+fileprivate struct S09Card<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.card, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.border, lineWidth: 1))
+            .shadow(color: Color.black.opacity(0.2), radius: 6, y: 2)
+    }
+}
+
 struct PieceDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query private var errorMarks: [ScoreErrorMark]
     @Query private var allPieces: [Piece]
     @Query private var takes: [Take]
+    /// 判分结果行（S13 同源查询）：最近 take 的「分值」只从这里取真值，不现算
+    @Query(sort: \TakeAnalysis.analyzedAt, order: .reverse) private var analyses: [TakeAnalysis]
 
     /// 内置教材条目（与导入 Piece 二选一）
     var entry: CatalogEntry?
@@ -141,6 +159,28 @@ struct PieceDetailView: View {
         return takes.filter { $0.pieceId == id }.sorted { $0.startedAt > $1.startedAt }
     }
 
+    /// 最近 take 卡展示的 3 条（真实列表的前 3 条）
+    private var recentTakeList: [Take] { Array(recentTakes.prefix(3)) }
+
+    /// 该 take 的判分行（与 S13 TakeReportView 同一查询口径）：
+    /// `take.analysisId` 回填值优先；旧 take 没回填时回落到 takeId + 当前引擎版本。
+    /// 没有分析行 = 还没判分（或引擎版本不同），调用方显式显示「—」，禁止编分（红线 1）。
+    private func analysis(for take: Take) -> TakeAnalysis? {
+        if let id = take.analysisId, let row = analyses.first(where: { $0.entityId == id }) { return row }
+        return analyses.first { $0.takeId == take.entityId && $0.engineVersion == ScoringOrchestrator.engineVersion }
+    }
+
+    /// 最近 take 的「分值」文案：真实 weakTotal；分析缺失或 weakTotal 为 nil 都显示「—」
+    private func takeScoreText(_ take: Take) -> String {
+        guard let weak = analysis(for: take)?.weakTotal else { return "—" }
+        return "\(weak)"
+    }
+
+    /// 是否有真实分值（决定用琥珀强调色还是 muted 的「—」）
+    private func hasTakeScore(_ take: Take) -> Bool {
+        analysis(for: take)?.weakTotal != nil
+    }
+
     /// 分级阈值（§9：入门/进阶/高级；内置教材与导入曲按 book 映射）
     private var standards: ScoringStandards {
         ScoringStandards.standards(forBook: entry?.book ?? piece?.book ?? "")
@@ -172,14 +212,17 @@ struct PieceDetailView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    header
+                    // 浮动返回键占位（44×44 热区）：hero 卡从导航行下方开始，不被返回键压住
+                    Color.clear.frame(height: 44)
+                    heroCard.padding(.top, 4)
                     sampleNoteCard.padding(.top, 12)
-                    passStandardCard.padding(.top, 16)
+                    passStandardCard.padding(.top, 12)
                     noScoreCard.padding(.top, 12)
                     rangeCard.padding(.top, 12)
                     recentTakesCard.padding(.top, 12)
 
-                    // P2 占位：完整判分（TakeAnalysis.measureHeat）落地后提供
+                    // 错误热点练习：TakeAnalysis.hotspotMeasures/measureHeat 已真实落库，
+                    // 但「预选热点小节进练习室」这条路还没接（练习室无热点入参）→ 保持禁用，不放假入口
                     Button {
                     } label: {
                         HStack {
@@ -255,28 +298,89 @@ struct PieceDetailView: View {
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top) {
-                Text(title)
-                    .font(.headlineLg)
-                    .foregroundStyle(Color.textPrimary)
-                Spacer()
-                Text(statusText)
-                    .font(.labelSm)
-                    .foregroundStyle(Color.amber)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .overlay(Capsule().strokeBorder(Color.amber.opacity(0.4), lineWidth: 1))
+    /// Hero 卡（真值 §3.4）：衬线标题 + 状态 pill + meta 区（参考速度、疑似谱错）。
+    /// meta 只列真实数据：参考速度来自 entry/piece，疑似谱错来自 ScoreErrorMark 聚合。
+    /// 真值里的「当前进度 17–24 小节」没有建模来源（选段起止是用户选择、不是进度）→ 不渲染。
+    private var heroCard: some View {
+        S09Card {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top, spacing: 8) {
+                    Text(title)
+                        .font(.system(size: 23, weight: .bold, design: .serif))
+                        .tracking(-0.3)
+                        .foregroundStyle(Color.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
+                    statusPill
+                }
+                Text(heroSubtitle)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.textMuted)
+                    .padding(.top, 6)
+                heroMeta.padding(.top, 14)
             }
-            .padding(.leading, 44)
-            Text("参考速度 ♩=\(referenceTempo) \(errorLine)")
-                .font(.bodySm)
-                .foregroundStyle(Color.textMuted)
-                .monospacedDigit()
-                .padding(.leading, 44)
         }
-        .padding(.top, 12)
+    }
+
+    /// 曲目来源副标题（真实字段：内置教材 book / 导入曲 book）
+    private var heroSubtitle: String {
+        if let entry { return "训练教材 · \(entry.book)" }
+        guard let piece else { return "" }
+        return piece.book.isEmpty ? "曲库曲目" : "曲库曲目 · \(piece.book)"
+    }
+
+    /// 状态 pill 三态配色。真值 §3.4 只给了「练习中」= 实琥珀底 + #1C1917 字；
+    /// 「已拿下」来自 piece.status（CourseEngine 真实写手）→ 琥珀描边态；
+    /// 「未开始」→ 中性态。不引入真值里没有来源的绿色「已拿下」chip。
+    private var statusPillStyle: (fill: Color, border: Color, text: Color) {
+        switch statusText {
+        case "练习中": return (Color.amber, .clear, Color.canvas)
+        case "已拿下": return (.clear, Color.amber.opacity(0.45), Color.amber)
+        default: return (Color.surface, Color.border, Color.textMuted)
+        }
+    }
+
+    /// 状态 pill（真值 §3.4）：px8/py2、全圆角、11pt medium、tracking-wider
+    private var statusPill: some View {
+        let style = statusPillStyle
+        return Text(statusText)
+            .font(.system(size: 11, weight: .medium))
+            .tracking(0.5)
+            .foregroundStyle(style.text)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(style.fill))
+            .overlay(Capsule().strokeBorder(style.border, lineWidth: 1))
+    }
+
+    /// Hero meta 区：顶部分隔线 + 参考速度 + 疑似谱错（都是真实聚合值）
+    private var heroMeta: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Color.border.opacity(0.7)
+                .frame(height: 1)
+            HStack(spacing: 6) {
+                Image(systemName: "metronome")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.textMuted)
+                Text("参考速度")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.textMuted)
+                Text("♩=\(referenceTempo)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.textPrimary)
+                    .monospacedDigit()
+            }
+            if !errorLine.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "flag")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.amber)
+                    Text(errorLine)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Color.amber.opacity(0.9))
+                }
+            }
+        }
     }
 
     /// 示例曲标注（演示用途，不冒充教材条目，SPEC §10）
@@ -297,42 +401,45 @@ struct PieceDetailView: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(12)
+            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.amber.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.amber.opacity(0.35), lineWidth: 1))
+            .background(Color.amber.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.amber.opacity(0.35), lineWidth: 1))
         }
     }
 
-    /// 疑似谱错计数（真实 ScoreErrorMark 聚合；无标记不显示）
+    /// 疑似谱错计数（真实 ScoreErrorMark 聚合；无标记返回空串，meta 区整行不渲染）
     private var errorLine: String {
         let marks = errorMarks.filter { $0.scoreName == scoreName }
         guard !marks.isEmpty else { return "" }
         let total = marks.reduce(0) { $0 + $1.occurrenceCount }
-        return "· 疑似谱面错误 \(total) 处 ⚠"
+        return "疑似谱面错误 \(total) 处"
     }
 
     /// 无谱诚实态（M5b）：内置教材条目没有谱文件时明确说明，不拿样例谱冒充
     @ViewBuilder
     private var noScoreCard: some View {
         if case .unavailable = availability {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("暂无参考谱")
-                    .font(.labelMd)
-                    .foregroundStyle(Color.textBody)
-                Text("开放后可判分过关。现在可以自由弹奏、录制（不判分），或用曲库里的「示例曲」体验完整判分。")
-                    .font(.labelSm)
-                    .foregroundStyle(Color.textMuted)
+            S09Card {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("暂无参考谱")
+                        .font(.labelMd)
+                        .foregroundStyle(Color.textBody)
+                    Text("开放后可判分过关。现在可以自由弹奏、录制（不判分），或用曲库里的「示例曲」体验完整判分。")
+                        .font(.labelSm)
+                        .foregroundStyle(Color.textMuted)
+                }
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.surface, in: RoundedRectangle(cornerRadius: 8))
         }
     }
 
     /// 过关标准卡（阈值来自 ScoringStandards 真值，S09/S13 与 gate 同源）
+    // TODO: backlog — technical-goal metadata / OP tag / measure-heat grid
+    // 真值 §3.5「技术目标」卡（音阶跑动/右手转指/均匀力度 chips + OP.101 tag）与
+    // §3.6「段落与循环」八格已练/热点格：本屏均无建模来源（Piece/CatalogEntry 没有这些字段），
+    // 不编造占位；过关标准暂时留在这张卡里（阈值是真的）。等元数据建模后再按真值拆卡。
     private var passStandardCard: some View {
-        NocturneCard {
+        S09Card {
             VStack(alignment: .leading, spacing: 10) {
                 Text("过关标准（硬指标，连续 2 遍达标）")
                     .font(.titleMd)
@@ -365,7 +472,7 @@ struct PieceDetailView: View {
 
     /// 选段卡：起/止步进器（越界钳制；长按连改走系统重复手势——P1 单击步进）
     private var rangeCard: some View {
-        NocturneCard {
+        S09Card {
             VStack(alignment: .leading, spacing: 12) {
                 Text("选段")
                     .font(.titleMd)
@@ -417,36 +524,71 @@ struct PieceDetailView: View {
         }
     }
 
-    /// 最近 take（≤3；真实 take.pieceId 关联，没有就诚实空态）
+    /// 最近 take（≤3；真实 take.pieceId 关联，没有就诚实空态）。
+    /// 分值走真实 TakeAnalysis.weakTotal（与 S13 同一查询口径）；没判分就显示「—」。
     private var recentTakesCard: some View {
-        NocturneCard {
-            VStack(alignment: .leading, spacing: 10) {
+        S09Card {
+            VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text("最近 Take")
-                        .font(.titleMd)
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.textPrimary)
                     Spacer()
+                    if !recentTakes.isEmpty {
+                        Text("共 \(recentTakes.count) 次记录")
+                            .font(.labelSm)
+                            .foregroundStyle(Color.textMuted)
+                            .monospacedDigit()
+                    }
                 }
+                .padding(.bottom, 8)
                 if recentTakes.isEmpty {
                     // P1/P2 都如实显示：没练过就是没练过，不借假数据占位（红线 2）
                     Text("还没有 take。练过之后，这里显示最近 3 次。")
                         .font(.bodySm)
                         .foregroundStyle(Color.textMuted)
+                        .padding(.top, 4)
                 } else {
-                    ForEach(recentTakes.prefix(3), id: \.entityId) { take in
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(take.startedAt.formatted(date: .abbreviated, time: .shortened))
-                                .font(.labelMd)
-                                .foregroundStyle(Color.textBody)
-                            Spacer()
-                            Text("♩=\(take.tempoAvg) · \(take.durationSec / 60)分\(take.durationSec % 60)秒")
-                                .font(.labelSm)
-                                .foregroundStyle(Color.textMuted)
-                                .monospacedDigit()
-                        }
+                    // 行路由：S13 Take 报告在 S08/S20/S19 已存在，但本页尚未接路由
+                    // （单一路由收口，避免同一视图叠多个 sheet）。先只读展示，不放假目的地。
+                    ForEach(recentTakeList, id: \.entityId) { take in
+                        recentTakeRow(take, isFirst: take.entityId == recentTakeList.first?.entityId)
                     }
                 }
             }
+        }
+    }
+
+    /// 真值 §3.7 行：左时间 13pt + 副行速度/时长；右分值 15pt 琥珀等宽 + 「分值」标注
+    private func recentTakeRow(_ take: Take, isFirst: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if !isFirst {
+                Color.border.opacity(0.6)
+                    .frame(height: 1)
+            }
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(take.startedAt.formatted(date: .abbreviated, time: .shortened))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.textPrimary)
+                    Text("♩=\(take.tempoAvg) · \(take.durationSec / 60)分\(take.durationSec % 60)秒")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Color.textMuted)
+                        .monospacedDigit()
+                }
+                Spacer(minLength: 12)
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(takeScoreText(take))
+                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(hasTakeScore(take) ? Color.amber : Color.textMuted)
+                    Text("分值")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.textMuted)
+                        .padding(.top, 1)
+                }
+            }
+            .frame(minHeight: 44)
+            .padding(.vertical, 10)
         }
     }
 }

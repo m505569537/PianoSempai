@@ -12,11 +12,12 @@ enum NoteKind: String, CaseIterable {
     case weeklyReport
     case issue
 
-    /// 卡片类型标签（S19 spec 视觉规范：课后=琥珀 / 周报=蓝灰 / 问题=danger 描边）
+    /// 卡片类型标签（S19 真值 code.html §4：课后=琥珀 / Neko 周报=暖金 / 问题=红）。
+    /// 纯展示：只被笔记卡 badge 与编辑页类型 chip 读取，不参与筛选/判等。
     var cardLabel: String {
         switch self {
         case .manual: "课后"
-        case .weeklyReport: "周报"
+        case .weeklyReport: "Neko 周报"
         case .issue: "问题"
         }
     }

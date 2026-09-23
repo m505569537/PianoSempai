@@ -8,6 +8,9 @@ import Foundation
 // M5b：P2 六维/热力/置信/过关进度改为真实渲染（TakeReportPresentation）。
 // 旧占位名单（"六维雷达：分析将在 P2 提供"等）已删除——没有数据就显式说没有，
 // 不允许留一句假装会有的文案（SPEC §11）。
+//
+// S13 真值对齐：纯加法新增 rhythmPoints（逐音节奏偏差，卡③ 折线）与
+// ProblemNote.playedPitchText（卡② 明细「实际弹 X」）。不改判分、不改语义。
 
 struct P1TakeAnalysis: Equatable {
     // 真实统计维度
@@ -95,6 +98,39 @@ struct ProblemNote: Equatable, Hashable {
     let kind: Kind
     /// 参考音高（错音/漏音）或实际弹奏音高（多弹）
     let pitchText: String
+    /// 错音的实测音名（仅 wrongPitch 有；其余 nil）——S13 明细「实际弹 X」用，不编
+    let playedPitchText: String?
+
+    /// 显式 init（`playedPitchText` 带默认值：旧调用点不传也照常编译，纯加法）
+    init(measure: Int?, beatInMeasure: Double?, kind: Kind, pitchText: String, playedPitchText: String? = nil) {
+        self.measure = measure
+        self.beatInMeasure = beatInMeasure
+        self.kind = kind
+        self.pitchText = pitchText
+        self.playedPitchText = playedPitchText
+    }
+
+    /// 明细行右侧文案（真实字段拼装；缺实测音名时不编「实际弹」）
+    var detailText: String {
+        switch kind {
+        case .wrongPitch:
+            if let played = playedPitchText { return "应弹 \(pitchText)，实际 \(played)" }
+            return "应弹 \(pitchText)"
+        case .missing:
+            return "漏 1 音"
+        case .extra:
+            return "多弹 \(pitchText)"
+        }
+    }
+}
+
+/// 逐音节奏偏差点（S13 卡③ 折线数据；只收 alignmentJSON 里 deltaMs 非 nil 的点）。
+/// 按对齐结果出现序（同一 onset 顺序），不重排、不插值、不补点。
+struct RhythmPoint: Equatable {
+    /// 1-based 小节（多弹音/无法定位 → nil；折线仍按出现序画，不编小节）
+    let measure: Int?
+    /// 实测 onset 相对节奏图预测 onset 的偏差，正=拖拍/负=抢拍
+    let deltaMs: Double
 }
 
 /// 小节热度（1-based 展示值 + 0...1 热度）
@@ -128,6 +164,8 @@ struct P2TakeReport: Equatable {
     /// 节奏偏差中位（ms）+ 抢/拖倾向标签
     let rhythmMedianMs: Double
     let rhythmTendency: String
+    /// 逐音节奏偏差（S13 卡③ 折线；deltaMs 非 nil 的点，按出现序）
+    let rhythmPoints: [RhythmPoint]
     let tempoTargetHit: Bool
     /// 实测平均速度（BPM；0 = 速度维算不出）
     let avgBPM: Double
@@ -164,7 +202,9 @@ enum TakeReportPresentation {
                 state: .noAnalysis, reasons: [], canEvaluate: false, passesHardMetrics: false,
                 confidence: 0, dimensions: [], weakTotal: nil,
                 wrongCount: 0, missingCount: 0, extraCount: 0,
-                rhythmMedianMs: 0, rhythmTendency: "数据不足", tempoTargetHit: false, avgBPM: 0,
+                rhythmMedianMs: 0, rhythmTendency: "数据不足",
+                rhythmPoints: [],
+                tempoTargetHit: false, avgBPM: 0,
                 hotspotMeasures: [], measureHeat: [], problems: [],
                 passMetrics: [], passGaps: [], consecutivePasses: 0,
                 requiredConsecutivePasses: requiredConsecutivePasses
@@ -185,6 +225,7 @@ enum TakeReportPresentation {
                 wrongCount: analysis.wrongCount, missingCount: analysis.missingCount,
                 extraCount: analysis.extraCount,
                 rhythmMedianMs: analysis.rhythmMedianMs, rhythmTendency: "数据不足",
+                rhythmPoints: decodeRhythmPoints(analysis.alignmentJSON),
                 tempoTargetHit: analysis.tempoTargetHit, avgBPM: analysis.avgBPM,
                 hotspotMeasures: hotspots, measureHeat: heat, problems: problems,
                 passMetrics: [], passGaps: [], consecutivePasses: 0,
@@ -249,6 +290,7 @@ enum TakeReportPresentation {
                 windowMs: standards.tolerance.timingWindowMs,
                 measurable: analysis.rhythmScore != nil
             ),
+            rhythmPoints: decodeRhythmPoints(analysis.alignmentJSON),
             tempoTargetHit: analysis.tempoTargetHit,
             avgBPM: analysis.avgBPM,
             hotspotMeasures: hotspots,
@@ -290,7 +332,24 @@ enum TakeReportPresentation {
                 measure: note.refMeasureIndex.map { $0 + 1 },
                 beatInMeasure: note.refBeatInMeasure,
                 kind: kind,
-                pitchText: pitchText
+                pitchText: pitchText,
+                playedPitchText: kind == .wrongPitch
+                    ? note.playedPitch.map { SightReadSession.noteName($0) }
+                    : nil
+            )
+        }
+    }
+
+    /// 逐音节奏偏差（alignmentJSON 派生缓存；解析失败 = 空，不编点）。
+    /// 只收 deltaMs 非 nil 的点，顺序与对齐结果一致（同一 onset 顺序）。
+    static func decodeRhythmPoints(_ json: String) -> [RhythmPoint] {
+        guard let data = json.data(using: .utf8),
+              let aligned = try? JSONDecoder().decode([AlignedNote].self, from: data) else { return [] }
+        return aligned.compactMap { note in
+            guard let delta = note.deltaMs else { return nil }
+            return RhythmPoint(
+                measure: note.refMeasureIndex.map { $0 + 1 },
+                deltaMs: delta
             )
         }
     }

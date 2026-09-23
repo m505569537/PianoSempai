@@ -315,16 +315,179 @@ struct MonthlyReportView: View {
 
     private func rhythmCard(_ snapshot: MonthlyReportSnapshot) -> some View {
         let rhythm = MonthlyReportText.rhythm(snapshot)
+        // 周节奏点：nil 周（该周无分析）不出点——不补点、不插值（红线 1）
+        let points = rhythmPoints(snapshot.weeklyRhythmScores)
         return NocturneCard {
             VStack(alignment: .leading, spacing: 8) {
-                Text("节奏稳定度")
-                    .font(.titleMd)
-                    .foregroundStyle(Color.textPrimary)
-                Text(MonthlyReportText.rhythmText(rhythm))
-                    .font(.labelMono(15))
-                    .foregroundStyle(rhythm == .insufficient ? Color.textMuted : Color.amber)
-                    .monospacedDigit()
+                HStack(spacing: 8) {
+                    Text("节奏稳定度 月度趋势")
+                        .font(.titleMd)
+                        .foregroundStyle(Color.textPrimary)
+                    Spacer(minLength: 4)
+                    // 差值徽章只在真能画出趋势（≥2 个真实点）时才显
+                    if points.count >= 2, let first = points.first, let last = points.last {
+                        rhythmDeltaBadge(first: first.value, last: last.value)
+                    }
+                }
+                if points.count >= 2 {
+                    rhythmTrendChart(points: points, weekCount: snapshot.weeklyRhythmScores.count)
+                } else {
+                    // 数据不足：沿用 .insufficient 口径（不画图、不编差值）
+                    Text(MonthlyReportText.rhythmText(rhythm))
+                        .font(.labelMono(15))
+                        .foregroundStyle(rhythm == .insufficient ? Color.textMuted : Color.amber)
+                        .monospacedDigit()
+                }
             }
+        }
+    }
+
+    /// 首末周分差徽章：「52 → 71 」+ 带符号差值（>=0 success，<0 danger，不强行绿色）
+    private func rhythmDeltaBadge(first: Int, last: Int) -> some View {
+        let delta = last - first
+        return HStack(spacing: 4) {
+            Text("\(first) → \(last) ")
+                .font(.labelMono(12))
+                .foregroundStyle(Color.amber)
+                .monospacedDigit()
+            Text(MonthlyReportText.signed(delta))
+                .font(.labelMono(11, weight: .semibold))
+                .foregroundStyle(delta >= 0 ? Color.success : Color.danger)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 2)
+        .background(Color.amber.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
+        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.amber.opacity(0.25), lineWidth: 1))
+    }
+
+    /// 月度趋势图：点全部来自 weeklyRhythmScores，有几周画几周（nil 周在 X 轴留空位）。
+    private func rhythmTrendChart(points: [RhythmPoint], weekCount: Int) -> some View {
+        VStack(spacing: 0) {
+            GeometryReader { proxy in
+                let coordinates = rhythmCoordinates(points: points, weekCount: weekCount, size: proxy.size)
+                ZStack {
+                    // 三条横向参考线（竖向三等分）：只作视觉网格，不标刻度数字（避免假刻度）
+                    Path { path in
+                        let height = proxy.size.height
+                        for y in [height / 6, height / 2, height * 5 / 6] {
+                            path.move(to: CGPoint(x: 0, y: y))
+                            path.addLine(to: CGPoint(x: proxy.size.width, y: y))
+                        }
+                    }
+                    .stroke(Color.border, style: StrokeStyle(lineWidth: 0.8, dash: [3, 3]))
+
+                    // 面积：折线顶点闭合到底部，琥珀纵向渐变（0.25 → 0）
+                    Path { path in
+                        guard let first = coordinates.first, let last = coordinates.last else { return }
+                        path.move(to: CGPoint(x: first.x, y: proxy.size.height))
+                        path.addLines(coordinates)
+                        path.addLine(to: CGPoint(x: last.x, y: proxy.size.height))
+                        path.closeSubpath()
+                    }
+                    .fill(LinearGradient(
+                        colors: [Color.amber.opacity(0.25), Color.amber.opacity(0)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ))
+
+                    // 折线：2.5px 琥珀，round 连接/端点
+                    Path { path in
+                        guard let first = coordinates.first else { return }
+                        path.move(to: first)
+                        path.addLines(coordinates)
+                    }
+                    .stroke(Color.amber, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+
+                    // 周点：非末周 r3.5（surface 填充 + 2px 琥珀描边）；末周 r4.5（琥珀填充 + 1.5px card 描边）
+                    ForEach(Array(coordinates.enumerated()), id: \.offset) { index, point in
+                        let isLast = index == coordinates.count - 1
+                        Circle()
+                            .fill(isLast ? Color.amber : Color.surface)
+                            .overlay(Circle().stroke(isLast ? Color.card : Color.amber, lineWidth: isLast ? 1.5 : 2))
+                            .frame(width: isLast ? 9 : 7, height: isLast ? 9 : 7)
+                            .position(point)
+                    }
+
+                    // 数值标签：首周放点下，其余放点上（避免压线）；末周琥珀 semibold，其余 muted
+                    ForEach(Array(points.enumerated()), id: \.offset) { index, point in
+                        let isLast = index == points.count - 1
+                        Text("\(point.value)")
+                            .font(.labelMono(isLast ? 10 : 9, weight: isLast ? .semibold : .regular))
+                            .foregroundStyle(isLast ? Color.amber : Color.textMuted)
+                            .monospacedDigit()
+                            .position(
+                                x: coordinates[index].x,
+                                y: coordinates[index].y + (index == 0 ? 12 : -12)
+                            )
+                    }
+                }
+            }
+            .frame(height: 104)
+
+            rhythmWeekAxis(weekCount: weekCount)
+        }
+        .padding(10)
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.border.opacity(0.6), lineWidth: 1))
+    }
+
+    /// X 轴周标签行：首尾「第 N 周 (WN)」，中间只显「WN」；N 取真实周数（nil 周也占位）。
+    private func rhythmWeekAxis(weekCount: Int) -> some View {
+        HStack(spacing: 0) {
+            ForEach(0..<max(weekCount, 1), id: \.self) { index in
+                Text(rhythmWeekAxisLabel(index: index, count: weekCount))
+                    .font(.labelMono(11))
+                    .foregroundStyle(Color.textMuted)
+                    .monospacedDigit()
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.top, 6)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color.border.opacity(0.5))
+                .frame(height: 1)
+        }
+    }
+
+    private func rhythmWeekAxisLabel(index: Int, count: Int) -> String {
+        let week = index + 1
+        let short = "W\(week)"
+        // 首尾用「第 X 周 (WX)」，中间只显「WX」
+        return (index == 0 || index == count - 1) ? "第 \(week) 周 (\(short))" : short
+    }
+
+    /// 一个真实周节奏点（周下标 0-based + 该周周均分）
+    private struct RhythmPoint {
+        let weekIndex: Int
+        let value: Int
+    }
+
+    /// 从 [Int?] 取点：nil 周（无分析）直接跳过，不补点、不插值。
+    private func rhythmPoints(_ weeks: [Int?]) -> [RhythmPoint] {
+        weeks.enumerated().compactMap { index, value in
+            value.map { RhythmPoint(weekIndex: index, value: $0) }
+        }
+    }
+
+    /// 折线坐标：x 按周等分（首尾各留少量边距），y 按这批点真实 min/max 归一化
+    /// （全相等时取中线，上下都留余量画水平线；不写死 0–100）。
+    private func rhythmCoordinates(points: [RhythmPoint], weekCount: Int, size: CGSize) -> [CGPoint] {
+        let values = points.map(\.value)
+        let minValue = values.min() ?? 0
+        let maxValue = values.max() ?? 0
+        let span = maxValue - minValue
+        let topPad: CGFloat = 13    // 点上标签位
+        let bottomPad: CGFloat = 15 // 首周标签在点下
+        let sidePad: CGFloat = 12   // 首尾点各留少量左右边距
+        let plotHeight = max(size.height - topPad - bottomPad, 1)
+        let plotWidth = max(size.width - sidePad * 2, 1)
+        let weeks = max(weekCount - 1, 1)
+        return points.map { point in
+            let x = sidePad + plotWidth * CGFloat(point.weekIndex) / CGFloat(weeks)
+            let ratio: CGFloat = span == 0 ? 0.5 : CGFloat(point.value - minValue) / CGFloat(span)
+            return CGPoint(x: x, y: topPad + plotHeight * (1 - ratio))
         }
     }
 

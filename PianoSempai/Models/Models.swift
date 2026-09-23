@@ -471,16 +471,19 @@ final class ScoreErrorMark {
     var type: String = ""
     var note: String = ""
     var occurrenceCount: Int = 1
+    /// S13b「同时在下次问 Neko 时带上这个标记」（用户勾选才 true；默认 false，轻量迁移补默认值）
+    var includeWithNeko: Bool = false
     var createdAt: Date = Date()
 
     /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
-    init(entityId: UUID = UUID(), scoreName: String = "", measure: Int = 0, type: String = "", note: String = "", occurrenceCount: Int = 1, createdAt: Date = Date()) {
+    init(entityId: UUID = UUID(), scoreName: String = "", measure: Int = 0, type: String = "", note: String = "", occurrenceCount: Int = 1, includeWithNeko: Bool = false, createdAt: Date = Date()) {
         self.entityId = entityId
         self.scoreName = scoreName
         self.measure = measure
         self.type = type
         self.note = note
         self.occurrenceCount = occurrenceCount
+        self.includeWithNeko = includeWithNeko
         self.createdAt = createdAt
     }
 }

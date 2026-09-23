@@ -28,6 +28,25 @@ enum AppTab: CaseIterable, Identifiable {
     }
 }
 
+/// S07c 热身强开弹层的顶层 presenter（S07c 呈现层级修复）。
+/// 该弹层必须整屏遮住底部 tab bar 与「问 Neko」FAB（真值：整屏 scrim bg-black/60，
+/// 底栏/FAB 被整块遮住）。tab bar 与 FAB 渲染在 AppFrameView 的
+/// `.safeAreaInset(edge: .bottom)` 里，层级在任意子页（如 TodayView）之外、之上；
+/// 若弹层仍挂在 TodayView 自身的 overlay 上，就只能盖住页内容、盖不住底栏（已截图实证）。
+/// 故提升到 AppFrameView 顶层渲染：由本 presenter 持有配置，页面经环境对象触发呈现。
+final class WarmupOverridePresenter: ObservableObject {
+    struct Config {
+        let plan: DailyPlan?
+        let allEvents: [GateEvent]
+        let onGoWarmup: () -> Void
+        let onConfirmOverride: (_ reasonTag: String, _ note: String) -> Void
+    }
+    @Published private(set) var isPresented = false
+    private(set) var config: Config?
+    func present(_ config: Config) { self.config = config; isPresented = true }
+    func dismiss() { isPresented = false }
+}
+
 /// S06 App Frame：5 tab + 问 Neko FAB + 顶部连接胶囊。
 /// 无 tab 栏页面的路由机制：全屏流程/弹层一律走 fullScreenCover / sheet（系统天然隐藏
 /// tab bar），框架不做自定义路由栈；onboarding（S01–S05）、练习室（S11）、报告（S13）
@@ -38,6 +57,8 @@ struct AppFrameView: View {
     @State private var tab: AppTab = AppFrameView.initialTab()
     /// 问 Neko FAB → S18 自由问答（fullScreenCover，天然隐藏 tab bar）
     @State private var showChat = false
+    /// S07c 热身强开弹层：在顶层（tab bar / FAB 之上）呈现
+    @StateObject private var overridePresenter = WarmupOverridePresenter()
 
     /// DEBUG 视觉验收：simctl launch 传 --ui.tab.library / --ui.tab.practice 直落对应 tab
     static func initialTab() -> AppTab {
@@ -53,7 +74,9 @@ struct AppFrameView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
+            // S07c presenter 注入环境：TodayView 经它触发顶层弹层（不在子页 overlay 里渲染）
             pageContent
+                .environmentObject(overridePresenter)
 
             // 顶部连接胶囊（visual-system §6：右上线框胶囊）
             // D5（S07 视觉对齐）：今日页改用标题行内胶囊（TodayView §2.1）
@@ -76,16 +99,36 @@ struct AppFrameView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 // 问 Neko FAB：独立悬浮于 tab 栏上方偏右（不进 5 tab）
-                HStack {
-                    Spacer()
-                    NekoFAB { showChat = true }
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 12)
+                // S20/S08/S23 视觉对齐：FAB 仅 S07 今日 / S11 练习两屏有真值；档案 tab 由
+                // ArchiveView 自带琥珀实色 FAB（S20 真值），曲库/我的无 FAB。
+                // 故全局 FAB 只在今日、练习两 tab 渲染，避免档案页出现两个 FAB。
+                if tab == .today || tab == .practice {
+                    HStack {
+                        Spacer()
+                        NekoFAB { showChat = true }
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 12)
+                    }
                 }
                 TabBar(selected: $tab)
             }
             .background(Color.canvas.ignoresSafeArea(edges: .bottom))
         }
+        // S07c 热身强开弹层：必须在 safeAreaInset 之后追加，才能盖住 tab bar 与 FAB
+        // （modal 自带 bg-black/60 整屏 scrim + 贴底 sheet，视觉不改动）。
+        .overlay {
+            if overridePresenter.isPresented, let cfg = overridePresenter.config {
+                S07cOverrideModal(
+                    plan: cfg.plan,
+                    allEvents: cfg.allEvents,
+                    onGoWarmup: cfg.onGoWarmup,
+                    onConfirmOverride: cfg.onConfirmOverride,
+                    onCancel: { overridePresenter.dismiss() }
+                )
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: overridePresenter.isPresented)
     }
 
     private var connectionState: ConnectionPillState {
