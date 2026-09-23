@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>PianoSempai - 月度录像导入（尼康 Zf 相册）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            app: {
+              bg: '#1C1917',
+              card: '#262220',
+              border: '#332D29',
+              amber: '#D4A24E',
+              amberHover: '#C2913D',
+              text: '#F5F2ED',
+              muted: '#9C948B',
+              subtle: '#6A635B',
+              darker: '#141210'
+            }
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .material-symbols-filled {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    }
+    /* Hide scrollbar */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+</head>
+<body class="w-[390px] min-h-[844px] max-w-[390px] mx-auto bg-[#1C1917] text-[#F5F2ED] relative flex flex-col justify-between overflow-x-hidden select-none border-x border-[#2a2421]/40 shadow-2xl">
+
+  <!-- Top Status Bar & Header (Full Bleed iPhone Notch/Dynamic Island Style) -->
+  <div>
+    <!-- iOS Status Bar -->
+    <div class="h-11 px-6 pt-3 flex items-center justify-between text-[13px] font-medium tracking-tight text-[#9C948B]">
+      <span>9:41</span>
+      <div class="flex items-center space-x-2">
+        <span class="material-symbols-outlined text-[15px]">signal_cellular_alt</span>
+        <span class="material-symbols-outlined text-[15px]">wifi</span>
+        <div class="w-5 h-2.5 border border-[#9C948B] rounded-sm p-[1px] flex items-center">
+          <div class="bg-[#9C948B] h-full w-3 rounded-2xs"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Bar (Pushed from 档案, No Tab Bar) -->
+    <header class="px-5 pt-2 pb-3 flex items-center justify-between">
+      <button class="w-9 h-9 -ml-1 rounded-full flex items-center justify-center text-[#9C948B] hover:text-[#F5F2ED] active:bg-[#262220] transition-colors" aria-label="返回">
+        <span class="material-symbols-outlined text-[24px]">arrow_back_ios_new</span>
+      </button>
+      <h1 class="font-serif text-[18px] font-semibold text-[#F5F2ED] tracking-wide">
+        导入月度录像
+      </h1>
+      <!-- Balanced placeholder for symmetry / album source badge -->
+      <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#262220] border border-[#332D29] text-[11px] text-[#9C948B]">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#D4A24E]"></span>
+        <span>尼康 Zf</span>
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="px-4 space-y-3.5 pb-6">
+
+      <!-- Intro Card with Camera Icon -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-2xl p-3.5 flex items-start gap-3 shadow-sm">
+        <div class="w-7 h-7 rounded-lg bg-[#1C1917] border border-[#332D29] flex items-center justify-center text-[#D4A24E] shrink-0 mt-0.5">
+          <span class="material-symbols-outlined text-[17px]">photo_camera</span>
+        </div>
+        <p class="text-[12.5px] leading-[1.65] text-[#9C948B]">
+          每月一次，从相册挑选 <span class="text-[#F5F2ED] font-medium">Zf</span> 拍的练琴视频存档。这些视频永久保留在本机，只供你回看，不上传、不判分。
+        </p>
+      </section>
+
+      <!-- Month Summary Card -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-2xl p-4 space-y-2.5">
+        <div class="flex items-baseline justify-between">
+          <h2 class="text-[17px] font-bold tracking-tight text-[#F5F2ED]">
+            2026 年 9 月
+          </h2>
+          <span class="text-[11px] px-2 py-0.5 rounded-md bg-[#1C1917] text-[#9C948B] border border-[#332D29]/80">
+            本机剩余空间 24 GB
+          </span>
+        </div>
+        <div class="flex items-center text-[12.5px] text-[#D4A24E] font-medium tracking-normal">
+          <span>已选 3 段 · 共 12分40秒 · 约 1.8 GB</span>
+        </div>
+      </section>
+
+      <!-- Selection List (Photo Picker Items) -->
+      <section class="space-y-2">
+        <div class="flex items-center justify-between px-1">
+          <span class="text-[11px] tracking-wider text-[#9C948B] uppercase font-medium">相册候选项 (4)</span>
+          <span class="text-[11px] text-[#9C948B]">按录制时间排序</span>
+        </div>
+
+        <!-- Row 1: Selected -->
+        <article class="bg-[#262220] border border-[#D4A24E]/40 rounded-xl p-3 flex items-center justify-between gap-3 relative transition-all">
+          <div class="flex items-center gap-3 min-w-0">
+            <!-- Amber Checkbox -->
+            <button class="w-5 h-5 rounded-[6px] bg-[#D4A24E] text-[#1C1917] flex items-center justify-center shrink-0" aria-label="已勾选">
+              <span class="material-symbols-outlined text-[16px] font-bold">check</span>
+            </button>
+            
+            <!-- Video Thumbnail Mockup -->
+            <div class="w-16 h-11 rounded-lg bg-[#141210] border border-[#332D29] overflow-hidden relative shrink-0 flex items-center justify-center">
+              <!-- Geometric Piano Key Preview Graphic -->
+              <div class="absolute inset-0 opacity-40 bg-[radial-gradient(#D4A24E_1px,transparent_1px)] [background-size:6px_6px]"></div>
+              <div class="flex items-end h-full gap-[2px] pb-1 opacity-70">
+                <div class="w-1.5 h-6 bg-[#332D29] rounded-2xs"></div>
+                <div class="w-1.5 h-4 bg-[#D4A24E] rounded-2xs"></div>
+                <div class="w-1.5 h-7 bg-[#332D29] rounded-2xs"></div>
+                <div class="w-1.5 h-5 bg-[#D4A24E] rounded-2xs"></div>
+              </div>
+              <span class="absolute bottom-0.5 right-1 text-[9px] font-mono px-1 py-[1px] rounded bg-black/70 text-[#F5F2ED] leading-none">
+                4:12
+              </span>
+            </div>
+
+            <!-- Meta info -->
+            <div class="min-w-0 space-y-0.5">
+              <div class="text-[14px] font-medium text-[#F5F2ED] truncate">
+                9/14 拜厄45 合手录
+              </div>
+              <div class="flex items-center gap-2 text-[11.5px] text-[#9C948B]">
+                <span class="text-[#D4A24E] font-medium">4:12</span>
+                <span class="text-[#332D29]">•</span>
+                <span class="px-1.5 py-[1px] rounded bg-[#1C1917] border border-[#332D29] text-[10px] text-[#9C948B] font-mono leading-none">1080p</span>
+                <span class="text-[#332D29]">•</span>
+                <span>约 580 MB</span>
+              </div>
+            </div>
+          </div>
+
+          <span class="material-symbols-outlined text-[#9C948B] text-[18px] opacity-40 shrink-0">
+            play_circle
+          </span>
+        </article>
+
+        <!-- Row 2: Selected -->
+        <article class="bg-[#262220] border border-[#D4A24E]/40 rounded-xl p-3 flex items-center justify-between gap-3 relative transition-all">
+          <div class="flex items-center gap-3 min-w-0">
+            <!-- Amber Checkbox -->
+            <button class="w-5 h-5 rounded-[6px] bg-[#D4A24E] text-[#1C1917] flex items-center justify-center shrink-0" aria-label="已勾选">
+              <span class="material-symbols-outlined text-[16px] font-bold">check</span>
+            </button>
+            
+            <!-- Video Thumbnail Mockup -->
+            <div class="w-16 h-11 rounded-lg bg-[#141210] border border-[#332D29] overflow-hidden relative shrink-0 flex items-center justify-center">
+              <div class="flex items-end h-full gap-[2px] pb-1 opacity-70">
+                <div class="w-1.5 h-5 bg-[#332D29] rounded-2xs"></div>
+                <div class="w-1.5 h-6 bg-[#D4A24E] rounded-2xs"></div>
+                <div class="w-1.5 h-4 bg-[#332D29] rounded-2xs"></div>
+                <div class="w-1.5 h-6 bg-[#332D29] rounded-2xs"></div>
+              </div>
+              <span class="absolute bottom-0.5 right-1 text-[9px] font-mono px-1 py-[1px] rounded bg-black/70 text-[#F5F2ED] leading-none">
+                3:58
+              </span>
+            </div>
+
+            <!-- Meta info -->
+            <div class="min-w-0 space-y-0.5">
+              <div class="text-[14px] font-medium text-[#F5F2ED] truncate">
+                9/7 哈农1 速度对照
+              </div>
+              <div class="flex items-center gap-2 text-[11.5px] text-[#9C948B]">
+                <span class="text-[#D4A24E] font-medium">3:58</span>
+                <span class="text-[#332D29]">•</span>
+                <span class="px-1.5 py-[1px] rounded bg-[#1C1917] border border-[#332D29] text-[10px] text-[#9C948B] font-mono leading-none">1080p</span>
+                <span class="text-[#332D29]">•</span>
+                <span>约 540 MB</span>
+              </div>
+            </div>
+          </div>
+
+          <span class="material-symbols-outlined text-[#9C948B] text-[18px] opacity-40 shrink-0">
+            play_circle
+          </span>
+        </article>
+
+        <!-- Row 3: Selected -->
+        <article class="bg-[#262220] border border-[#D4A24E]/40 rounded-xl p-3 flex items-center justify-between gap-3 relative transition-all">
+          <div class="flex items-center gap-3 min-w-0">
+            <!-- Amber Checkbox -->
+            <button class="w-5 h-5 rounded-[6px] bg-[#D4A24E] text-[#1C1917] flex items-center justify-center shrink-0" aria-label="已勾选">
+              <span class="material-symbols-outlined text-[16px] font-bold">check</span>
+            </button>
+            
+            <!-- Video Thumbnail Mockup -->
+            <div class="w-16 h-11 rounded-lg bg-[#141210] border border-[#332D29] overflow-hidden relative shrink-0 flex items-center justify-center">
+              <div class="flex items-end h-full gap-[2px] pb-1 opacity-70">
+                <div class="w-1.5 h-6 bg-[#332D29] rounded-2xs"></div>
+                <div class="w-1.5 h-7 bg-[#332D29] rounded-2xs"></div>
+                <div class="w-1.5 h-5 bg-[#D4A24E] rounded-2xs"></div>
+                <div class="w-1.5 h-4 bg-[#332D29] rounded-2xs"></div>
+              </div>
+              <span class="absolute bottom-0.5 right-1 text-[9px] font-mono px-1 py-[1px] rounded bg-black/70 text-[#F5F2ED] leading-none">
+                4:30
+              </span>
+            </div>
+
+            <!-- Meta info -->
+            <div class="min-w-0 space-y-0.5">
+              <div class="text-[14px] font-medium text-[#F5F2ED] truncate">
+                9/1 Summer 完整弹
+              </div>
+              <div class="flex items-center gap-2 text-[11.5px] text-[#9C948B]">
+                <span class="text-[#D4A24E] font-medium">4:30</span>
+                <span class="text-[#332D29]">•</span>
+                <span class="px-1.5 py-[1px] rounded bg-[#1C1917] border border-[#332D29] text-[10px] text-[#9C948B] font-mono leading-none">1080p</span>
+                <span class="text-[#332D29]">•</span>
+                <span>约 680 MB</span>
+              </div>
+            </div>
+          </div>
+
+          <span class="material-symbols-outlined text-[#9C948B] text-[18px] opacity-40 shrink-0">
+            play_circle
+          </span>
+        </article>
+
+        <!-- Row 4: Unselected -->
+        <article class="bg-[#262220]/60 border border-[#332D29] rounded-xl p-3 flex items-center justify-between gap-3 relative transition-all opacity-75 hover:opacity-100">
+          <div class="flex items-center gap-3 min-w-0">
+            <!-- Unchecked Box -->
+            <button class="w-5 h-5 rounded-[6px] border border-[#6A635B] bg-[#1C1917] flex items-center justify-center shrink-0" aria-label="未勾选">
+            </button>
+            
+            <!-- Video Thumbnail Mockup -->
+            <div class="w-16 h-11 rounded-lg bg-[#141210] border border-[#332D29] overflow-hidden relative shrink-0 flex items-center justify-center">
+              <div class="flex items-end h-full gap-[2px] pb-1 opacity-40">
+                <div class="w-1.5 h-3 bg-[#332D29] rounded-2xs"></div>
+                <div class="w-1.5 h-5 bg-[#332D29] rounded-2xs"></div>
+                <div class="w-1.5 h-4 bg-[#332D29] rounded-2xs"></div>
+                <div class="w-1.5 h-3 bg-[#332D29] rounded-2xs"></div>
+              </div>
+              <span class="absolute bottom-0.5 right-1 text-[9px] font-mono px-1 py-[1px] rounded bg-black/70 text-[#9C948B] leading-none">
+                2:05
+              </span>
+            </div>
+
+            <!-- Meta info -->
+            <div class="min-w-0 space-y-0.5">
+              <div class="text-[14px] font-medium text-[#9C948B] truncate">
+                9/21 即兴小段
+              </div>
+              <div class="flex items-center gap-2 text-[11.5px] text-[#6A635B]">
+                <span>2:05</span>
+                <span class="text-[#332D29]">•</span>
+                <span class="px-1.5 py-[1px] rounded bg-[#1C1917] border border-[#332D29] text-[10px] text-[#6A635B] font-mono leading-none">1080p</span>
+                <span class="text-[#332D29]">•</span>
+                <span>约 290 MB</span>
+              </div>
+            </div>
+          </div>
+
+          <span class="material-symbols-outlined text-[#6A635B] text-[18px] opacity-40 shrink-0">
+            play_circle
+          </span>
+        </article>
+      </section>
+
+      <!-- Bottom Info Card (Amber Left Border) -->
+      <section class="bg-[#262220] border-l-2 border-l-[#D4A24E] border-y border-r border-[#332D29] rounded-r-xl rounded-l-xs p-3.5 flex items-start gap-2.5">
+        <span class="material-symbols-outlined text-[#D4A24E] text-[18px] shrink-0 mt-0.5">info</span>
+        <p class="text-[12px] leading-relaxed text-[#9C948B]">
+          导入后可在档案里按月回看；手型标注需要你主动发起，不会自动分析。
+        </p>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Bottom Sticky Actions & Home Indicator -->
+  <footer class="p-4 pt-2 pb-6 bg-[#1C1917]/95 backdrop-blur-md border-t border-[#332D29]/60 space-y-3">
+    <!-- Action Buttons -->
+    <div class="flex items-center gap-3">
+      <!-- Muted Text Button: 全不选 -->
+      <button class="h-12 px-4 rounded-xl text-[14px] font-medium text-[#9C948B] hover:text-[#F5F2ED] active:bg-[#262220] transition-colors shrink-0">
+        全不选
+      </button>
+
+      <!-- Solid Amber Full-Width Button: 导入所选 3 段 -->
+      <button class="flex-1 h-12 rounded-xl bg-[#D4A24E] hover:bg-[#C2913D] active:scale-[0.99] text-[#1C1917] font-semibold text-[15px] tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-[#D4A24E]/10 transition-all">
+        <span class="material-symbols-outlined text-[19px] font-semibold">download</span>
+        <span>导入所选 3 段</span>
+      </button>
+    </div>
+
+    <!-- iOS Home Indicator -->
+    <div class="pt-1 flex justify-center">
+      <div class="w-32 h-1 bg-[#9C948B]/30 rounded-full"></div>
+    </div>
+  </footer>
+
+</body>
+</html>

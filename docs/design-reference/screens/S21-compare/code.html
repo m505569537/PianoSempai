@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>PianoSempai - 对比两次 Take (S21)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: '#1C1917',
+            card: '#262220',
+            'card-border': '#332D29',
+            amber: {
+              main: '#D4A24E',
+              subtle: 'rgba(212, 162, 78, 0.15)',
+              bright: '#E5B96E'
+            },
+            bluegrey: {
+              main: '#8FA3B8',
+              subtle: 'rgba(143, 163, 184, 0.15)',
+              bright: '#ADC0D4'
+            },
+            text: {
+              primary: '#F5F2ED',
+              muted: '#9C948B',
+              dim: '#6E665E'
+            }
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+    .font-serif-title {
+      font-family: 'Noto Serif SC', serif;
+    }
+    .font-mono-num {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Hide scrollbars */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    * {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#1C1917] flex flex-col justify-start items-center p-0 m-0">
+
+  <!-- Main Mobile Container: full-bleed 390x844 portrait layout without mockup bezel -->
+  <main class="w-full max-w-[390px] min-h-[844px] bg-[#1C1917] flex flex-col relative pb-10">
+
+    <!-- Top Status Bar Simulation (iOS Native style) -->
+    <header class="w-full pt-3 px-6 flex justify-between items-center text-[12px] font-mono-num text-text-muted select-none">
+      <span class="font-medium text-text-primary text-[13px] tracking-tight">9:41</span>
+      <div class="flex items-center gap-1.5 opacity-90 text-[11px]">
+        <!-- Signal icon -->
+        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+          <path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-4.39C20.26 16.07 21 14.12 21 12c0-4.97-4.03-9-9-9zm0 2c3.87 0 7 3.13 7 7 0 1.58-.53 3.04-1.42 4.23L12 19.64l-5.58-3.41C5.53 15.04 5 13.58 5 12c0-3.87 3.13-7 7-7z"/>
+        </svg>
+        <!-- Wifi icon -->
+        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+          <path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98A17.93 17.93 0 0012 4zm0 3.5c3.6 0 6.89 1.41 9.35 3.72L12 18.28 2.65 11.22C5.11 8.91 8.4 7.5 12 7.5z"/>
+        </svg>
+        <!-- Battery icon -->
+        <div class="w-5 h-2.5 border border-text-muted rounded-[3px] p-[1px] flex items-center">
+          <div class="h-full w-3.5 bg-text-primary rounded-[1.5px]"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Top Navigation Bar -->
+    <nav class="w-full px-4 pt-3 pb-3 flex items-center justify-between border-b border-[#332D29]/60">
+      <button class="w-9 h-9 rounded-full flex items-center justify-center hover:bg-card transition-colors active:scale-95 text-text-primary" aria-label="返回">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+
+      <div class="flex flex-col items-center">
+        <h1 class="font-serif-title text-[17px] font-semibold tracking-wide text-text-primary">对比两次 Take</h1>
+        <span class="text-[11px] text-text-dim mt-0.5">拜厄 45 · 17–24 小节</span>
+      </div>
+
+      <button class="w-9 h-9 rounded-full flex items-center justify-center hover:bg-card transition-colors active:scale-95 text-text-primary" aria-label="分享报告">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+        </svg>
+      </button>
+    </nav>
+
+    <!-- Scrollable Content -->
+    <div class="flex-1 px-4 pt-3.5 space-y-3.5 overflow-y-auto">
+
+      <!-- 1. Take Selector Card -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-2xl p-3.5 shadow-sm">
+        <div class="flex items-center justify-between mb-2.5">
+          <span class="text-[11px] font-semibold text-text-dim tracking-wider uppercase">对比样本设置</span>
+          <span class="text-[11px] text-amber-main font-medium">基准: Take A</span>
+        </div>
+
+        <div class="space-y-2">
+          <!-- Row A (Amber Selected) -->
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#1C1917]/80 border border-amber-main/40">
+            <div class="flex items-center gap-2.5">
+              <span class="w-3.5 h-3.5 rounded-full border-2 border-amber-main flex items-center justify-center">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-main"></span>
+              </span>
+              <div class="flex flex-col">
+                <div class="flex items-center gap-1.5">
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-main/20 text-amber-main">Take A</span>
+                  <span class="text-[13px] font-medium text-text-primary">今天 20:31</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 text-right">
+              <span class="text-[12px] font-mono-num text-text-muted">♩=72</span>
+              <span class="text-[14px] font-mono-num font-bold text-amber-bright">78 分</span>
+            </div>
+          </div>
+
+          <!-- Row B (Blue-grey Selected) -->
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#1C1917]/80 border border-bluegrey-main/40">
+            <div class="flex items-center gap-2.5">
+              <span class="w-3.5 h-3.5 rounded-full border-2 border-bluegrey-main flex items-center justify-center">
+                <span class="w-1.5 h-1.5 rounded-full bg-bluegrey-main"></span>
+              </span>
+              <div class="flex flex-col">
+                <div class="flex items-center gap-1.5">
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-bluegrey-main/20 text-bluegrey-main">Take B</span>
+                  <span class="text-[13px] font-medium text-text-primary">周一 20:40</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 text-right">
+              <span class="text-[12px] font-mono-num text-text-muted">♩=60</span>
+              <span class="text-[14px] font-mono-num font-bold text-bluegrey-bright">65 分</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-[11px] text-text-dim text-center mt-2.5 flex items-center justify-center gap-1">
+          <svg class="w-3 h-3 opacity-60 text-text-dim" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          只对比同一首曲目同一小节段
+        </p>
+      </section>
+
+      <!-- 2. Radar Card: Hexagon Radar Chart with TWO overlaid polygons -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <h2 class="font-serif-title text-[15px] font-semibold text-text-primary">六维对比</h2>
+            <span class="text-[11px] text-text-dim">能力雷达模型</span>
+          </div>
+          <!-- Legend -->
+          <div class="flex items-center gap-3 text-[11px]">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-main inline-block"></span>
+              <span class="text-text-primary font-medium">A 今天</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-bluegrey-main inline-block"></span>
+              <span class="text-text-muted">B 周一</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Radar SVG Canvas -->
+        <div class="relative w-full aspect-[1/0.82] flex items-center justify-center my-1">
+          <svg class="w-full h-full max-w-[290px] overflow-visible" viewBox="0 0 300 240">
+            <defs>
+              <linearGradient id="gradAmber" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#D4A24E" stop-opacity="0.45"/>
+                <stop offset="100%" stop-color="#D4A24E" stop-opacity="0.15"/>
+              </linearGradient>
+              <linearGradient id="gradBlueGrey" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#8FA3B8" stop-opacity="0.35"/>
+                <stop offset="100%" stop-color="#8FA3B8" stop-opacity="0.08"/>
+              </linearGradient>
+            </defs>
+
+            <!-- Center: (150, 115), Radius steps: 25, 50, 75, 95 -->
+            <!-- Background Hexagonal Grid 25% -->
+            <polygon points="150,90 171.65,102.5 171.65,127.5 150,140 128.35,127.5 128.35,102.5" fill="none" stroke="#332D29" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"/>
+            <!-- Background Hexagonal Grid 50% -->
+            <polygon points="150,65 193.3,90 193.3,140 150,165 106.7,140 106.7,90" fill="none" stroke="#332D29" stroke-width="1" stroke-dasharray="3 2"/>
+            <!-- Background Hexagonal Grid 75% -->
+            <polygon points="150,40 214.95,77.5 214.95,152.5 150,190 85.05,152.5 85.05,77.5" fill="none" stroke="#332D29" stroke-width="1" stroke-dasharray="3 3"/>
+            <!-- Outer Hexagon 100% -->
+            <polygon points="150,20 232.27,67.5 232.27,162.5 150,210 67.73,162.5 67.73,67.5" fill="none" stroke="#453E3A" stroke-width="1.2"/>
+
+            <!-- Axis Lines from Center (150, 115) -->
+            <line x1="150" y1="115" x2="150" y2="20" stroke="#332D29" stroke-width="1"/>
+            <line x1="150" y1="115" x2="232.27" y2="67.5" stroke="#332D29" stroke-width="1"/>
+            <line x1="150" y1="115" x2="232.27" y2="162.5" stroke="#332D29" stroke-width="1"/>
+            <line x1="150" y1="115" x2="150" y2="210" stroke="#332D29" stroke-width="1"/>
+            <line x1="150" y1="115" x2="67.73" y2="162.5" stroke="#332D29" stroke-width="1"/>
+            <line x1="150" y1="115" x2="67.73" y2="67.5" stroke="#332D29" stroke-width="1"/>
+
+            <!-- Take B Polygon (周一: 节奏较慢，音准一般，力度较弱) -->
+            <!-- 音准: 68%, 节奏: 58%, 连贯: 65%, 力度控制: 50%, 踏板: 70%, 读谱: 72% -->
+            <polygon points="150,50 200,86 198,143 150,162 98,145 96,78"
+                     fill="url(#gradBlueGrey)" stroke="#8FA3B8" stroke-width="2" stroke-linejoin="round"/>
+
+            <!-- Take A Polygon (今天: 节奏显著提高，音准提高，连贯提高) -->
+            <!-- 音准: 84%, 节奏: 78%, 连贯: 82%, 力度控制: 72%, 踏板: 76%, 读谱: 85% -->
+            <polygon points="150,35 218,78 214,154 150,183 91,151 84,72"
+                     fill="url(#gradAmber)" stroke="#D4A24E" stroke-width="2.2" stroke-linejoin="round"/>
+
+            <!-- Polygon Vertex Dots (Take A Amber) -->
+            <circle cx="150" cy="35" r="3" fill="#D4A24E"/>
+            <circle cx="218" cy="78" r="3" fill="#D4A24E"/>
+            <circle cx="214" cy="154" r="3" fill="#D4A24E"/>
+            <circle cx="150" cy="183" r="3" fill="#D4A24E"/>
+            <circle cx="91" cy="151" r="3" fill="#D4A24E"/>
+            <circle cx="84" cy="72" r="3" fill="#D4A24E"/>
+
+            <!-- Polygon Vertex Dots (Take B BlueGrey) -->
+            <circle cx="150" cy="50" r="2.5" fill="#8FA3B8"/>
+            <circle cx="200" cy="86" r="2.5" fill="#8FA3B8"/>
+            <circle cx="198" cy="143" r="2.5" fill="#8FA3B8"/>
+            <circle cx="150" cy="162" r="2.5" fill="#8FA3B8"/>
+            <circle cx="98" cy="145" r="2.5" fill="#8FA3B8"/>
+            <circle cx="96" cy="78" r="2.5" fill="#8FA3B8"/>
+
+            <!-- 6 Axis Labels Verbatim: 音准, 节奏, 连贯, 力度控制, 踏板, 读谱 -->
+            <text x="150" y="11" text-anchor="middle" fill="#F5F2ED" font-size="11" font-weight="600" font-family="'Noto Serif SC', serif">音准</text>
+            <text x="246" y="65" text-anchor="start" fill="#F5F2ED" font-size="11" font-weight="600" font-family="'Noto Serif SC', serif">节奏</text>
+            <text x="246" y="170" text-anchor="start" fill="#F5F2ED" font-size="11" font-weight="600" font-family="'Noto Serif SC', serif">连贯</text>
+            <text x="150" y="228" text-anchor="middle" fill="#F5F2ED" font-size="11" font-weight="600" font-family="'Noto Serif SC', serif">力度控制</text>
+            <text x="54" y="170" text-anchor="end" fill="#F5F2ED" font-size="11" font-weight="600" font-family="'Noto Serif SC', serif">踏板</text>
+            <text x="54" y="65" text-anchor="end" fill="#F5F2ED" font-size="11" font-weight="600" font-family="'Noto Serif SC', serif">读谱</text>
+          </svg>
+        </div>
+      </section>
+
+      <!-- 3. Tempo Chart Card: Line chart with two lines + dashed reference -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-1.5">
+          <div class="flex items-center gap-2">
+            <h2 class="font-serif-title text-[15px] font-semibold text-text-primary">速度曲线</h2>
+            <span class="text-[11px] text-text-dim">小节即时 BPM 波动</span>
+          </div>
+          <div class="flex items-center gap-1.5 text-[10px] text-text-dim">
+            <span class="w-3.5 border-b border-dashed border-[#D4A24E]/80"></span>
+            <span>♩=76 参考</span>
+          </div>
+        </div>
+
+        <!-- SVG Line Chart: BPM 56 to 78 across bars 17-24 -->
+        <div class="w-full mt-2">
+          <svg class="w-full h-[120px] overflow-visible" viewBox="0 0 320 120">
+            <!-- Background Horizontal Guides (Y-axis: 78, 72, 60, 56) -->
+            <!-- Y mapping: 78 -> 15, 76 -> 23, 72 -> 38, 60 -> 82, 56 -> 97 -->
+            <line x1="32" y1="15" x2="315" y2="15" stroke="#332D29" stroke-width="0.8" stroke-dasharray="2 2"/>
+            <text x="24" y="18" text-anchor="end" fill="#6E665E" font-size="9" font-family="'JetBrains Mono', monospace">78</text>
+
+            <!-- Reference Line 76 BPM dashed amber -->
+            <line x1="32" y1="23" x2="315" y2="23" stroke="#D4A24E" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.75"/>
+
+            <line x1="32" y1="52" x2="315" y2="52" stroke="#332D29" stroke-width="0.8" stroke-dasharray="2 2"/>
+            <text x="24" y="55" text-anchor="end" fill="#6E665E" font-size="9" font-family="'JetBrains Mono', monospace">68</text>
+
+            <line x1="32" y1="85" x2="315" y2="85" stroke="#332D29" stroke-width="0.8" stroke-dasharray="2 2"/>
+            <text x="24" y="88" text-anchor="end" fill="#6E665E" font-size="9" font-family="'JetBrains Mono', monospace">60</text>
+
+            <line x1="32" y1="102" x2="315" y2="102" stroke="#332D29" stroke-width="0.8"/>
+            <text x="24" y="105" text-anchor="end" fill="#6E665E" font-size="9" font-family="'JetBrains Mono', monospace">56</text>
+
+            <!-- Vertical grid bars for measures 17 to 24 -->
+            <!-- X coords: 17=46, 18=84, 19=122, 20=160, 21=198, 22=236, 23=274, 24=312 -->
+            <!-- Take B Grey Line: 60 -> drops to 57 around bar 21 -> 59 -->
+            <!-- Points: (46,85), (84,82), (122,87), (160,89), (198,96), (236,87), (274,84), (312,83) -->
+            <path d="M 46,84 C 65,83 70,82 84,82 C 100,82 110,87 122,87 C 140,87 150,91 160,91 C 180,91 185,99 198,99 C 215,99 225,89 236,88 C 255,86 265,85 274,84 C 290,83 300,83 312,83"
+                  fill="none" stroke="#8FA3B8" stroke-width="2" stroke-linecap="round"/>
+
+            <!-- Take A Amber Line: 72 -> stable around 71-73 -> slight dip at 21 to 68 -> recovers to 73 -->
+            <!-- Points: (46,38), (84,37), (122,39), (160,38), (198,52), (236,40), (274,37), (312,36) -->
+            <path d="M 46,38 C 65,37 72,37 84,37 C 102,37 112,39 122,39 C 140,39 150,38 160,38 C 178,38 186,52 198,52 C 212,52 222,41 236,40 C 254,38 266,37 274,37 C 292,37 302,36 312,36"
+                  fill="none" stroke="#D4A24E" stroke-width="2.4" stroke-linecap="round"/>
+
+            <!-- Take A Points -->
+            <circle cx="46" cy="38" r="2.5" fill="#D4A24E"/>
+            <circle cx="84" cy="37" r="2.5" fill="#D4A24E"/>
+            <circle cx="122" cy="39" r="2.5" fill="#D4A24E"/>
+            <circle cx="160" cy="38" r="2.5" fill="#D4A24E"/>
+            <circle cx="198" cy="52" r="3.5" fill="#D4A24E" stroke="#1C1917" stroke-width="1.5"/>
+            <circle cx="236" cy="40" r="2.5" fill="#D4A24E"/>
+            <circle cx="274" cy="37" r="2.5" fill="#D4A24E"/>
+            <circle cx="312" cy="36" r="2.5" fill="#D4A24E"/>
+
+            <!-- Take B Points -->
+            <circle cx="198" cy="99" r="3" fill="#8FA3B8" stroke="#1C1917" stroke-width="1"/>
+
+            <!-- Highlight Tag at Bar 21 -->
+            <text x="198" y="44" text-anchor="middle" fill="#D4A24E" font-size="8.5" font-family="'JetBrains Mono', monospace" font-weight="600">68</text>
+            <text x="198" y="111" text-anchor="middle" fill="#8FA3B8" font-size="8.5" font-family="'JetBrains Mono', monospace">56</text>
+
+            <!-- X-axis Bar labels (17 to 24) -->
+            <text x="46" y="116" text-anchor="middle" fill="#9C948B" font-size="9" font-family="'JetBrains Mono', monospace">m.17</text>
+            <text x="84" y="116" text-anchor="middle" fill="#9C948B" font-size="9" font-family="'JetBrains Mono', monospace">18</text>
+            <text x="122" y="116" text-anchor="middle" fill="#9C948B" font-size="9" font-family="'JetBrains Mono', monospace">19</text>
+            <text x="160" y="116" text-anchor="middle" fill="#9C948B" font-size="9" font-family="'JetBrains Mono', monospace">20</text>
+            <text x="198" y="116" text-anchor="middle" fill="#D4A24E" font-size="9.5" font-weight="bold" font-family="'JetBrains Mono', monospace">21</text>
+            <text x="236" y="116" text-anchor="middle" fill="#9C948B" font-size="9" font-family="'JetBrains Mono', monospace">22</text>
+            <text x="274" y="116" text-anchor="middle" fill="#9C948B" font-size="9" font-family="'JetBrains Mono', monospace">23</text>
+            <text x="312" y="116" text-anchor="middle" fill="#9C948B" font-size="9" font-family="'JetBrains Mono', monospace">24</text>
+          </svg>
+        </div>
+      </section>
+
+      <!-- 4. Measure Heatmap Comparison Card -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <h2 class="font-serif-title text-[15px] font-semibold text-text-primary">错音热点对比</h2>
+            <span class="text-[11px] text-text-dim">17–24 小节分布</span>
+          </div>
+          <span class="text-[10px] text-text-dim">颜色越深代表错误频次越高</span>
+        </div>
+
+        <div class="space-y-3">
+          <!-- Strip A -->
+          <div>
+            <div class="flex items-center justify-between text-[11px] mb-1.5">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-main"></span>
+                <span class="font-medium text-text-primary">A 错音热点</span>
+              </div>
+              <span class="text-[11px] font-mono-num text-amber-bright">共 4 处错音 · 集中在 21 小节</span>
+            </div>
+            <!-- Heatmap Strip A -->
+            <div class="grid grid-cols-8 gap-1 p-1 bg-[#1C1917] rounded-lg border border-[#332D29]">
+              <!-- 17: green/clean -->
+              <div class="h-6 rounded bg-[#2A2522] flex flex-col items-center justify-center">
+                <span class="text-[9px] font-mono-num text-text-dim">17</span>
+              </div>
+              <!-- 18: clean -->
+              <div class="h-6 rounded bg-[#2A2522] flex flex-col items-center justify-center">
+                <span class="text-[9px] font-mono-num text-text-dim">18</span>
+              </div>
+              <!-- 19: clean -->
+              <div class="h-6 rounded bg-[#2A2522] flex flex-col items-center justify-center">
+                <span class="text-[9px] font-mono-num text-text-dim">19</span>
+              </div>
+              <!-- 20: 1 miss -->
+              <div class="h-6 rounded bg-[#D4A24E]/30 border border-[#D4A24E]/40 flex flex-col items-center justify-center">
+                <span class="text-[9px] font-mono-num text-amber-bright font-medium">20</span>
+              </div>
+              <!-- 21: Hottest (3 errors) -->
+              <div class="h-6 rounded bg-[#D4A24E] text-[#1C1917] font-bold flex flex-col items-center justify-center shadow-sm">
+                <span class="text-[9px] font-mono-num">21★</span>
+              </div>
+              <!-- 22: clean -->
+              <div class="h-6 rounded bg-[#2A2522] flex flex-col items-center justify-center">
+                <span class="text-[9px] font-mono-num text-text-dim">22</span>
+              </div>
+              <!-- 23: clean -->
+              <div class="h-6 rounded bg-[#2A2522] flex flex-col items-center justify-center">
+                <span class="text-[9px] font-mono-num text-text-dim">23</span>
+              </div>
+              <!-- 24: clean -->
+              <div class="h-6 rounded bg-[#2A2522] flex flex-col items-center justify-center">
+                <span class="text-[9px] font-mono-num text-text-dim">24</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Strip B -->
+          <div>
+            <div class="flex items-center justify-between text-[11px] mb-1.5">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-bluegrey-main"></span>
+                <span class="font-medium text-text-muted">B 错音热点</span>
+              </div>
+              <span class="text-[11px] font-mono-num text-bluegrey-bright">共 11 处错音 · 18–19/21 连贯失误</span>
+            </div>
+            <!-- Heatmap Strip B (B visibly hotter at 18-19 and hottest on 21) -->
+            <div class="grid grid-cols-8 gap-1 p-1 bg-[#1C1917] rounded-lg border border-[#332D29]">
+              <!-- 17: clean -->
+              <div class="h-6 rounded bg-[#2A2522] flex flex-col items-center justify-center">
+                <span class="text-[9px] font-mono-num text-text-dim">17</span>
+              </div>
+              <!-- 18: Hotter on B (2 errors) -->
+              <div class="h-6 rounded bg-[#8FA3B8]/40 border border-[#8FA3B8]/60 flex flex-col items-center justify-center">
+                <span class="text-[9px] font-mono-num text-bluegrey-bright font-medium">18</span>
+              </div>
+              <!-- 19: Hotter on B (3 errors) -->
+              <div class="h-6 rounded bg-[#8FA3B8]/55 border border-[#8FA3B8]/70 flex flex-col items-center justify-center">
+                <span class="text-[9px] font-mono-num text-white font-medium">19</span>
+              </div>
+              <!-- 20: 2 errors -->
+              <div class="h-6 rounded bg-[#8FA3B8]/40 border border-[#8FA3B8]/60 flex flex-col items-center justify-center">
+                <span class="text-[9px] font-mono-num text-bluegrey-bright font-medium">20</span>
+              </div>
+              <!-- 21: Hottest on both (4 errors) -->
+              <div class="h-6 rounded bg-[#8FA3B8] text-[#1C1917] font-bold flex flex-col items-center justify-center shadow-sm">
+                <span class="text-[9px] font-mono-num">21★</span>
+              </div>
+              <!-- 22: clean -->
+              <div class="h-6 rounded bg-[#2A2522] flex flex-col items-center justify-center">
+                <span class="text-[9px] font-mono-num text-text-dim">22</span>
+              </div>
+              <!-- 23: clean -->
+              <div class="h-6 rounded bg-[#2A2522] flex flex-col items-center justify-center">
+                <span class="text-[9px] font-mono-num text-text-dim">23</span>
+              </div>
+              <!-- 24: clean -->
+              <div class="h-6 rounded bg-[#2A2522] flex flex-col items-center justify-center">
+                <span class="text-[9px] font-mono-num text-text-dim">24</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Delta Summary Card -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-serif-title text-[15px] font-semibold text-text-primary">关键指标进阶</h2>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-main/20 text-amber-main border border-amber-main/30">综合提升 +13分</span>
+        </div>
+
+        <div class="space-y-2.5">
+          <!-- Row 1: 节奏偏差 21小节 +120ms → +64ms ↑ -->
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#1C1917] border border-[#332D29]">
+            <div class="flex items-center gap-2">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-main"></span>
+              <span class="text-[13px] text-text-primary">节奏偏差 21小节</span>
+            </div>
+            <div class="flex items-center gap-1.5 font-mono-num text-[13px]">
+              <span class="text-text-muted">+120ms</span>
+              <span class="text-text-dim">→</span>
+              <span class="text-amber-bright font-semibold">+64ms</span>
+              <span class="text-emerald-400 font-bold ml-1">↑</span>
+            </div>
+          </div>
+
+          <!-- Row 2: 错音率 8% → 3% ↑ -->
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#1C1917] border border-[#332D29]">
+            <div class="flex items-center gap-2">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-main"></span>
+              <span class="text-[13px] text-text-primary">错音率</span>
+            </div>
+            <div class="flex items-center gap-1.5 font-mono-num text-[13px]">
+              <span class="text-text-muted">8%</span>
+              <span class="text-text-dim">→</span>
+              <span class="text-amber-bright font-semibold">3%</span>
+              <span class="text-emerald-400 font-bold ml-1">↑</span>
+            </div>
+          </div>
+
+          <!-- Row 3: 平均速度 60 → 72 BPM ↑ -->
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#1C1917] border border-[#332D29]">
+            <div class="flex items-center gap-2">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-main"></span>
+              <span class="text-[13px] text-text-primary">平均速度</span>
+            </div>
+            <div class="flex items-center gap-1.5 font-mono-num text-[13px]">
+              <span class="text-text-muted">60</span>
+              <span class="text-text-dim">→</span>
+              <span class="text-amber-bright font-semibold">72 BPM</span>
+              <span class="text-emerald-400 font-bold ml-1">↑</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Muted Note -->
+        <p class="text-[11px] text-text-dim text-center mt-3 pt-2.5 border-t border-[#332D29]/60">
+          对比仅展示，不产生新的过关判定。
+        </p>
+      </section>
+
+      <!-- Bottom Action CTA -->
+      <div class="pt-2 pb-1">
+        <button class="w-full py-3.5 px-4 rounded-xl bg-amber-main hover:bg-amber-bright active:scale-[0.99] text-[#1C1917] font-semibold text-[14px] tracking-wide transition-all shadow-md flex items-center justify-center gap-2">
+          <span>针对 21 小节发起专项循环</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+          </svg>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Home Indicator (iOS Bar) -->
+    <footer class="w-full flex justify-center pb-2 pt-3">
+      <div class="w-32 h-1 bg-[#332D29] rounded-full"></div>
+    </footer>
+
+  </main>
+
+</body>
+</html>

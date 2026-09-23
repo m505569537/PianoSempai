@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>PianoSempai - 月度报告 (S22)</title>
+  <!-- Google Fonts & Lucide Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#1C1917',
+            card: '#262220',
+            border: '#332D29',
+            amber: '#D4A24E',
+            'amber-light': '#F3C576',
+            red: '#C97064',
+            green: '#7FA97C',
+            text: '#F5F2ED',
+            muted: '#9C948B',
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbar hiding for clean app experience */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    * {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-[#1C1917] text-[#F5F2ED] antialiased min-h-screen flex justify-center selection:bg-amber selection:text-[#1C1917]">
+  <!-- Screen Wrapper: 390x844 iPhone Portrait, full-bleed design -->
+  <div class="w-full max-w-[390px] min-h-[844px] flex flex-col justify-between relative pb-8 pt-safe">
+    
+    <!-- Header Area: Status Bar Space + Top Bar -->
+    <header class="sticky top-0 z-30 bg-[#1C1917]/95 backdrop-blur-md px-4 pt-3 pb-2 border-b border-[#332D29]/60">
+      <div class="flex items-center justify-between h-10">
+        <!-- Back Chevron -->
+        <button class="w-9 h-9 -ml-1 flex items-center justify-center rounded-full active:bg-[#262220] transition-colors text-[#F5F2ED]" aria-label="返回">
+          <svg class="w-5 h-5 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m15 18-6-6 6-6"/>
+          </svg>
+        </button>
+
+        <!-- Top Title: Serif -->
+        <h1 class="font-serif text-[17px] font-semibold text-[#F5F2ED] tracking-wide flex items-center gap-1.5">
+          <span>2026 年 9 月 · 月度报告</span>
+        </h1>
+
+        <!-- Export PDF Icon Button -->
+        <button class="w-9 h-9 -mr-1 flex items-center justify-center rounded-full text-[#D4A24E] hover:text-[#F3C576] active:bg-[#262220] transition-colors" title="导出 PDF" aria-label="导出 PDF">
+          <svg class="w-5 h-5 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Month Switcher: ‹ 8月 9月 10月 › -->
+      <div class="flex items-center justify-center gap-6 pt-3 pb-2 select-none text-[13px] tracking-wide">
+        <button class="text-[#9C948B] hover:text-[#F5F2ED] flex items-center gap-1 py-1 px-1 transition-colors">
+          <svg class="w-3.5 h-3.5 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m15 18-6-6 6-6"/>
+          </svg>
+          <span>8月</span>
+        </button>
+        <div class="px-3.5 py-0.5 rounded-full bg-[#262220] text-[#D4A24E] font-medium border border-[#D4A24E]/40 shadow-sm text-[14px]">
+          9月
+        </div>
+        <button class="text-[#9C948B] hover:text-[#F5F2ED] flex items-center gap-1 py-1 px-1 transition-colors">
+          <span>10月</span>
+          <svg class="w-3.5 h-3.5 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m9 18 6-6-6-6"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Scroll Area -->
+    <main class="flex-1 px-4 py-4 space-y-4">
+
+      <!-- 1. Four Stat Cards in 2x2 Grid -->
+      <section class="grid grid-cols-2 gap-2.5" aria-label="关键月度统计">
+        <!-- Stat 1 -->
+        <div class="bg-[#262220] border border-[#332D29] rounded-xl p-3 flex flex-col justify-between">
+          <span class="text-[12px] text-[#9C948B]">有效练习</span>
+          <div class="mt-1.5 flex items-baseline gap-1">
+            <span class="text-[23px] font-mono font-semibold text-[#F5F2ED] tracking-tight">14</span>
+            <span class="text-[12px] text-[#9C948B]">天</span>
+          </div>
+        </div>
+        <!-- Stat 2 -->
+        <div class="bg-[#262220] border border-[#332D29] rounded-xl p-3 flex flex-col justify-between">
+          <span class="text-[12px] text-[#9C948B]">总时长</span>
+          <div class="mt-1.5 flex items-baseline gap-0.5">
+            <span class="text-[23px] font-mono font-semibold text-[#F5F2ED] tracking-tight">8</span>
+            <span class="text-[12px] text-[#9C948B] mr-1">h</span>
+            <span class="text-[23px] font-mono font-semibold text-[#F5F2ED] tracking-tight">32</span>
+            <span class="text-[12px] text-[#9C948B]">m</span>
+          </div>
+        </div>
+        <!-- Stat 3 -->
+        <div class="bg-[#262220] border border-[#332D29] rounded-xl p-3 flex flex-col justify-between">
+          <span class="text-[12px] text-[#9C948B]">完成 take</span>
+          <div class="mt-1.5 flex items-baseline gap-1">
+            <span class="text-[23px] font-mono font-semibold text-[#D4A24E] tracking-tight">47</span>
+            <span class="text-[12px] text-[#9C948B]">次</span>
+          </div>
+        </div>
+        <!-- Stat 4 -->
+        <div class="bg-[#262220] border border-[#332D29] rounded-xl p-3 flex flex-col justify-between">
+          <span class="text-[12px] text-[#9C948B]">平均每周</span>
+          <div class="mt-1.5 flex items-baseline gap-1">
+            <span class="text-[23px] font-mono font-semibold text-[#F5F2ED] tracking-tight">3.2</span>
+            <span class="text-[12px] text-[#9C948B]">次</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Course Progress Card -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-xl p-3.5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-serif text-[14px] font-semibold text-[#F5F2ED] tracking-wide flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#D4A24E]"></span>
+            <span>教材路线推进</span>
+          </h2>
+          <span class="text-[11px] text-[#9C948B]">月度跨度</span>
+        </div>
+
+        <div class="space-y-3.5">
+          <!-- Row 1: 拜厄 43→48 (amber bar 62%) -->
+          <div>
+            <div class="flex justify-between text-[13px] mb-1.5 items-center">
+              <span class="text-[#F5F2ED] font-medium">拜厄 43→48</span>
+              <span class="font-mono text-[#D4A24E] text-[12px]">62%</span>
+            </div>
+            <div class="h-2 w-full bg-[#1C1917] rounded-full overflow-hidden border border-[#332D29]/50">
+              <div class="h-full bg-gradient-to-r from-[#D4A24E]/80 to-[#D4A24E] rounded-full" style="width: 62%"></div>
+            </div>
+          </div>
+
+          <!-- Row 2: 哈农 1→4 (40%) -->
+          <div>
+            <div class="flex justify-between text-[13px] mb-1.5 items-center">
+              <span class="text-[#F5F2ED] font-medium">哈农 1→4</span>
+              <span class="font-mono text-[#D4A24E] text-[12px]">40%</span>
+            </div>
+            <div class="h-2 w-full bg-[#1C1917] rounded-full overflow-hidden border border-[#332D29]/50">
+              <div class="h-full bg-[#D4A24E]/80 rounded-full" style="width: 40%"></div>
+            </div>
+          </div>
+
+          <!-- Row 3: 车尔尼 599 (locked grey '预计 11 月中解锁') -->
+          <div class="pt-0.5">
+            <div class="flex justify-between text-[13px] mb-1.5 items-center">
+              <div class="flex items-center gap-1.5 text-[#9C948B]">
+                <svg class="w-3.5 h-3.5 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                <span>车尔尼 599</span>
+              </div>
+              <span class="text-[12px] text-[#9C948B]">预计 11 月中解锁</span>
+            </div>
+            <div class="h-2 w-full bg-[#1C1917] rounded-full overflow-hidden border border-[#332D29]/40">
+              <div class="h-full bg-[#332D29]" style="width: 15%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footnote: verbatim '解锁只由硬数据规则判定' -->
+        <div class="mt-3.5 pt-2.5 border-t border-[#332D29]/70 flex items-center gap-1.5 text-[11px] text-[#9C948B]">
+          <svg class="w-3.5 h-3.5 text-[#D4A24E]/70 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          <span>解锁只由硬数据规则判定</span>
+        </div>
+      </section>
+
+      <!-- 3. Warmup & Gate Card -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-xl p-3.5 space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[13px] font-medium text-[#F5F2ED]">热身与门禁记录</span>
+          <!-- Green Stat: 热身完成率 11/14 次 79% -->
+          <span class="inline-flex items-center gap-1 text-[12px] font-mono px-2 py-0.5 rounded-md bg-[#7FA97C]/15 text-[#7FA97C] border border-[#7FA97C]/30">
+            <span>热身完成率 11/14 次 79%</span>
+          </span>
+        </div>
+
+        <!-- Red Row: 强开主菜 3 次：时间不够×2，热身曲太无聊×1 -->
+        <div class="bg-[#1C1917] rounded-lg p-2.5 border border-[#C97064]/30 flex items-start gap-2">
+          <svg class="w-4 h-4 text-[#C97064] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <div class="text-[12px] leading-snug">
+            <span class="text-[#C97064] font-medium">强开主菜 3 次：</span>
+            <span class="text-[#F5F2ED]/90">时间不够×2，热身曲太无聊×1</span>
+          </div>
+        </div>
+
+        <!-- Muted Line: 记录只用于你自己观察，不影响解锁。 -->
+        <p class="text-[11px] text-[#9C948B] pl-0.5">
+          记录只用于你自己观察，不影响解锁。
+        </p>
+      </section>
+
+      <!-- 4. Six-dimension Trend Card (Rhythm Stability Line Chart Climbing 52→71 across W1-W4) -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-xl p-3.5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-[13px] font-medium text-[#F5F2ED]">节奏稳定度 月度趋势</h3>
+          <span class="font-mono text-[12px] text-[#D4A24E] bg-[#D4A24E]/10 px-2 py-0.5 rounded border border-[#D4A24E]/25">
+            52 → 71 <span class="text-[11px] text-[#7FA97C] font-semibold">+19</span>
+          </span>
+        </div>
+
+        <!-- Mini SVG Line Chart -->
+        <div class="w-full bg-[#1C1917] rounded-lg p-2.5 border border-[#332D29]/60">
+          <div class="h-28 w-full relative">
+            <svg class="w-full h-full overflow-visible" viewBox="0 0 320 85" preserveAspectRatio="none">
+              <!-- Subtle Background Grid lines -->
+              <line x1="0" y1="15" x2="320" y2="15" stroke="#332D29" stroke-width="0.8" stroke-dasharray="3,3" />
+              <line x1="0" y1="45" x2="320" y2="45" stroke="#332D29" stroke-width="0.8" stroke-dasharray="3,3" />
+              <line x1="0" y1="75" x2="320" y2="75" stroke="#332D29" stroke-width="0.8" stroke-dasharray="3,3" />
+
+              <!-- Area Gradient Fill -->
+              <defs>
+                <linearGradient id="amberGlow" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#D4A24E" stop-opacity="0.25"/>
+                  <stop offset="100%" stop-color="#D4A24E" stop-opacity="0.0"/>
+                </linearGradient>
+              </defs>
+              <!-- Coordinates for W1(52)->W2(58)->W3(65)->W4(71) -->
+              <!-- W1: x=30, y=70 (value 52) -->
+              <!-- W2: x=115, y=55 (value 58) -->
+              <!-- W3: x=205, y=34 (value 65) -->
+              <!-- W4: x=290, y=14 (value 71) -->
+              <path d="M 30 70 L 115 55 L 205 34 L 290 14 L 290 85 L 30 85 Z" fill="url(#amberGlow)" />
+
+              <!-- Main Trend Line -->
+              <path d="M 30 70 L 115 55 L 205 34 L 290 14" fill="none" stroke="#D4A24E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+              <!-- Data Points with Value Tags -->
+              <!-- W1 Point -->
+              <circle cx="30" cy="70" r="3.5" fill="#1C1917" stroke="#D4A24E" stroke-width="2"/>
+              <text x="30" y="83" font-family="'JetBrains Mono', monospace" font-size="9" fill="#9C948B" text-anchor="middle">52</text>
+
+              <!-- W2 Point -->
+              <circle cx="115" cy="55" r="3.5" fill="#1C1917" stroke="#D4A24E" stroke-width="2"/>
+              <text x="115" y="48" font-family="'JetBrains Mono', monospace" font-size="9" fill="#9C948B" text-anchor="middle">58</text>
+
+              <!-- W3 Point -->
+              <circle cx="205" cy="34" r="3.5" fill="#1C1917" stroke="#D4A24E" stroke-width="2"/>
+              <text x="205" y="27" font-family="'JetBrains Mono', monospace" font-size="9" fill="#9C948B" text-anchor="middle">65</text>
+
+              <!-- W4 Peak Point -->
+              <circle cx="290" cy="14" r="4.5" fill="#D4A24E" stroke="#F5F2ED" stroke-width="1.5"/>
+              <text x="290" y="8" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600" fill="#D4A24E" text-anchor="middle">71</text>
+            </svg>
+          </div>
+          <!-- X-Axis Labels -->
+          <div class="flex justify-between px-3 text-[11px] font-mono text-[#9C948B] pt-1 border-t border-[#332D29]/50">
+            <span>第 1 周 (W1)</span>
+            <span>W2</span>
+            <span>W3</span>
+            <span>第 4 周 (W4)</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Hand Posture Card (Muted) -->
+      <section class="bg-[#262220]/70 border border-[#332D29] rounded-xl p-3 flex items-start gap-2.5">
+        <div class="w-7 h-7 rounded-lg bg-[#1C1917] border border-[#332D29] flex items-center justify-center text-[#9C948B] flex-shrink-0 mt-0.5">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <p class="text-[12px] text-[#9C948B] leading-relaxed">
+          手型趋势：本月侧拍 6 条 · 1指触键偏平出现 4 次（仅建议，不进门禁）。
+        </p>
+      </section>
+
+      <!-- 6. Neko Monthly Observation Card with Cat-face Glyph -->
+      <section class="bg-gradient-to-b from-[#262220] to-[#201C1A] border border-[#D4A24E]/30 rounded-xl p-4 shadow-lg relative overflow-hidden">
+        <!-- Ambient corner subtle glow -->
+        <div class="absolute -right-8 -top-8 w-24 h-24 bg-[#D4A24E]/5 rounded-full blur-xl pointer-events-none"></div>
+
+        <div class="flex items-center gap-2 mb-2.5">
+          <!-- Cat-face Glyph Icon -->
+          <div class="w-6 h-6 rounded-full bg-[#D4A24E]/20 text-[#D4A24E] flex items-center justify-center flex-shrink-0 border border-[#D4A24E]/40">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 15a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/>
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M3.75 6.75 6.2 9.2c1.7-1.36 3.68-2.2 5.8-2.2s4.1.84 5.8 2.2l2.45-2.45A1.5 1.5 0 0 1 23 7.81v8.44c0 3.73-3.02 6.75-6.75 6.75h-8.5C4.02 23 1 19.98 1 16.25V7.81a1.5 1.5 0 0 1 2.75-1.06ZM8 13.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm11 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"/>
+            </svg>
+          </div>
+          <!-- Serif Title -->
+          <h2 class="font-serif text-[15px] font-semibold text-[#F5F2ED] tracking-wide">
+            Neko 的本月观察
+          </h2>
+          <span class="ml-auto text-[10px] font-mono text-[#D4A24E] border border-[#D4A24E]/30 bg-[#D4A24E]/10 px-1.5 py-0.5 rounded">
+            温和复盘
+          </span>
+        </div>
+
+        <!-- Verbatim Body Copy -->
+        <p class="text-[13px] text-[#F5F2ED]/90 leading-relaxed font-normal mb-3.5 pl-0.5">
+          这个月最大的进步是 21 小节转指的节奏偏差从 +120ms 收到 +64ms。下月建议：热身保持每周 3 次哈农 1，主菜速度不要超过 ♩=76；奖励曲可以开始摸《Summer》前 16 小节。
+        </p>
+
+        <!-- Two Evidence Chips -->
+        <div class="flex flex-wrap gap-2 pt-2 border-t border-[#332D29]/70">
+          <span class="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#D4A24E] bg-[#1C1917] px-2.5 py-1 rounded-md border border-[#332D29]">
+            <svg class="w-3 h-3 text-[#D4A24E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+            </svg>
+            <span>引用 47 个 take</span>
+          </span>
+          <span class="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#D4A24E] bg-[#1C1917] px-2.5 py-1 rounded-md border border-[#332D29]">
+            <svg class="w-3 h-3 text-[#D4A24E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+            <span>引用 6 条侧拍</span>
+          </span>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Buttons Area (No Tab Bar) -->
+    <footer class="sticky bottom-0 bg-[#1C1917]/95 backdrop-blur-md px-4 pt-3 pb-3 border-t border-[#332D29]/70 space-y-2.5">
+      <div class="flex items-center gap-3">
+        <!-- Outline Button: 导出 PDF -->
+        <button class="flex-1 h-11 rounded-xl border border-[#332D29] bg-[#262220] hover:bg-[#332D29]/50 active:scale-[0.98] transition-all text-[#F5F2ED] font-medium text-[14px] flex items-center justify-center gap-1.5">
+          <svg class="w-4 h-4 text-[#9C948B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          <span>导出 PDF</span>
+        </button>
+
+        <!-- Solid Amber Dark Text Button: 把观察写进笔记 -->
+        <button class="flex-[1.4] h-11 rounded-xl bg-[#D4A24E] hover:bg-[#e0b05e] active:scale-[0.98] transition-all text-[#1C1917] font-semibold text-[14px] flex items-center justify-center gap-1.5 shadow-md shadow-[#D4A24E]/10">
+          <svg class="w-4 h-4 text-[#1C1917]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+          </svg>
+          <span>把观察写进笔记</span>
+        </button>
+      </div>
+      <!-- Home Indicator Line for iPhone -->
+      <div class="w-32 h-1 bg-[#F5F2ED]/20 rounded-full mx-auto mt-1"></div>
+    </footer>
+
+  </div>
+</body>
+</html>

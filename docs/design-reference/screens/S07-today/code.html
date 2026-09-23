@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>PianoSempai - 今日</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#1C1917',
+            card: '#262220',
+            'card-border': '#332D29',
+            amber: {
+              DEFAULT: '#D4A24E',
+              subtle: '#382e1c',
+              dark: '#1C1917',
+            },
+            textMain: '#F5F2ED',
+            textMuted: '#9C948B',
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Noto Sans SC"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: 'Noto Sans SC', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+      line-height: 1;
+    }
+    .material-symbols-outlined.fill {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    /* Hide scrollbars for clean native look */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    * {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="w-full min-h-screen bg-[#1C1917] flex justify-center selection:bg-[#D4A24E]/30 selection:text-[#F5F2ED]">
+  <!-- Full-bleed native container (390px max-width layout designed edge-to-edge) -->
+  <div class="w-full max-w-[390px] min-h-screen bg-[#1C1917] flex flex-col relative pb-28 pt-0">
+    
+    <!-- iOS Status Bar -->
+    <div class="sticky top-0 z-40 bg-[#1C1917]/90 backdrop-blur-md w-full pt-3 pb-2 px-7 flex justify-between items-center text-[14px] font-semibold tracking-tight text-[#F5F2ED]">
+      <span>9:41</span>
+      <div class="flex items-center space-x-2">
+        <!-- Cellular -->
+        <svg class="w-4 h-3.5 fill-[#F5F2ED]" viewBox="0 0 17 12">
+          <rect x="0" y="8" width="2.5" height="4" rx="0.5"/>
+          <rect x="4.5" y="5" width="2.5" height="7" rx="0.5"/>
+          <rect x="9" y="2.5" width="2.5" height="9.5" rx="0.5"/>
+          <rect x="13.5" y="0" width="2.5" height="12" rx="0.5"/>
+        </svg>
+        <!-- Wifi -->
+        <svg class="w-4 h-3.5 fill-[#F5F2ED]" viewBox="0 0 16 12">
+          <path d="M8 2.5a11.25 11.25 0 0 1 7.2 2.6.75.75 0 1 1-.98 1.14A9.75 9.75 0 0 0 8 4a9.75 9.75 0 0 0-6.22 2.24.75.75 0 0 1-.98-1.14A11.25 11.25 0 0 1 8 2.5zm0 3.5a7.5 7.5 0 0 1 4.7 1.67.75.75 0 1 1-.96 1.15A6 6 0 0 0 8 7.5a6 6 0 0 0-3.74 1.32.75.75 0 1 1-.96-1.15A7.5 7.5 0 0 1 8 6zm0 3.75a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/>
+        </svg>
+        <!-- Battery -->
+        <div class="w-6 h-3 border border-[#F5F2ED]/70 rounded-[4px] p-0.5 flex items-center relative">
+          <div class="h-full w-4 bg-[#F5F2ED] rounded-[2px]"></div>
+          <div class="absolute -right-1 w-0.5 h-1.5 bg-[#F5F2ED]/70 rounded-r-sm"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="px-5 pt-3 flex-1 flex flex-col space-y-4">
+      
+      <!-- Header row -->
+      <section class="flex justify-between items-center pt-1 pb-1">
+        <h1 class="font-serif text-[32px] font-bold tracking-tight text-[#F5F2ED] leading-none">今日</h1>
+        
+        <!-- Status Pill -->
+        <div class="flex items-center space-x-1.5 bg-[#262220] border border-[#332D29] rounded-full px-3 py-1.5 shadow-sm">
+          <span class="w-2 h-2 rounded-full bg-[#D4A24E] animate-pulse"></span>
+          <span class="text-[12px] text-[#9C948B] font-normal tracking-wide">已连接 · 特伦斯 V70</span>
+        </div>
+      </section>
+
+      <!-- Streak Card -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-2xl p-4 shadow-sm">
+        <div class="flex justify-between items-baseline mb-4">
+          <span class="font-serif text-[19px] font-semibold text-[#F5F2ED] tracking-tight">本周 2/3 次</span>
+          <span class="text-[13px] text-[#9C948B]">连续达标 5 周</span>
+        </div>
+
+        <!-- Weekday Columns -->
+        <div class="grid grid-cols-7 gap-1 text-center items-center mb-3">
+          <!-- 一: Completed -->
+          <div class="flex flex-col items-center space-y-2">
+            <div class="w-8 h-8 rounded-full bg-[#D4A24E] text-[#1C1917] flex items-center justify-center shadow-sm">
+              <span class="material-symbols-outlined text-[18px] font-bold">check</span>
+            </div>
+            <span class="text-[12px] text-[#9C948B]">一</span>
+          </div>
+
+          <!-- 二: Completed -->
+          <div class="flex flex-col items-center space-y-2">
+            <div class="w-8 h-8 rounded-full bg-[#D4A24E] text-[#1C1917] flex items-center justify-center shadow-sm">
+              <span class="material-symbols-outlined text-[18px] font-bold">check</span>
+            </div>
+            <span class="text-[12px] text-[#9C948B]">二</span>
+          </div>
+
+          <!-- 三: Today (Amber ring, subtle) -->
+          <div class="flex flex-col items-center space-y-2">
+            <div class="w-8 h-8 rounded-full border-2 border-[#D4A24E] bg-[#D4A24E]/10 text-[#D4A24E] flex items-center justify-center">
+              <span class="text-[13px] font-semibold">3</span>
+            </div>
+            <span class="text-[12px] text-[#D4A24E] font-medium">三</span>
+          </div>
+
+          <!-- 四: Dim outline -->
+          <div class="flex flex-col items-center space-y-2">
+            <div class="w-8 h-8 rounded-full border border-[#332D29] bg-[#1C1917]/40 flex items-center justify-center">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#332D29]"></span>
+            </div>
+            <span class="text-[12px] text-[#9C948B]">四</span>
+          </div>
+
+          <!-- 五: Dim outline -->
+          <div class="flex flex-col items-center space-y-2">
+            <div class="w-8 h-8 rounded-full border border-[#332D29] bg-[#1C1917]/40 flex items-center justify-center">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#332D29]"></span>
+            </div>
+            <span class="text-[12px] text-[#9C948B]">五</span>
+          </div>
+
+          <!-- 六: Dim outline -->
+          <div class="flex flex-col items-center space-y-2">
+            <div class="w-8 h-8 rounded-full border border-[#332D29] bg-[#1C1917]/40 flex items-center justify-center">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#332D29]"></span>
+            </div>
+            <span class="text-[12px] text-[#9C948B]">六</span>
+          </div>
+
+          <!-- 日: Dim outline -->
+          <div class="flex flex-col items-center space-y-2">
+            <div class="w-8 h-8 rounded-full border border-[#332D29] bg-[#1C1917]/40 flex items-center justify-center">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#332D29]"></span>
+            </div>
+            <span class="text-[12px] text-[#9C948B]">日</span>
+          </div>
+        </div>
+
+        <!-- Tiny muted note -->
+        <div class="pt-2 border-t border-[#332D29]/60 flex items-center justify-between text-[11px] text-[#9C948B]">
+          <span>周目标 3 次 · 本周还剩 1 次</span>
+          <span class="text-[#D4A24E]/80 text-[10px] tracking-wider uppercase">Focus Week</span>
+        </div>
+      </section>
+
+      <!-- Duration Card -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-2xl p-4 shadow-sm flex items-center justify-between">
+        <span class="text-[14px] font-medium text-[#F5F2ED] tracking-wide">今日时长</span>
+
+        <div class="flex items-center space-x-3">
+          <!-- Segmented Control -->
+          <div class="bg-[#1C1917] p-1 rounded-xl border border-[#332D29] flex items-center">
+            <button class="px-3.5 py-1 text-[13px] text-[#9C948B] hover:text-[#F5F2ED] transition">15</button>
+            <button class="px-3.5 py-1 text-[13px] font-bold text-[#1C1917] bg-[#D4A24E] rounded-lg shadow-sm">30</button>
+            <button class="px-3.5 py-1 text-[13px] text-[#9C948B] hover:text-[#F5F2ED] transition">45</button>
+          </div>
+          <!-- Muted text -->
+          <span class="text-[12px] text-[#9C948B] pl-1">余 42 分钟</span>
+        </div>
+      </section>
+
+      <!-- Section: 今日任务 -->
+      <section class="pt-2 flex flex-col space-y-2.5">
+        <div class="flex justify-between items-center px-0.5">
+          <h2 class="text-[16px] font-serif font-semibold text-[#F5F2ED] tracking-tight">今日任务</h2>
+          <span class="text-[12px] text-[#9C948B]">3 项</span>
+        </div>
+
+        <!-- Task 1: Done state -->
+        <div class="bg-[#262220] border border-[#332D29] rounded-2xl p-3.5 flex items-center justify-between">
+          <div class="flex items-center space-x-3.5">
+            <!-- Green check circle -->
+            <div class="w-8 h-8 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+              <span class="material-symbols-outlined text-[18px]">check</span>
+            </div>
+            
+            <div class="flex flex-col space-y-0.5">
+              <div class="flex items-center space-x-2">
+                <span class="text-[10px] font-medium text-[#D4A24E] border border-[#D4A24E]/40 px-1.5 py-0.5 rounded leading-none">热身</span>
+                <span class="text-[15px] font-medium text-[#F5F2ED] line-through opacity-75">哈农 第1条</span>
+              </div>
+              <span class="text-[12px] text-[#9C948B]">8 分钟 · 高抬指慢练</span>
+            </div>
+          </div>
+
+          <span class="text-[12px] text-[#9C948B] shrink-0 font-light">已完成</span>
+        </div>
+
+        <!-- Task 2: Active state -->
+        <div class="bg-[#262220] border-l-2 border-l-[#D4A24E] border-y border-r border-[#332D29] rounded-2xl p-4 flex flex-col space-y-3 shadow-md">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3.5">
+              <!-- Amber play circle -->
+              <div class="w-9 h-9 rounded-full bg-[#D4A24E]/15 border border-[#D4A24E]/40 text-[#D4A24E] flex items-center justify-center shrink-0 shadow-sm">
+                <span class="material-symbols-outlined fill text-[20px] ml-0.5">play_arrow</span>
+              </div>
+              
+              <div class="flex flex-col space-y-0.5">
+                <div class="flex items-center space-x-2">
+                  <span class="text-[10px] font-semibold text-[#1C1917] bg-[#D4A24E] px-1.5 py-0.5 rounded leading-none">主菜</span>
+                  <span class="text-[16px] font-semibold text-[#F5F2ED]">拜厄 第45条</span>
+                </div>
+                <span class="text-[12px] text-[#9C948B]">17–24 小节 · 18 分钟</span>
+              </div>
+            </div>
+
+            <!-- Chevron -->
+            <span class="material-symbols-outlined text-[#9C948B] text-[20px]">chevron_right</span>
+          </div>
+
+          <!-- Inner muted callout with info icon -->
+          <div class="bg-[#1C1917]/70 border border-[#332D29] rounded-xl px-3 py-2 flex items-center space-x-2 text-[12px] text-[#D4A24E]/90">
+            <span class="material-symbols-outlined text-[16px] text-[#D4A24E] shrink-0">info</span>
+            <span class="text-[#9C948B] truncate">上次错误集中在 <span class="text-[#F5F2ED] font-medium">21 小节</span></span>
+          </div>
+        </div>
+
+        <!-- Task 3: Optional state -->
+        <div class="bg-[#262220] border border-[#332D29] rounded-2xl p-3.5 flex items-center justify-between">
+          <div class="flex items-center space-x-3.5">
+            <!-- Dim note icon -->
+            <div class="w-8 h-8 rounded-full bg-[#1C1917] border border-[#332D29] text-[#9C948B] flex items-center justify-center shrink-0">
+              <span class="material-symbols-outlined text-[18px]">music_note</span>
+            </div>
+            
+            <div class="flex flex-col space-y-0.5">
+              <div class="flex items-center space-x-2">
+                <span class="text-[10px] font-normal text-[#9C948B] border border-[#332D29] px-1.5 py-0.5 rounded leading-none">奖励曲</span>
+                <span class="text-[15px] font-medium text-[#F5F2ED]">《Summer》久石让</span>
+              </div>
+              <span class="text-[12px] text-[#9C948B]">自选 · 有余力再弹</span>
+            </div>
+          </div>
+
+          <!-- Chevron -->
+          <span class="material-symbols-outlined text-[#9C948B]/60 text-[20px]">chevron_right</span>
+        </div>
+      </section>
+
+      <!-- Full-width CTA Button (No floating near it) -->
+      <section class="pt-3">
+        <button class="w-full py-3.5 rounded-2xl bg-[#D4A24E] active:bg-[#c29141] transition text-[#1C1917] font-bold text-[16px] tracking-wide flex items-center justify-center space-x-2 shadow-lg shadow-[#D4A24E]/10">
+          <span class="material-symbols-outlined fill text-[20px]">play_circle</span>
+          <span>开始练习</span>
+        </button>
+      </section>
+
+    </main>
+
+    <!-- Round 52px amber-outlined cat-face FAB at bottom-right, 16px above tab bar, vertically well separated from CTA -->
+    <div class="absolute right-5 bottom-[92px] z-30">
+      <button class="w-[52px] h-[52px] rounded-full bg-[#262220]/95 backdrop-blur-md border border-[#D4A24E] flex items-center justify-center text-[#D4A24E] shadow-xl hover:scale-105 active:scale-95 transition-all group">
+        <!-- Stylized Cat Face (SVG) -->
+        <svg class="w-6 h-6 stroke-[#D4A24E] fill-none stroke-[1.8] stroke-linecap-round stroke-linejoin-round" viewBox="0 0 24 24">
+          <!-- Head outline with ears -->
+          <path d="M4 11V16C4 19.3137 7.58172 21 12 21C16.4183 21 20 19.3137 20 16V11L17.5 7L14.5 9.5C13.7 9.2 12.8 9 12 9C11.2 9 10.3 9.2 9.5 9.5L6.5 7L4 11Z" />
+          <!-- Whiskers -->
+          <line x1="2" y1="14" x2="6" y2="15" />
+          <line x1="2" y1="17" x2="6" y2="16.5" />
+          <line x1="22" y1="14" x2="18" y2="15" />
+          <line x1="22" y1="17" x2="18" y2="16.5" />
+          <!-- Nose -->
+          <polygon points="12,14.5 11,16 13,16" class="fill-[#D4A24E]" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Dark translucent bottom tab bar -->
+    <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[390px] z-40 bg-[#1C1917]/90 backdrop-blur-xl border-t border-[#332D29] pb-6 pt-2 px-3">
+      <div class="grid grid-cols-5 items-center text-center">
+        <!-- Tab 1: 今日 (active amber) -->
+        <a href="javascript:void(0)" class="flex flex-col items-center space-y-1 text-[#D4A24E]">
+          <span class="material-symbols-outlined text-[23px] fill">calendar_today</span>
+          <span class="text-[11px] font-medium">今日</span>
+        </a>
+
+        <!-- Tab 2: 曲库 -->
+        <a href="javascript:void(0)" class="flex flex-col items-center space-y-1 text-[#9C948B] hover:text-[#F5F2ED] transition">
+          <span class="material-symbols-outlined text-[23px]">library_music</span>
+          <span class="text-[11px]">曲库</span>
+        </a>
+
+        <!-- Tab 3: 练习室 -->
+        <a href="javascript:void(0)" class="flex flex-col items-center space-y-1 text-[#9C948B] hover:text-[#F5F2ED] transition">
+          <span class="material-symbols-outlined text-[23px]">piano</span>
+          <span class="text-[11px]">练习室</span>
+        </a>
+
+        <!-- Tab 4: 档案 -->
+        <a href="javascript:void(0)" class="flex flex-col items-center space-y-1 text-[#9C948B] hover:text-[#F5F2ED] transition">
+          <span class="material-symbols-outlined text-[23px]">leaderboard</span>
+          <span class="text-[11px]">档案</span>
+        </a>
+
+        <!-- Tab 5: 我的 -->
+        <a href="javascript:void(0)" class="flex flex-col items-center space-y-1 text-[#9C948B] hover:text-[#F5F2ED] transition">
+          <span class="material-symbols-outlined text-[23px]">person</span>
+          <span class="text-[11px]">我的</span>
+        </a>
+      </div>
+
+      <!-- iOS Home Indicator -->
+      <div class="w-32 h-1 bg-[#F5F2ED]/30 rounded-full mx-auto mt-3"></div>
+    </nav>
+
+  </div>
+</body>
+</html>

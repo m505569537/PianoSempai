@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<title>琴伴 PianoSempai - 连接你的电钢琴</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&amp;family=Noto+Serif+SC:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-error": "#690005",
+            "inverse-on-surface": "#33302d",
+            "secondary-fixed-dim": "#eac085",
+            "outline": "#9c8f7e",
+            "surface-dim": "#161311",
+            "on-secondary-fixed": "#291800",
+            "on-tertiary-container": "#513c02",
+            "secondary-fixed": "#ffddb2",
+            "primary-fixed": "#ffdead",
+            "outline-variant": "#4f4537",
+            "on-tertiary-fixed-variant": "#594409",
+            "on-secondary-container": "#dbb279",
+            "surface-container-highest": "#383432",
+            "on-surface": "#e9e1dd",
+            "on-secondary": "#442b00",
+            "on-error-container": "#ffdad6",
+            "on-surface-variant": "#d3c4b2",
+            "on-primary": "#432c00",
+            "surface-container-low": "#1e1b19",
+            "tertiary-fixed": "#ffdf9a",
+            "surface-container": "#221f1d",
+            "secondary-container": "#614415",
+            "primary-container": "#d4a24e",
+            "on-tertiary-fixed": "#251a00",
+            "on-tertiary": "#3f2e00",
+            "tertiary": "#e2c37d",
+            "on-primary-fixed": "#281900",
+            "surface-bright": "#3c3836",
+            "on-primary-fixed-variant": "#604100",
+            "background": "#161311",
+            "inverse-surface": "#e9e1dd",
+            "tertiary-fixed-dim": "#e2c37d",
+            "surface-container-lowest": "#100e0c",
+            "secondary": "#eac085",
+            "inverse-primary": "#7e5703",
+            "on-secondary-fixed-variant": "#5e4113",
+            "primary": "#f3be67",
+            "surface-container-high": "#2d2927",
+            "surface": "#161311",
+            "error-container": "#93000a",
+            "on-background": "#e9e1dd",
+            "error": "#ffb4ab",
+            "surface-variant": "#383432",
+            "surface-tint": "#f3be67",
+            "on-primary-container": "#563900",
+            "tertiary-container": "#c5a764",
+            "primary-fixed-dim": "#f3be67"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "space-md": "1rem",
+            "margin": "3rem",
+            "gutter": "1.5rem",
+            "space-xs": "0.25rem",
+            "space-lg": "1.5rem",
+            "space-sm": "0.5rem",
+            "space-xl": "2.5rem",
+            "margin-sm": "1.25rem",
+            "gutter-sm": "1rem"
+          },
+          "fontFamily": {
+            "headline-sm": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "title-md": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "headline-md": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "headline-lg-mobile": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "body-lg": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "headline-lg": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "label-md": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "display-lg": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "body-sm": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "display-lg-mobile": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "label-sm": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "body-md": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"]
+          },
+          "fontSize": {
+            "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "500" }],
+            "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.01em", "fontWeight": "500" }],
+            "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "400" }],
+            "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "0em", "fontWeight": "400" }],
+            "body-lg": ["16px", { "lineHeight": "26px", "fontWeight": "400" }],
+            "headline-lg": ["32px", { "lineHeight": "42px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+            "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.06em", "fontWeight": "500" }],
+            "display-lg": ["48px", { "lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+            "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.08em", "fontWeight": "500" }],
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    @keyframes subtle-pulse {
+      0%, 100% { opacity: 0.35; transform: scale(0.98); }
+      50% { opacity: 0.85; transform: scale(1.02); }
+    }
+    .wave-pulse {
+      animation: subtle-pulse 3s ease-in-out infinite;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-[#1C1917] text-[#F5F2ED] antialiased min-h-screen flex flex-col justify-between select-none relative overflow-x-hidden">
+<!-- Main Container: Mobile Full-Bleed 390x844 architectural proportions -->
+<div class="w-full max-w-[420px] mx-auto min-h-screen flex flex-col justify-between px-space-md pt-0 pb-3 relative">
+<!-- TOP SECTION: Status Bar & Navigation -->
+<div>
+<!-- 1. iOS Status Bar -->
+<div class="w-full h-11 flex justify-between items-center px-space-xs text-[#F5F2ED] font-title-md text-body-sm tracking-tight pt-1">
+<span class="font-semibold text-[15px] pl-1 tracking-tight">9:41</span>
+<div class="flex items-center gap-1.5 pr-1 text-[#F5F2ED]">
+<!-- Cellular -->
+<span class="material-symbols-outlined text-[16px] text-on-surface">signal_cellular_alt</span>
+<!-- Wifi -->
+<span class="material-symbols-outlined text-[16px] text-on-surface">wifi</span>
+<!-- Battery Pill -->
+<div class="w-6 h-3 rounded-[3px] border border-[#F5F2ED]/70 p-0.5 flex items-center relative ml-0.5">
+<div class="w-3.5 h-full bg-[#F5F2ED] rounded-[1px]"></div>
+<div class="absolute -right-1 top-1 w-0.5 h-1 bg-[#F5F2ED]/70 rounded-r-sm"></div>
+</div>
+</div>
+</div>
+<!-- 2. Wizard Navigation Bar -->
+<div class="flex items-center justify-between py-space-sm mt-1 mb-2">
+<!-- Back Button -->
+<button aria-label="返回" class="w-8 h-8 rounded-lg flex items-center justify-center text-[#9C948B] hover:text-[#F5F2ED] active:scale-95 transition-all bg-[#262220]/60 border border-[#332D29]" type="button">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<!-- Step Indicator (权限 -> 连接 -> 验证) -->
+<div class="flex items-center gap-2">
+<!-- Step 1: 权限 (Completed) -->
+<div class="flex items-center gap-1.5">
+<div class="w-4 h-4 rounded-full bg-[#262220] border border-[#D4A24E]/40 flex items-center justify-center text-[#D4A24E]">
+<span class="material-symbols-outlined text-[11px] font-bold">check</span>
+</div>
+<span class="font-label-sm text-label-sm text-[#9C948B]">权限</span>
+</div>
+<!-- Hairline Progress Segment 1-2 -->
+<div class="w-5 h-[1px] bg-[#D4A24E]/50"></div>
+<!-- Step 2: 连接 (Active) -->
+<div class="flex items-center gap-1.5">
+<div class="relative flex items-center justify-center">
+<span class="w-2.5 h-2.5 rounded-full bg-[#D4A24E]"></span>
+<span class="absolute w-4 h-4 rounded-full border border-[#D4A24E]/40 animate-ping opacity-75"></span>
+</div>
+<span class="font-label-sm text-label-sm text-[#D4A24E] font-medium">连接</span>
+</div>
+<!-- Hairline Progress Segment 2-3 -->
+<div class="w-5 h-[1px] bg-[#332D29]"></div>
+<!-- Step 3: 验证 (Upcoming) -->
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-[#332D29]"></span>
+<span class="font-label-sm text-label-sm text-[#9C948B]/60">验证</span>
+</div>
+</div>
+<!-- Right balancing placeholder (32px to match back button) -->
+<div class="w-8 h-8 opacity-0 pointer-events-none"></div>
+</div>
+<!-- 3. Centered Illustration Zone (Nocturne Minimal Line-Art) -->
+<div class="w-full bg-[#262220] border border-[#332D29] rounded-2xl p-5 mb-space-md relative overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+<!-- Ambient radial glow -->
+<div class="absolute inset-0 bg-radial from-[#D4A24E]/10 via-transparent to-transparent opacity-40 pointer-events-none"></div>
+<div class="w-full h-32 flex flex-col items-center justify-center relative">
+<!-- Radiating Bluetooth Wave Glyph -->
+<div class="relative w-16 h-14 flex items-center justify-center mb-1 wave-pulse">
+<!-- Outermost Wave -->
+<svg class="absolute w-16 h-16 text-[#D4A24E]/25" fill="none" viewbox="0 0 64 64">
+<path d="M12 22C18 16 46 16 52 22" stroke="currentColor" stroke-linecap="round" stroke-width="1.2"></path>
+</svg>
+<!-- Middle Wave -->
+<svg class="absolute w-12 h-12 text-[#D4A24E]/50" fill="none" viewbox="0 0 48 48">
+<path d="M11 18C15 13 33 13 37 18" stroke="currentColor" stroke-linecap="round" stroke-width="1.2"></path>
+</svg>
+<!-- Core Bluetooth Node -->
+<div class="w-6 h-6 rounded-full bg-[#1C1917] border border-[#D4A24E]/60 flex items-center justify-center text-[#D4A24E] shadow-[0_0_12px_rgba(212,162,78,0.3)]">
+<span class="material-symbols-outlined text-[14px]">bluetooth_searching</span>
+</div>
+</div>
+<!-- Refined Digital Piano Line Art -->
+<div class="w-56 h-11 relative flex flex-col items-center">
+<!-- Piano Chassis -->
+<div class="w-full h-7 border border-[#D4A24E]/60 rounded-[3px] bg-[#1C1917]/80 px-1 py-0.5 flex flex-col justify-between relative shadow-sm">
+<!-- Top Display Strip & Status Dot -->
+<div class="flex items-center justify-between px-1.5 pt-0.5">
+<div class="flex gap-0.5">
+<span class="w-1 h-1 rounded-full bg-[#D4A24E]"></span>
+<span class="w-1 h-1 rounded-full bg-[#3D3531]"></span>
+</div>
+<div class="h-1 w-8 bg-[#332D29] rounded-sm"></div>
+<span class="material-symbols-outlined text-[9px] text-[#D4A24E]/70">graphic_eq</span>
+</div>
+<!-- Keys Row (Natural & Accidentals) -->
+<div class="w-full h-3.5 flex relative items-stretch border-t border-[#332D29] pt-[1px]">
+<!-- White Keys Representation -->
+<div class="flex-1 flex justify-between">
+<span class="flex-1 border-r border-[#332D29]/60 bg-[#262220]"></span>
+<span class="flex-1 border-r border-[#332D29]/60 bg-[#262220]"></span>
+<span class="flex-1 border-r border-[#332D29]/60 bg-[#262220]"></span>
+<span class="flex-1 border-r border-[#332D29]/60 bg-[#262220]"></span>
+<span class="flex-1 border-r border-[#332D29]/60 bg-[#262220]"></span>
+<span class="flex-1 border-r border-[#332D29]/60 bg-[#262220]"></span>
+<span class="flex-1 border-r border-[#332D29]/60 bg-[#262220]"></span>
+<span class="flex-1 border-r border-[#332D29]/60 bg-[#262220]"></span>
+<span class="flex-1 border-r border-[#332D29]/60 bg-[#262220]"></span>
+<span class="flex-1 bg-[#262220]"></span>
+</div>
+<!-- Black Keys Micro Overlays -->
+<div class="absolute inset-0 flex justify-around pointer-events-none px-1">
+<span class="w-1 h-2 bg-[#D4A24E]/90 rounded-b-[1px]"></span>
+<span class="w-1 h-2 bg-[#D4A24E]/90 rounded-b-[1px]"></span>
+<span class="w-1 h-2 opacity-0"></span>
+<span class="w-1 h-2 bg-[#D4A24E]/90 rounded-b-[1px]"></span>
+<span class="w-1 h-2 bg-[#D4A24E]/90 rounded-b-[1px]"></span>
+<span class="w-1 h-2 bg-[#D4A24E]/90 rounded-b-[1px]"></span>
+</div>
+</div>
+</div>
+<!-- Piano Stand Line Accents -->
+<div class="w-48 flex justify-between px-2 pt-0.5 text-[#332D29]">
+<div class="w-[1px] h-3 bg-[#332D29]"></div>
+<div class="w-36 h-[1px] bg-[#332D29] mt-1.5"></div>
+<div class="w-[1px] h-3 bg-[#332D29]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- 4. Headline & Copy -->
+<div class="px-space-xs mb-space-md text-left">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-[#F5F2ED] tracking-tight font-normal mb-1.5 flex items-center gap-2">
+<span>连接特伦斯 V70</span>
+<span class="w-1.5 h-1.5 rounded-full bg-[#D4A24E]"></span>
+</h1>
+<p class="font-body-md text-body-md text-[#9C948B] leading-relaxed">
+          请在电钢琴上打开蓝牙 MIDI（部分机型需在功能菜单中启用），然后在下方选择设备。
+        </p>
+</div>
+<!-- 5. Device List Card titled '可用设备' -->
+<div class="mb-space-md">
+<div class="flex items-center justify-between px-space-xs mb-2">
+<span class="font-label-md text-label-md text-[#9C948B] uppercase tracking-wider">可用设备</span>
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#D4A24E] animate-ping"></span>
+<span class="font-label-sm text-label-sm text-[#D4A24E]">检索中</span>
+</div>
+</div>
+<div class="bg-[#262220] border border-[#332D29] rounded-2xl p-4 shadow-[0_8px_32px_rgba(12,10,9,0.5)]">
+<!-- Row 1: Active Discovered Device -->
+<div class="flex items-center justify-between py-1 group">
+<div class="flex items-center gap-3">
+<!-- Digital Piano Icon Badge -->
+<div class="w-10 h-10 rounded-xl bg-[#1C1917] border border-[#D4A24E]/30 flex items-center justify-center text-[#D4A24E] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+<span class="material-symbols-outlined text-[20px]" data-weight="fill" style="font-variation-settings: 'FILL' 1;">piano</span>
+</div>
+<!-- Device Name & Meta -->
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="font-title-md text-title-md text-[#F5F2ED] font-medium tracking-tight">Terence V70</span>
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500/80"></span>
+</div>
+<div class="flex items-center gap-1.5 text-body-sm text-[#9C948B]">
+<span>蓝牙 MIDI · 信号强</span>
+<!-- High-Signal Bars Indicator -->
+<div class="flex items-end gap-0.5 h-2.5 ml-0.5">
+<span class="w-0.5 h-1 bg-[#D4A24E] rounded-full"></span>
+<span class="w-0.5 h-1.5 bg-[#D4A24E] rounded-full"></span>
+<span class="w-0.5 h-2 bg-[#D4A24E] rounded-full"></span>
+<span class="w-0.5 h-2.5 bg-[#D4A24E] rounded-full"></span>
+</div>
+</div>
+</div>
+</div>
+<!-- Connect Button -->
+<button class="bg-[#D4A24E] text-[#1C1917] font-title-md text-body-md font-medium px-4 py-1.5 rounded-full hover:bg-[#E8C882] active:scale-95 transition-all shadow-[0_0_14px_rgba(212,162,78,0.25)]" type="button">
+              连接
+            </button>
+</div>
+<!-- Divider Line -->
+<div class="w-full h-[1px] bg-[#332D29] my-3"></div>
+<!-- Row 2: Dimmed Placeholder -->
+<div class="flex items-center justify-between py-1 opacity-60">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-[#1C1917]/50 border border-[#332D29] flex items-center justify-center text-[#9C948B]">
+<span class="material-symbols-outlined text-[18px]">bluetooth_disabled</span>
+</div>
+<div class="flex flex-col">
+<span class="font-title-md text-body-md text-[#9C948B]">未发现其他设备</span>
+<span class="font-body-sm text-body-sm text-[#9C948B]/60">请确认琴已通电</span>
+</div>
+</div>
+<button aria-label="刷新" class="w-8 h-8 rounded-lg flex items-center justify-center text-[#9C948B] hover:text-[#F5F2ED] transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">refresh</span>
+</button>
+</div>
+</div>
+</div>
+<!-- 6. Muted Help Row -->
+<a class="flex items-center justify-between px-3 py-2 rounded-xl text-[#9C948B] hover:text-[#D4A24E] hover:bg-[#262220]/40 transition-all border border-transparent hover:border-[#332D29]" href="#help">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-[#9C948B]">help_outline</span>
+<span class="font-body-md text-body-md">找不到设备？查看帮助</span>
+</div>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</a>
+</div>
+<!-- BOTTOM ACTION AREA (Pinned with iOS Home Indicator) -->
+<div class="w-full pt-4 pb-1 mt-auto flex flex-col items-center">
+<!-- Amber filled primary button: shows scanning status with radar spinner -->
+<button class="w-full bg-[#D4A24E] hover:bg-[#E8C882] active:scale-[0.99] text-[#1C1917] font-title-md text-title-md font-medium py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(212,162,78,0.22)] transition-all" type="button">
+<!-- Radar / Spinner Ring -->
+<span class="material-symbols-outlined text-[19px] animate-spin">progress_activity</span>
+<span>重新扫描</span>
+</button>
+<!-- Secondary ghost button: Verify with GarageBand -->
+<button class="w-full py-2.5 mt-1 font-body-md text-body-md text-[#9C948B] hover:text-[#F5F2ED] active:opacity-75 transition-colors flex items-center justify-center gap-1.5" type="button">
+<span class="material-symbols-outlined text-[16px]">tune</span>
+<span>使用 GarageBand 验证连接</span>
+</button>
+<!-- Standard iOS Home Indicator Bar -->
+<div class="w-32 h-1 bg-[#F5F2ED]/25 rounded-full mt-3 mb-1"></div>
+</div>
+</div>
+</body></html>

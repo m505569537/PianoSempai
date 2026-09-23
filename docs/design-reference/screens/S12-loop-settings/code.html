@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=390, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>PianoSempai - 段落循环设置</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;family=Noto+Serif+SC:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-background": "#e9e1dd",
+            "outline": "#9c8f7e",
+            "on-tertiary-fixed-variant": "#594409",
+            "on-secondary-fixed": "#291800",
+            "on-surface-variant": "#d3c4b2",
+            "on-secondary-container": "#dbb279",
+            "surface-dim": "#161311",
+            "error-container": "#93000a",
+            "on-primary": "#432c00",
+            "on-tertiary": "#3f2e00",
+            "on-surface": "#e9e1dd",
+            "surface-container-lowest": "#100e0c",
+            "primary-fixed": "#ffdead",
+            "surface-container-high": "#2d2927",
+            "tertiary-fixed": "#ffdf9a",
+            "primary": "#f3be67",
+            "secondary-fixed": "#ffddb2",
+            "inverse-on-surface": "#33302d",
+            "on-tertiary-container": "#513c02",
+            "on-primary-fixed-variant": "#604100",
+            "tertiary-container": "#c5a764",
+            "background": "#161311",
+            "tertiary-fixed-dim": "#e2c37d",
+            "tertiary": "#e2c37d",
+            "primary-container": "#d4a24e",
+            "surface-container-highest": "#383432",
+            "on-secondary": "#442b00",
+            "inverse-surface": "#e9e1dd",
+            "inverse-primary": "#7e5703",
+            "surface-container-low": "#1e1b19",
+            "on-error": "#690005",
+            "on-secondary-fixed-variant": "#5e4113",
+            "surface-container": "#221f1d",
+            "secondary": "#eac085",
+            "surface": "#161311",
+            "secondary-container": "#614415",
+            "on-error-container": "#ffdad6",
+            "on-tertiary-fixed": "#251a00",
+            "outline-variant": "#4f4537",
+            "surface-variant": "#383432",
+            "secondary-fixed-dim": "#eac085",
+            "on-primary-container": "#563900",
+            "surface-tint": "#f3be67",
+            "surface-bright": "#3c3836",
+            "on-primary-fixed": "#281900",
+            "primary-fixed-dim": "#f3be67",
+            "error": "#ffb4ab"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "margin": "3rem",
+            "space-xs": "0.25rem",
+            "space-md": "1rem",
+            "margin-sm": "1.25rem",
+            "space-xl": "2.5rem",
+            "space-lg": "1.5rem",
+            "space-sm": "0.5rem",
+            "gutter": "1.5rem",
+            "gutter-sm": "1rem"
+          },
+          "fontFamily": {
+            "headline-md": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "body-md": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "body-sm": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "headline-lg-mobile": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "headline-sm": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "display-lg": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "body-lg": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "title-md": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "display-lg-mobile": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "headline-lg": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "label-sm": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "label-md": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"]
+          },
+          "fontSize": {
+            "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "400" }],
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "0em", "fontWeight": "400" }],
+            "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "500" }],
+            "display-lg": ["48px", { "lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "400" }],
+            "body-lg": ["16px", { "lineHeight": "26px", "fontWeight": "400" }],
+            "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.01em", "fontWeight": "500" }],
+            "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+            "headline-lg": ["32px", { "lineHeight": "42px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+            "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.08em", "fontWeight": "500" }],
+            "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.06em", "fontWeight": "500" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      display: inline-block;
+      text-transform: none;
+      letter-spacing: normal;
+      word-wrap: normal;
+      white-space: nowrap;
+      direction: ltr;
+    }
+    /* Subtle custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #161311;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #332D29;
+      border-radius: 2px;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body-md antialiased selection:bg-primary-container selection:text-on-primary min-h-screen flex justify-center items-center">
+<!-- Mobile Screen Canvas (390 x 844) Edge-to-Edge Sheet Container -->
+<main class="w-[390px] h-[844px] bg-surface flex flex-col relative overflow-hidden shadow-2xl border border-outline-variant/30 select-none">
+<!-- Ambient Acoustic Resonance Background Glow -->
+<div class="absolute -top-24 left-1/2 -translate-x-1/2 w-80 h-48 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
+<!-- 1. Sheet Header / Modal Top -->
+<header class="w-full pt-3 pb-2 px-space-md flex flex-col items-center shrink-0 z-10">
+<!-- Centered Drag Handle Pill -->
+<div class="w-10 h-1 rounded-full bg-outline-variant/60 mb-3 cursor-grab"></div>
+<!-- Navigation Header -->
+<div class="w-full flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="repeat">repeat</span>
+<h1 class="text-headline-sm font-headline-sm text-on-surface tracking-tight">段落循环</h1>
+</div>
+<button aria-label="关闭" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container active:scale-95 transition-all" type="button">
+<span class="material-symbols-outlined text-xl" data-icon="close">close</span>
+</button>
+</div>
+</header>
+<!-- Scrollable Content Canvas -->
+<div class="flex-1 overflow-y-auto px-space-md py-space-xs space-y-space-md pb-6">
+<!-- Card 1: 选择小节 -->
+<section class="bg-surface-container rounded-xl border border-outline-variant/30 p-space-md shadow-sm relative overflow-hidden">
+<!-- Subtle Top Edge Inset Highlight -->
+<div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none"></div>
+<div class="flex items-baseline justify-between mb-space-sm">
+<h2 class="text-title-md font-title-md text-on-surface font-medium">选择小节</h2>
+<span class="text-label-sm font-label-sm text-on-surface-variant opacity-80">曲目：拜厄 第45条（共 32 小节）</span>
+</div>
+<!-- Numeric Steppers: 起点 & 终点 -->
+<div class="grid grid-cols-2 gap-space-sm mb-space-md">
+<!-- Left Stepper: 起点 -->
+<div class="bg-surface-container-low border border-outline-variant/30 rounded-lg p-space-sm flex flex-col gap-1.5">
+<span class="text-label-sm font-label-sm text-on-surface-variant">起点小节</span>
+<div class="flex items-center justify-between">
+<button aria-label="减少起点小节" class="w-7 h-7 rounded bg-surface-container-high hover:bg-surface-bright active:scale-95 border border-outline-variant/20 flex items-center justify-center text-on-surface transition-transform" type="button">
+<span class="material-symbols-outlined text-base" data-icon="remove">remove</span>
+</button>
+<div class="flex items-baseline gap-1">
+<span class="text-headline-sm font-headline-sm text-on-surface font-medium" id="start-measure">17</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant">小节</span>
+</div>
+<button aria-label="增加起点小节" class="w-7 h-7 rounded bg-surface-container-high hover:bg-surface-bright active:scale-95 border border-outline-variant/20 flex items-center justify-center text-on-surface transition-transform" type="button">
+<span class="material-symbols-outlined text-base" data-icon="add">add</span>
+</button>
+</div>
+</div>
+<!-- Right Stepper: 终点 -->
+<div class="bg-surface-container-low border border-outline-variant/30 rounded-lg p-space-sm flex flex-col gap-1.5">
+<span class="text-label-sm font-label-sm text-on-surface-variant">终点小节</span>
+<div class="flex items-center justify-between">
+<button aria-label="减少终点小节" class="w-7 h-7 rounded bg-surface-container-high hover:bg-surface-bright active:scale-95 border border-outline-variant/20 flex items-center justify-center text-on-surface transition-transform" type="button">
+<span class="material-symbols-outlined text-base" data-icon="remove">remove</span>
+</button>
+<div class="flex items-baseline gap-1">
+<span class="text-headline-sm font-headline-sm text-on-surface font-medium" id="end-measure">24</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant">小节</span>
+</div>
+<button aria-label="增加终点小节" class="w-7 h-7 rounded bg-surface-container-high hover:bg-surface-bright active:scale-95 border border-outline-variant/20 flex items-center justify-center text-on-surface transition-transform" type="button">
+<span class="material-symbols-outlined text-base" data-icon="add">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Visual Mini-Timeline Strip (32 Measure Micro-Bars) -->
+<div class="mb-space-sm">
+<div class="flex items-center justify-between text-label-sm font-label-sm text-on-surface-variant mb-1.5 opacity-70">
+<span>第 1 小节</span>
+<span class="text-primary-container font-medium">17 - 24 选中 (8小节)</span>
+<span>第 32 小节</span>
+</div>
+<!-- 32 Measures Grid Canvas -->
+<div class="grid grid-cols-32 gap-[2px] h-8 bg-surface-container-lowest p-1 rounded-md border border-outline-variant/25 items-end relative" style="grid-template-columns: repeat(32, minmax(0, 1fr));">
+<!-- Measures 1 to 16: Muted Dark Outlines -->
+<div class="h-3 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-4 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-2 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-3.5 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-2.5 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-4 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-3 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-5 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-2.5 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-3 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-4 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-3 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-4.5 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-3 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-2.5 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-4 bg-surface-container-highest/60 rounded-[1px]"></div>
+<!-- Measures 17 to 24: Highlight Amber Core (17-20) -->
+<div class="h-5 bg-primary-container rounded-[1px]"></div>
+<div class="h-5.5 bg-primary-container rounded-[1px]"></div>
+<div class="h-5 bg-primary-container rounded-[1px]"></div>
+<div class="h-6 bg-primary-container rounded-[1px]"></div>
+<!-- Measure 21: Error Hot Spot Indicator -->
+<div class="h-6.5 bg-primary-container rounded-[1px] relative flex flex-col items-center">
+<span class="absolute -top-3 w-1.5 h-1.5 rounded-full bg-error ring-2 ring-error-container animate-pulse"></span>
+</div>
+<!-- Measures 22 to 24: Continuation of active loop -->
+<div class="h-5.5 bg-primary-container rounded-[1px]"></div>
+<div class="h-6 bg-primary-container rounded-[1px]"></div>
+<div class="h-5 bg-primary-container rounded-[1px]"></div>
+<!-- Measures 25 to 32: Muted Dark Outlines -->
+<div class="h-3.5 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-4 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-2 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-3 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-4.5 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-3 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-2 bg-surface-container-highest/60 rounded-[1px]"></div>
+<div class="h-3 bg-surface-container-highest/60 rounded-[1px]"></div>
+</div>
+<div class="flex items-center gap-1.5 mt-1.5 text-label-sm font-label-sm text-outline">
+<span class="w-1.5 h-1.5 rounded-full bg-error inline-block"></span>
+<span>第 21 小节存在常错音符，系统已自动定位</span>
+</div>
+</div>
+<!-- Quick Selection Chips -->
+<div class="grid grid-cols-4 gap-space-xs pt-1">
+<!-- Chip 1: 错误热点 -->
+<button class="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-surface-container-low border border-outline-variant/40 text-on-surface hover:border-primary/50 text-label-md font-label-md transition-colors" type="button">
+<span class="material-symbols-outlined text-xs text-error" data-icon="error" data-weight="fill" style="font-variation-settings: 'FILL' 1;">error</span>
+<span>错误热点</span>
+</button>
+<!-- Chip 2: 当前段 (Active) -->
+<button class="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-primary-container/15 border border-primary-container text-primary font-medium text-label-md font-label-md shadow-inner" type="button">
+<span>当前段</span>
+</button>
+<!-- Chip 3: 全曲 -->
+<button class="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-surface-container-low border border-outline-variant/40 text-on-surface-variant hover:text-on-surface hover:border-outline-variant text-label-md font-label-md transition-colors" type="button">
+<span>全曲</span>
+</button>
+<!-- Chip 4: 手动 -->
+<button class="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-surface-container-low border border-outline-variant/40 text-on-surface-variant hover:text-on-surface hover:border-outline-variant text-label-md font-label-md transition-colors" type="button">
+<span>手动</span>
+</button>
+</div>
+</section>
+<!-- Card 2: 循环方式 -->
+<section class="bg-surface-container rounded-xl border border-outline-variant/30 p-space-md shadow-sm relative overflow-hidden">
+<div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none"></div>
+<h2 class="text-title-md font-title-md text-on-surface font-medium mb-space-sm">循环方式</h2>
+<!-- Radio Selection Rows -->
+<div class="space-y-space-xs">
+<!-- Row 1: 逐遍循环（默认） - Selected -->
+<label class="flex items-center justify-between p- space-sm px-3 py-2.5 rounded-lg bg-surface-container-low border border-primary-container/60 cursor-pointer transition-colors">
+<div class="flex items-center gap-2.5">
+<!-- Custom Radio Button (Amber Filled) -->
+<div class="w-4 h-4 rounded-full border border-primary flex items-center justify-center bg-transparent">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+</div>
+<span class="text-body-md font-body-md text-on-surface font-medium">逐遍循环（默认）</span>
+</div>
+<span class="text-label-sm font-label-sm text-outline">原速稳定练习</span>
+</label>
+<!-- Row 2: 每遍提速 +5 BPM - Unselected -->
+<label class="flex items-center justify-between p- space-sm px-3 py-2.5 rounded-lg bg-surface-container-low/60 border border-outline-variant/30 hover:border-outline-variant cursor-pointer transition-colors">
+<div class="flex items-center gap-2.5">
+<!-- Custom Radio Button (Unselected) -->
+<div class="w-4 h-4 rounded-full border border-outline-variant/80 flex items-center justify-center bg-transparent"></div>
+<span class="text-body-md font-body-md text-on-surface-variant">每遍提速 +5 BPM</span>
+</div>
+<span class="text-label-sm font-label-sm text-outline">渐进肌肉记忆</span>
+</label>
+<!-- Row 3: 崩了自动 −5 BPM 重来 - Unselected -->
+<label class="flex items-center justify-between p- space-sm px-3 py-2.5 rounded-lg bg-surface-container-low/60 border border-outline-variant/30 hover:border-outline-variant cursor-pointer transition-colors">
+<div class="flex items-center gap-2.5">
+<!-- Custom Radio Button (Unselected) -->
+<div class="w-4 h-4 rounded-full border border-outline-variant/80 flex items-center justify-center bg-transparent"></div>
+<span class="text-body-md font-body-md text-on-surface-variant">崩了自动 −5 BPM 重来</span>
+</div>
+<span class="text-label-sm font-label-sm text-outline">智能降级缓冲</span>
+</label>
+</div>
+<!-- Subtitle / Safety Note -->
+<div class="mt-space-sm pt-space-xs border-t border-outline-variant/20 flex items-start gap-2 text-outline">
+<span class="material-symbols-outlined text-sm text-primary mt-0.5" data-icon="pets">pets</span>
+<p class="text-body-sm font-body-sm leading-tight text-on-surface-variant/80">
+            连崩 2 遍自动暂停，Neko 会建议降速或分手
+          </p>
+</div>
+</section>
+<!-- Card 3: 每遍之间 -->
+<section class="bg-surface-container rounded-xl border border-outline-variant/30 p-space-md shadow-sm relative overflow-hidden">
+<div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none"></div>
+<h2 class="text-title-md font-title-md text-on-surface font-medium mb-space-sm">每遍之间</h2>
+<div class="space-y-space-sm divide-y divide-outline-variant/20">
+<!-- Stepper Row: 间隔 3 秒 -->
+<div class="flex items-center justify-between pt-0.5">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-outline text-base" data-icon="hourglass_top">hourglass_top</span>
+<span class="text-body-md font-body-md text-on-surface">间隔准备时间</span>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-low border border-outline-variant/30 rounded-lg p-1">
+<button aria-label="减少间隔" class="w-7 h-7 rounded bg-surface-container-high hover:bg-surface-bright active:scale-95 flex items-center justify-center text-on-surface transition-transform" type="button">
+<span class="material-symbols-outlined text-base" data-icon="remove">remove</span>
+</button>
+<span class="text-body-md font-body-md text-on-surface font-medium px-1.5 min-w-[3.5rem] text-center">3 秒</span>
+<button aria-label="增加间隔" class="w-7 h-7 rounded bg-surface-container-high hover:bg-surface-bright active:scale-95 flex items-center justify-center text-on-surface transition-transform" type="button">
+<span class="material-symbols-outlined text-base" data-icon="add">add</span>
+</button>
+</div>
+</div>
+<!-- Toggle Row: 节拍器预备拍 1 小节 -->
+<div class="flex items-center justify-between pt-space-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-outline text-base" data-icon="metronome">file_map_stack</span>
+<span class="text-body-md font-body-md text-on-surface">节拍器预备拍 1 小节</span>
+</div>
+<!-- iOS-style Toggle Switch (Amber ON state) -->
+<button aria-checked="true" class="w-12 h-6 rounded-full bg-primary-container p-0.5 flex items-center justify-end transition-colors shadow-inner focus:outline-none" role="switch" type="button">
+<div class="w-5 h-5 rounded-full bg-surface-container-lowest shadow-sm flex items-center justify-center">
+<div class="w-1.5 h-1.5 rounded-full bg-primary"></div>
+</div>
+</button>
+</div>
+</div>
+</section>
+</div>
+<!-- 5. Bottom Action Bar (Docked Full-Bleed Mobile Footer) -->
+<footer class="w-full p-space-md bg-surface-container-low/95 backdrop-blur-md border-t border-outline-variant/25 flex items-center gap-space-sm shrink-0 z-20">
+<!-- Secondary Button: 取消 -->
+<button class="flex-1 py-3 px-space-md rounded-lg border border-outline-variant/60 text-on-surface hover:bg-surface-container active:scale-98 transition-all text-body-md font-body-md font-medium text-center" type="button">
+        取消
+      </button>
+<!-- Primary CTA Button: 开始循环练习 -->
+<button class="flex-[2] py-3 px-space-md rounded-lg bg-primary-container hover:bg-primary active:scale-98 transition-all text-on-primary font-medium text-body-md font-body-md shadow-md hover:shadow-primary/20 flex items-center justify-center gap-1.5 text-center" type="button">
+<span class="material-symbols-outlined text-lg" data-icon="play_arrow" data-weight="fill" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+<span>开始循环练习</span>
+</button>
+</footer>
+</main>
+<script>
+    // Lightweight interactivity for measure counter steps
+    document.addEventListener('DOMContentLoaded', () => {
+      const startEl = document.getElementById('start-measure');
+      const endEl = document.getElementById('end-measure');
+      
+      // Interactive feedback on chips
+      const chips = document.querySelectorAll('section:first-of-type .grid-cols-4 button');
+      chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          chips.forEach(c => {
+            c.className = 'flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-surface-container-low border border-outline-variant/40 text-on-surface-variant hover:text-on-surface hover:border-outline-variant text-label-md font-label-md transition-colors';
+          });
+          chip.className = 'flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-primary-container/15 border border-primary-container text-primary font-medium text-label-md font-label-md shadow-inner';
+        });
+      });
+    });
+  </script>
+</body></html>

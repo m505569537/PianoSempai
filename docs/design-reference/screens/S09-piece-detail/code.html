@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>PianoSempai - 曲目详情 (S9)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&amp;family=Noto+Sans+SC:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#1C1917',
+            card: '#262220',
+            cardBorder: '#332D29',
+            amber: '#D4A24E',
+            amberMuted: 'rgba(212, 162, 78, 0.18)',
+            amberBorder: 'rgba(212, 162, 78, 0.45)',
+            textPrimary: '#F5F2ED',
+            textMuted: '#9C948B',
+            textSubtle: '#6A635B'
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Noto Sans SC"', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: 'Noto Sans SC', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      margin: 0;
+      padding: 0;
+    }
+    .serif-title {
+      font-family: 'Noto Serif SC', serif;
+    }
+    /* Hide scrollbar */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="w-[390px] h-[844px] max-w-[390px] max-h-[844px] mx-auto bg-bg flex flex-col justify-between relative overflow-hidden select-none">
+<!-- Status Bar (iOS standard 390w) -->
+<header class="w-full pt-3 px-7 flex justify-between items-center z-30 shrink-0 select-none">
+<span class="text-[15px] font-semibold tracking-tight text-textPrimary">9:41</span>
+<div class="flex items-center space-x-2 text-textPrimary">
+<span class="material-symbols-outlined text-[16px] leading-none">signal_cellular_alt</span>
+<span class="material-symbols-outlined text-[16px] leading-none">wifi</span>
+<div class="w-[22px] h-[11px] border border-textPrimary/80 rounded-[3px] p-[1px] flex items-center relative">
+<div class="w-full h-full bg-textPrimary rounded-[1.5px]"></div>
+<div class="absolute -right-[3px] top-[3px] w-[1.5px] h-[4px] bg-textPrimary/80 rounded-r-[1px]"></div>
+</div>
+</div>
+</header>
+<!-- Navigation Bar: Back chevron, Serif Center Title, Right More Icon -->
+<nav class="w-full h-11 px-4 flex items-center justify-between shrink-0 z-20">
+<button aria-label="返回" class="w-10 h-10 -ml-2 flex items-center justify-center text-textPrimary active:opacity-60 transition-opacity">
+<span class="material-symbols-outlined text-[24px]">chevron_left</span>
+</button>
+<h1 class="serif-title text-[17px] font-semibold text-textPrimary tracking-wide">曲目详情</h1>
+<button aria-label="更多" class="w-10 h-10 -mr-2 flex items-center justify-center text-textPrimary active:opacity-60 transition-opacity">
+<span class="material-symbols-outlined text-[22px]">more_horiz</span>
+</button>
+</nav>
+<!-- Scrollable Content Area -->
+<main class="flex-1 overflow-y-auto no-scrollbar px-4 pt-1 pb-4 space-y-3">
+<!-- Hero Card -->
+<section class="bg-card border border-cardBorder rounded-2xl p-4 shadow-sm">
+<div class="flex justify-between items-start mb-1.5">
+<h2 class="serif-title text-[23px] font-bold text-textPrimary tracking-tight">拜厄 第45条</h2>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber text-[#1C1917] tracking-wider shadow-sm">
+          练习中
+        </span>
+</div>
+<p class="text-[13px] text-textMuted mb-3.5 font-normal tracking-wide">训练教材 · 拜厄钢琴基本教程</p>
+<!-- Status Meta Rows -->
+<div class="pt-3 border-t border-cardBorder/70 flex flex-wrap items-center gap-y-2 text-[12px]">
+<div class="flex items-center space-x-1.5 mr-4">
+<span class="w-1.5 h-1.5 rounded-full bg-amber"></span>
+<span class="text-textMuted">当前进度</span>
+<span class="text-textPrimary font-medium">17–24 小节</span>
+</div>
+<div class="flex items-center space-x-1.5 mr-4">
+<span class="material-symbols-outlined text-[14px] text-textMuted">metronome</span>
+<span class="text-textMuted">参考速度</span>
+<span class="text-textPrimary font-medium">♩=76</span>
+</div>
+<div class="w-full flex items-center space-x-1 pt-1 text-amber/90 text-[11.5px]">
+<span class="material-symbols-outlined text-[13px]">flag</span>
+<span class="tracking-tight">疑似谱面错误 1 处</span>
+</div>
+</div>
+</section>
+<!-- 技术目标 Card -->
+<section class="bg-card border border-cardBorder rounded-2xl p-4 shadow-sm">
+<div class="flex items-center justify-between mb-2.5">
+<h3 class="text-[14px] font-semibold text-textPrimary tracking-wide">技术目标</h3>
+<span class="text-[11px] text-textMuted font-mono">OP.101</span>
+</div>
+<!-- Tag Chips -->
+<div class="flex flex-wrap gap-2 mb-3">
+<span class="px-2.5 py-1 rounded-lg bg-[#1C1917] border border-amberBorder text-amber text-[12px] font-medium">
+          音阶跑动
+        </span>
+<span class="px-2.5 py-1 rounded-lg bg-[#1C1917] border border-amberBorder text-amber text-[12px] font-medium">
+          右手转指
+        </span>
+<span class="px-2.5 py-1 rounded-lg bg-[#1C1917] border border-amberBorder text-amber text-[12px] font-medium">
+          均匀力度
+        </span>
+</div>
+<!-- Muted Footnote -->
+<p class="text-[11px] text-textMuted leading-relaxed bg-[#1C1917]/50 rounded-xl p-2.5 border border-cardBorder/40">
+        过关标准：连续 2 遍错音率 ≤2%、节奏偏差均值 ≤50ms、达到 ♩=72（课程数据，不可由 AI 修改）
+      </p>
+</section>
+<!-- 段落与循环 Card -->
+<section class="bg-card border border-cardBorder rounded-2xl p-4 shadow-sm">
+<div class="flex items-center justify-between mb-3">
+<h3 class="text-[14px] font-semibold text-textPrimary tracking-wide">段落与循环</h3>
+<span class="text-[11px] text-textMuted">重点攻坚小节</span>
+</div>
+<!-- 8 Small Measure Buttons (17 - 24) -->
+<div class="grid grid-cols-8 gap-1.5 mb-3">
+<!-- 17-20 amber outline (practiced) -->
+<div class="h-9 rounded-lg border border-amber text-amber flex items-center justify-center font-medium text-[13px] bg-amberMuted/20">
+          17
+        </div>
+<div class="h-9 rounded-lg border border-amber text-amber flex items-center justify-center font-medium text-[13px] bg-amberMuted/20">
+          18
+        </div>
+<div class="h-9 rounded-lg border border-amber text-amber flex items-center justify-center font-medium text-[13px] bg-amberMuted/20">
+          19
+        </div>
+<div class="h-9 rounded-lg border border-amber text-amber flex items-center justify-center font-medium text-[13px] bg-amberMuted/20">
+          20
+        </div>
+<!-- 21 filled amber (hotspot) -->
+<div class="h-9 rounded-lg bg-amber text-[#1C1917] flex items-center justify-center font-bold text-[13px] shadow-[0_0_12px_rgba(212,162,78,0.35)] relative">
+          21
+          <span class="w-1.5 h-1.5 rounded-full bg-[#1C1917] absolute top-1 right-1"></span>
+</div>
+<!-- 22-24 muted -->
+<div class="h-9 rounded-lg border border-cardBorder/70 text-textMuted/60 flex items-center justify-center text-[13px] bg-[#1C1917]/30">
+          22
+        </div>
+<div class="h-9 rounded-lg border border-cardBorder/70 text-textMuted/60 flex items-center justify-center text-[13px] bg-[#1C1917]/30">
+          23
+        </div>
+<div class="h-9 rounded-lg border border-cardBorder/70 text-textMuted/60 flex items-center justify-center text-[13px] bg-[#1C1917]/30">
+          24
+        </div>
+</div>
+<!-- Subtitle note under measure buttons -->
+<div class="flex items-center text-[11.5px] text-textMuted space-x-1.5">
+<span class="material-symbols-outlined text-[14px] text-amber">error_outline</span>
+<span>上次速度 ♩=72 · 错误热点 21 小节</span>
+</div>
+</section>
+<!-- 最近 Take List Card -->
+<section class="bg-card border border-cardBorder rounded-2xl p-4 shadow-sm"><div class="flex items-center justify-between mb-2">
+<h3 class="text-[14px] font-semibold text-textPrimary tracking-wide">最近 Take</h3>
+<span class="text-[11px] text-textMuted">共 3 次记录</span>
+</div>
+<div class="divide-y divide-cardBorder/60">
+<!-- Row 1 -->
+<div class="py-2.5 flex items-center justify-between">
+<div>
+<div class="text-[13px] font-medium text-textPrimary">今天 20:31</div>
+<div class="text-[11.5px] text-textMuted mt-0.5">♩=72 · 2分14秒</div>
+</div>
+<div class="text-right">
+<div class="text-[15px] font-semibold text-amber font-mono">78</div>
+<div class="text-[10px] text-textMuted">分值</div>
+</div>
+</div>
+<!-- Row 2 -->
+<div class="py-2.5 flex items-center justify-between">
+<div>
+<div class="text-[13px] font-medium text-textPrimary">今天 20:15</div>
+<div class="text-[11.5px] text-textMuted mt-0.5">♩=72 · 2分14秒</div>
+</div>
+<div class="text-right">
+<div class="text-[15px] font-semibold text-amber font-mono">72</div>
+<div class="text-[10px] text-textMuted">分值</div>
+</div>
+</div>
+<!-- Row 3 -->
+<div class="py-2.5 flex items-center justify-between">
+<div>
+<div class="text-[13px] font-medium text-textPrimary">周一 20:40</div>
+<div class="text-[11.5px] text-textMuted mt-0.5">♩=72 · 2分14秒</div>
+</div>
+<div class="text-right">
+<div class="text-[15px] font-semibold text-amber font-mono">65</div>
+<div class="text-[10px] text-textMuted">分值</div>
+</div>
+</div>
+</div>
+<div class="pt-2.5 text-center">
+<button class="text-[12px] text-amber/70 hover:text-amber font-medium inline-flex items-center space-x-0.5 py-1 cursor-pointer transition-colors">
+<span>查看全部 take 与趋势</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+</button>
+</div></section>
+</main>
+<!-- Pinned Bottom Area (Tab bar hidden, high-priority CTAs) -->
+<footer class="w-full px-4 pt-2.5 pb-7 bg-bg/95 backdrop-blur border-t border-cardBorder/40 shrink-0 space-y-2 z-30">
+<!-- Amber Full-Width Button -->
+<button class="w-full h-12 bg-amber active:brightness-95 transition-all text-[#1C1917] font-semibold text-[15px] rounded-xl flex items-center justify-center space-x-2 shadow-lg shadow-amber/10">
+<span class="material-symbols-outlined text-[20px] font-bold">play_arrow</span>
+<span>开始练习</span>
+</button>
+<!-- Dark Outline Button -->
+<button class="w-full h-11 bg-card active:bg-cardBorder border border-cardBorder hover:border-amber/40 text-textPrimary font-medium text-[13.5px] rounded-xl flex items-center justify-center space-x-1.5 transition-colors">
+<span class="material-symbols-outlined text-[16px] text-amber">my_location</span>
+<span>只练错误热点（21 小节）</span>
+</button>
+<!-- Home Indicator -->
+<div class="w-32 h-1 bg-textPrimary/25 rounded-full mx-auto mt-2"></div>
+</footer>
+</body>
+</html>

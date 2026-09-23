@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PianoSempai - 导出我的全部数据</title>
+  <!-- Tailwind Play CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts for Serif & Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bgDark: '#1C1917',
+            cardDark: '#262220',
+            borderDark: '#332D29',
+            amberAccent: '#D4A24E',
+            textLight: '#F5F2ED',
+            textMuted: '#9C948B',
+            borderMuted: '#3d3732'
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+    .font-serif-sc {
+      font-family: 'Noto Serif SC', serif;
+    }
+    /* Hide scrollbar for a sleek iOS native feel */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#1C1917] flex flex-col justify-between selection:bg-[#D4A24E]/30 selection:text-[#F5F2ED]">
+  <!-- Top Navigation & Content Container -->
+  <div class="w-full flex-1 flex flex-col pb-8">
+
+    <!-- iOS Native Status Bar (390px tall full-bleed layout) -->
+    <div class="w-full px-7 pt-3.5 pb-2 flex justify-between items-center text-[14px] font-semibold tracking-tight text-[#F5F2ED] select-none">
+      <span>9:41</span>
+      <div class="flex items-center space-x-2 text-[12px]">
+        <!-- Cellular Bars -->
+        <svg class="w-4 h-3.5 fill-current" viewBox="0 0 17 12">
+          <rect x="0" y="8" width="2.5" height="4" rx="0.5" />
+          <rect x="4" y="5.5" width="2.5" height="6.5" rx="0.5" />
+          <rect x="8" y="3" width="2.5" height="9" rx="0.5" />
+          <rect x="12" y="0.5" width="2.5" height="11.5" rx="0.5" />
+        </svg>
+        <!-- Wifi -->
+        <svg class="w-4 h-3.5 fill-current" viewBox="0 0 16 12">
+          <path d="M8 2.5a11.95 11.95 0 0 1 6.37 1.83.6.6 0 0 1 .06.94l-5.99 6.2a.6.6 0 0 1-.88 0L1.57 5.27a.6.6 0 0 1 .06-.94A11.95 11.95 0 0 1 8 2.5Z" />
+        </svg>
+        <!-- Battery -->
+        <div class="w-5 h-2.5 border border-[#F5F2ED] rounded-[3px] p-[1px] flex items-center relative">
+          <div class="h-full bg-[#F5F2ED] rounded-[1.5px] w-3/4"></div>
+          <div class="w-[2px] h-1 bg-[#F5F2ED] absolute -right-[3px] top-[2.5px] rounded-r-sm"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pushed Settings Navigation Header -->
+    <header class="w-full px-5 py-3 flex items-center border-b border-[#332D29]/60">
+      <button type="button" class="w-9 h-9 -ml-2 rounded-full flex items-center justify-center text-[#D4A24E] active:scale-95 active:bg-[#262220] transition">
+        <svg class="w-6 h-6 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+      <h1 class="text-[19px] font-serif-sc font-bold tracking-tight text-[#F5F2ED] ml-1">导出我的全部数据</h1>
+    </header>
+
+    <!-- Scrollable Main Content -->
+    <main class="w-full px-5 pt-4 space-y-4">
+
+      <!-- Intro Card -->
+      <div class="bg-[#262220] border border-[#332D29] rounded-2xl p-4 shadow-sm">
+        <div class="flex items-start space-x-3">
+          <div class="w-8 h-8 rounded-xl bg-[#D4A24E]/10 flex items-center justify-center flex-shrink-0 text-[#D4A24E] mt-0.5">
+            <svg class="w-4 h-4 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+            </svg>
+          </div>
+          <p class="text-[13.5px] leading-relaxed text-[#9C948B]">
+            你的所有数据只存在这台手机上。导出为一个 zip，可用于备份或换新机恢复。
+          </p>
+        </div>
+      </div>
+
+      <!-- Content Checklist Card '导出内容' -->
+      <div class="bg-[#262220] border border-[#332D29] rounded-2xl overflow-hidden shadow-sm">
+        <div class="px-4 py-3 border-b border-[#332D29]/70 flex items-center justify-between">
+          <span class="text-[13px] font-semibold text-[#9C948B] uppercase tracking-wider font-sans">导出内容</span>
+          <span class="text-[12px] text-[#D4A24E] font-medium">共 5 项已勾选 · 约 54 MB</span>
+        </div>
+
+        <div class="divide-y divide-[#332D29]/60 text-[14px]">
+          <!-- Row 1 -->
+          <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <div class="w-5 h-5 rounded-full bg-[#D4A24E] flex items-center justify-center text-[#1C1917] flex-shrink-0">
+                <svg class="w-3.5 h-3.5 stroke-current stroke-[2.8]" fill="none" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <span class="text-[#F5F2ED] font-normal">课程与路线状态</span>
+            </div>
+            <span class="text-[13px] text-[#9C948B] tabular-nums font-mono">12 KB</span>
+          </div>
+
+          <!-- Row 2 -->
+          <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <div class="w-5 h-5 rounded-full bg-[#D4A24E] flex items-center justify-center text-[#1C1917] flex-shrink-0">
+                <svg class="w-3.5 h-3.5 stroke-current stroke-[2.8]" fill="none" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <span class="text-[#F5F2ED] font-normal">Take 元数据与分析结果</span>
+            </div>
+            <span class="text-[13px] text-[#9C948B] tabular-nums font-mono">4.8 MB</span>
+          </div>
+
+          <!-- Row 3 -->
+          <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <div class="w-5 h-5 rounded-full bg-[#D4A24E] flex items-center justify-center text-[#1C1917] flex-shrink-0">
+                <svg class="w-3.5 h-3.5 stroke-current stroke-[2.8]" fill="none" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <span class="text-[#F5F2ED] font-normal">原始 MIDI 事件流（128 条）</span>
+            </div>
+            <span class="text-[13px] text-[#9C948B] tabular-nums font-mono">31 MB</span>
+          </div>
+
+          <!-- Row 4 -->
+          <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <div class="w-5 h-5 rounded-full bg-[#D4A24E] flex items-center justify-center text-[#1C1917] flex-shrink-0">
+                <svg class="w-3.5 h-3.5 stroke-current stroke-[2.8]" fill="none" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <span class="text-[#F5F2ED] font-normal">乐谱文件（23 个）</span>
+            </div>
+            <span class="text-[13px] text-[#9C948B] tabular-nums font-mono">18 MB</span>
+          </div>
+
+          <!-- Row 5 -->
+          <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <div class="w-5 h-5 rounded-full bg-[#D4A24E] flex items-center justify-center text-[#1C1917] flex-shrink-0">
+                <svg class="w-3.5 h-3.5 stroke-current stroke-[2.8]" fill="none" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <span class="text-[#F5F2ED] font-normal">练琴笔记</span>
+            </div>
+            <span class="text-[13px] text-[#9C948B] tabular-nums font-mono">96 KB</span>
+          </div>
+
+          <!-- Row 6: Video Unchecked -->
+          <div class="px-4 py-3 flex items-start justify-between bg-[#211E1C]/60">
+            <div class="flex items-start space-x-3">
+              <div class="w-5 h-5 rounded-md border border-[#9C948B]/50 bg-transparent flex items-center justify-center flex-shrink-0 mt-0.5">
+                <!-- Empty/Unchecked box -->
+              </div>
+              <div>
+                <div class="text-[#9C948B] font-normal">视频（8 条，可选）</div>
+                <div class="text-[11.5px] text-[#9C948B]/70 mt-0.5">体积较大，默认不包含</div>
+              </div>
+            </div>
+            <span class="text-[13px] text-[#9C948B]/70 tabular-nums font-mono">642 MB</span>
+          </div>
+
+          <!-- Toggle Row '包含视频' OFF -->
+          <div class="px-4 py-3 flex items-center justify-between bg-[#231F1D]">
+            <div>
+              <div class="text-[14px] text-[#F5F2ED] font-medium">包含视频</div>
+              <div class="text-[11.5px] text-[#9C948B] mt-0.5">每曲仅保留最近 8 条</div>
+            </div>
+            <!-- iOS Toggle OFF -->
+            <div class="w-11 h-6 rounded-full bg-[#332D29] relative p-0.5 transition cursor-pointer flex items-center">
+              <div class="w-5 h-5 rounded-full bg-[#9C948B] shadow-sm transform translate-x-0 transition duration-200 ease-in-out"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Format Card -->
+      <div class="bg-[#262220] border border-[#332D29] rounded-2xl p-4 shadow-sm space-y-3">
+        <div class="text-[13px] font-semibold text-[#9C948B] uppercase tracking-wider">导出格式</div>
+        <div class="grid grid-cols-2 gap-2 bg-[#1C1917] p-1 rounded-xl border border-[#332D29]/70">
+          <!-- Option 1: Selected -->
+          <button type="button" class="py-2.5 px-3 rounded-lg bg-[#262220] border border-[#D4A24E]/40 text-[#D4A24E] text-[13px] font-semibold shadow-sm flex items-center justify-center space-x-1.5">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+            </svg>
+            <span>完整包（可恢复）</span>
+          </button>
+          <!-- Option 2: Unselected -->
+          <button type="button" class="py-2.5 px-3 rounded-lg text-[#9C948B] hover:text-[#F5F2ED] text-[13px] font-medium transition flex items-center justify-center">
+            <span>仅报告 PDF</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Security Card (amber left border) -->
+      <div class="bg-[#262220] border border-[#332D29] border-l-[3px] border-l-[#D4A24E] rounded-2xl p-3.5 shadow-sm">
+        <div class="flex items-start space-x-2.5">
+          <svg class="w-4 h-4 text-[#D4A24E] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.002A11.959 11.959 0 0112 2.964zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+          <p class="text-[12.5px] leading-relaxed text-[#9C948B]">
+            导出包不含 API Key；分享 zip 前请确认接收方可信，里面有你的全部弹奏记录。
+          </p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Bottom CTA Container (Fixed / Docked at bottom) -->
+  <footer class="w-full px-5 pt-3 pb-6 bg-gradient-to-t from-[#1C1917] via-[#1C1917] to-transparent space-y-3">
+    <!-- Solid Amber Full-Width Button -->
+    <button type="button" class="w-full h-12 rounded-xl bg-[#D4A24E] hover:bg-[#c99540] active:scale-[0.985] text-[#1C1917] font-semibold text-[15px] flex items-center justify-center space-x-2 shadow-lg shadow-[#D4A24E]/10 transition">
+      <svg class="w-4 h-4 stroke-current stroke-[2.2]" fill="none" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+      </svg>
+      <span>导出到“文件” App</span>
+    </button>
+
+    <!-- Muted Text Button Below -->
+    <button type="button" class="w-full py-1 text-center text-[13.5px] font-medium text-[#9C948B] hover:text-[#F5F2ED] active:opacity-75 transition">
+      从备份恢复
+    </button>
+
+    <!-- Home Indicator -->
+    <div class="w-32 h-1 bg-[#F5F2ED]/25 rounded-full mx-auto mt-2"></div>
+  </footer>
+</body>
+</html>

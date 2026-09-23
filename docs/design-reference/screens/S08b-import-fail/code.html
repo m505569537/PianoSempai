@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=390, height=844, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PianoSempai - 乐谱导入失败</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bgDark: '#1C1917',
+            cardDark: '#262220',
+            borderDark: '#332D29',
+            amberAccent: '#D4A24E',
+            amberLight: '#F3E5AB',
+            errorRed: '#C97064',
+            errorRedBg: 'rgba(201, 112, 100, 0.12)',
+            textPrimary: '#F5F2ED',
+            textMuted: '#9C948B',
+            textDim: '#6E665E'
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Noto Sans SC"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      width: 390px;
+      height: 844px;
+      margin: 0 auto;
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: "Noto Sans SC", sans-serif;
+      overflow: hidden;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+  </style>
+</head>
+<body class="relative flex flex-col justify-between overflow-hidden">
+
+  <!-- BACKGROUND: Dimmed Library Context (曲库背景) -->
+  <div class="absolute inset-0 bg-[#1C1917] pointer-events-none opacity-40 filter blur-[1.5px] scale-[0.99] transform">
+    <!-- Simulated iOS Status Bar -->
+    <div class="h-11 px-7 pt-3 flex justify-between items-center text-xs text-[#9C948B]">
+      <span class="font-semibold">9:41</span>
+      <div class="flex items-center space-x-1.5">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.28 19.64 10.59 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9z"/></svg>
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98A16.88 16.88 0 0 0 12 4z"/></svg>
+        <div class="w-5 h-2.5 border border-[#9C948B] rounded-sm p-0.5 flex items-center">
+          <div class="w-full h-full bg-[#9C948B] rounded-2xs"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Background Header -->
+    <div class="px-5 pt-3 pb-2 flex items-center justify-between">
+      <div class="flex items-baseline space-x-2">
+        <h1 class="text-2xl font-serif font-bold text-[#F5F2ED]">曲库</h1>
+        <span class="text-xs text-[#9C948B] font-mono tracking-wider">Library</span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <div class="w-8 h-8 rounded-full bg-[#262220] border border-[#332D29] flex items-center justify-center text-[#9C948B]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter chips -->
+    <div class="px-5 mt-2 flex gap-2">
+      <div class="px-3 py-1 rounded-full text-xs bg-[#D4A24E] text-[#1C1917] font-medium">训练教材</div>
+      <div class="px-3 py-1 rounded-full text-xs bg-[#262220] border border-[#332D29] text-[#9C948B]">奖励曲库</div>
+      <div class="px-3 py-1 rounded-full text-xs bg-[#262220] border border-[#332D29] text-[#9C948B]">全部导入</div>
+    </div>
+
+    <!-- Dummy list items -->
+    <div class="px-5 mt-4 space-y-2.5">
+      <div class="p-3.5 rounded-xl bg-[#262220] border border-[#332D29] flex items-center justify-between">
+        <div class="space-y-1">
+          <div class="text-sm font-medium text-[#F5F2ED]">拜厄 第45条</div>
+          <div class="text-xs text-[#9C948B]">练习中 · 17–24小节 · ♩=72</div>
+        </div>
+        <div class="text-xs text-[#D4A24E] px-2 py-0.5 rounded bg-[#D4A24E]/10 border border-[#D4A24E]/20">练习中</div>
+      </div>
+      <div class="p-3.5 rounded-xl bg-[#262220] border border-[#332D29] flex items-center justify-between">
+        <div class="space-y-1">
+          <div class="text-sm font-medium text-[#F5F2ED]">哈农 第1条</div>
+          <div class="text-xs text-[#9C948B]">已完成 · 高抬指慢练</div>
+        </div>
+        <div class="text-xs text-emerald-400/80">已掌握</div>
+      </div>
+      <div class="p-3.5 rounded-xl bg-[#262220] border border-[#332D29] flex items-center justify-between">
+        <div class="space-y-1">
+          <div class="text-sm font-medium text-[#F5F2ED]">Summer (久石让)</div>
+          <div class="text-xs text-[#9C948B]">自选曲目 · 扒谱草稿</div>
+        </div>
+        <div class="text-xs text-[#9C948B]">未开始</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL OVERLAY: Dimmed Scrim with Blur -->
+  <div class="absolute inset-0 bg-black/75 backdrop-blur-[6px] z-10"></div>
+
+  <!-- iOS Status Bar (Active layer) -->
+  <div class="relative z-20 h-11 px-7 pt-3 flex justify-between items-center text-xs text-textMuted/80">
+    <span class="font-semibold text-textPrimary text-[13px] tracking-tight">9:41</span>
+    <div class="flex items-center space-x-1.5">
+      <!-- Cellular -->
+      <svg class="w-3.5 h-3.5 text-textPrimary" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M2 17h3v4H2v-4zm5-4h3v8H7v-8zm5-4h3v12h-3V9zm5-5h3v17h-3V4z"/>
+      </svg>
+      <!-- WiFi -->
+      <svg class="w-3.5 h-3.5 text-textPrimary" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98A16.88 16.88 0 0 0 12 4z"/>
+      </svg>
+      <!-- Battery -->
+      <div class="w-5 h-2.5 border border-textPrimary/80 rounded-sm p-0.5 flex items-center">
+        <div class="w-3.5 h-full bg-textPrimary rounded-2xs"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN MODAL CONTAINER (Centered vertically, precise 390x844 layout) -->
+  <main class="relative z-20 flex-1 flex items-center justify-center px-4 py-2">
+    <!-- The Modal Dialog Card -->
+    <section class="w-full bg-cardDark border border-borderDark rounded-[22px] shadow-2xl p-5 flex flex-col space-y-4">
+      
+      <!-- Top Header & Red Warning Icon -->
+      <div class="flex flex-col items-center text-center pt-1">
+        <div class="w-12 h-12 rounded-2xl bg-errorRedBg border border-errorRed/30 flex items-center justify-center mb-3 text-errorRed shadow-inner">
+          <!-- File Warning SVG Glyph -->
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+          </svg>
+        </div>
+        <h2 class="font-serif text-[19px] font-semibold text-textPrimary tracking-tight">
+          这个文件没能解析
+        </h2>
+      </div>
+
+      <!-- File Metadata Row -->
+      <div class="flex items-center px-3.5 py-2.5 rounded-xl bg-bgDark border border-borderDark/80">
+        <div class="w-8 h-8 rounded-lg bg-cardDark border border-borderDark flex items-center justify-center text-amberAccent shrink-0 mr-3">
+          <!-- Document Glyph -->
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="text-[13.5px] font-medium text-textPrimary truncate">
+            summer_扒谱.mxl
+          </div>
+          <div class="text-[11px] text-textMuted font-mono">
+            2.3 MB · 刚刚
+          </div>
+        </div>
+        <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-errorRed/15 text-errorRed border border-errorRed/25">
+          MXL 错误
+        </span>
+      </div>
+
+      <!-- Error Detail Box (bg #1C1917 with mono label) -->
+      <div class="p-3 rounded-xl bg-bgDark border-l-2 border-errorRed border-y border-r border-borderDark space-y-1.5">
+        <div class="flex items-start text-[12.5px] font-mono leading-snug text-textPrimary">
+          <span class="text-errorRed font-semibold mr-1.5 shrink-0">错误位置：</span>
+          <span class="text-[#f1ece1]">第 34 小节 · 声部缺少闭合标签</span>
+        </div>
+        <div class="text-[11px] font-mono text-textMuted leading-tight pt-0.5">
+          错误代码 PARSE_XML_34 · 已随诊断日志保存到本机
+        </div>
+      </div>
+
+      <!-- Explanatory Body Copy -->
+      <p class="text-[12.5px] text-textMuted leading-relaxed">
+        谱面文件可能损坏或不是标准 MusicXML。你可以换一个文件，或先在 Mac 上用制谱软件另存为 <span class="font-mono text-textPrimary">.musicxml</span> 再导入。
+      </p>
+
+      <!-- Supported Formats & Notes Hints -->
+      <div class="space-y-2 pt-1 border-t border-borderDark/60">
+        <!-- Hint 1 -->
+        <div class="flex items-start text-[11.5px] text-textMuted leading-tight">
+          <div class="w-4 h-4 rounded-full bg-amberAccent/10 text-amberAccent flex items-center justify-center shrink-0 mr-2 mt-0.5">
+            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+            </svg>
+          </div>
+          <span>支持格式：<span class="font-mono text-textPrimary/90">.musicxml</span> / <span class="font-mono text-textPrimary/90">.mxl</span> / <span class="font-mono text-textPrimary/90">.mid</span>（<span class="font-mono text-amberAccent">.mscz</span> 兼容性试用中）</span>
+        </div>
+        <!-- Hint 2 -->
+        <div class="flex items-start text-[11.5px] text-textMuted leading-tight">
+          <div class="w-4 h-4 rounded-full bg-[#332D29] text-textMuted flex items-center justify-center shrink-0 mr-2 mt-0.5">
+            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/>
+            </svg>
+          </div>
+          <span>PDF 请放进 <span class="text-textPrimary underline underline-offset-2 decoration-borderDark">PDF 资料库</span>，不能跟弹。</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="pt-2 flex flex-col space-y-2">
+        <!-- Solid Amber Primary Button -->
+        <button class="w-full h-11 rounded-xl bg-amberAccent text-bgDark font-medium text-[14.5px] flex items-center justify-center shadow-lg shadow-amberAccent/10 active:opacity-90 transition-transform active:scale-[0.99]">
+          我知道了
+        </button>
+
+        <!-- Outline Re-pick Button -->
+        <button class="w-full h-10 rounded-xl bg-transparent border border-borderDark text-textPrimary hover:border-amberAccent/40 font-medium text-[13.5px] flex items-center justify-center active:bg-bgDark/40 transition-colors">
+          重新选择文件
+        </button>
+
+        <!-- Ghost Help Button -->
+        <button class="w-full h-8 bg-transparent text-textMuted hover:text-amberAccent text-[12.5px] flex items-center justify-center transition-colors">
+          查看导入帮助
+        </button>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- iOS Home Indicator -->
+  <footer class="relative z-20 h-7 flex items-center justify-center pb-2">
+    <div class="w-32 h-1 bg-[#4A443F] rounded-full"></div>
+  </footer>
+
+</body>
+</html>

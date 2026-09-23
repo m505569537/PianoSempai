@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<title>机位校准向导 - 琴伴 PianoSempai</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&amp;family=Noto+Serif+SC:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "secondary": "#eac085",
+            "primary": "#f3be67",
+            "surface-container": "#221f1d",
+            "inverse-on-surface": "#33302d",
+            "on-surface-variant": "#d3c4b2",
+            "on-secondary": "#442b00",
+            "on-primary-fixed-variant": "#604100",
+            "on-primary-container": "#563900",
+            "primary-container": "#d4a24e",
+            "outline": "#9c8f7e",
+            "on-tertiary": "#3f2e00",
+            "error": "#ffb4ab",
+            "on-surface": "#e9e1dd",
+            "on-error": "#690005",
+            "surface-container-highest": "#383432",
+            "outline-variant": "#4f4537",
+            "error-container": "#93000a",
+            "inverse-primary": "#7e5703",
+            "on-tertiary-fixed": "#251a00",
+            "tertiary-container": "#c5a764",
+            "surface-container-high": "#2d2927",
+            "surface-container-lowest": "#100e0c",
+            "on-secondary-container": "#dbb279",
+            "secondary-fixed-dim": "#eac085",
+            "secondary-container": "#614415",
+            "on-primary": "#432c00",
+            "primary-fixed": "#ffdead",
+            "on-tertiary-container": "#513c02",
+            "on-secondary-fixed-variant": "#5e4113",
+            "on-background": "#e9e1dd",
+            "surface": "#161311",
+            "secondary-fixed": "#ffddb2",
+            "on-error-container": "#ffdad6",
+            "inverse-surface": "#e9e1dd",
+            "tertiary-fixed": "#ffdf9a",
+            "surface-variant": "#383432",
+            "tertiary": "#e2c37d",
+            "on-tertiary-fixed-variant": "#594409",
+            "surface-dim": "#161311",
+            "tertiary-fixed-dim": "#e2c37d",
+            "on-primary-fixed": "#281900",
+            "background": "#161311",
+            "primary-fixed-dim": "#f3be67",
+            "surface-tint": "#f3be67",
+            "surface-bright": "#3c3836",
+            "on-secondary-fixed": "#291800",
+            "surface-container-low": "#1e1b19"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "margin-sm": "1.25rem",
+            "gutter": "1.5rem",
+            "gutter-sm": "1rem",
+            "margin": "3rem",
+            "space-xl": "2.5rem",
+            "space-lg": "1.5rem",
+            "space-md": "1rem",
+            "space-sm": "0.5rem",
+            "space-xs": "0.25rem"
+          },
+          "fontFamily": {
+            "display-lg-mobile": ["\"Noto Serif SC\", serif"],
+            "display-lg": ["\"Noto Serif SC\", serif"],
+            "label-md": ["\"Noto Sans SC\", sans-serif"],
+            "headline-md": ["\"Noto Serif SC\", serif"],
+            "body-sm": ["\"Noto Sans SC\", sans-serif"],
+            "title-md": ["\"Noto Sans SC\", sans-serif"],
+            "headline-sm": ["\"Noto Serif SC\", serif"],
+            "label-sm": ["\"Noto Sans SC\", sans-serif"],
+            "headline-lg": ["\"Noto Serif SC\", serif"],
+            "body-lg": ["\"Noto Sans SC\", sans-serif"],
+            "headline-lg-mobile": ["\"Noto Serif SC\", serif"],
+            "body-md": ["\"Noto Sans SC\", sans-serif"]
+          },
+          "fontSize": {
+            "display-lg-mobile": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "400"}],
+            "display-lg": ["48px", {"lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "400"}],
+            "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.06em", "fontWeight": "500"}],
+            "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "400"}],
+            "body-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}],
+            "title-md": ["16px", {"lineHeight": "24px", "letterSpacing": "0.01em", "fontWeight": "500"}],
+            "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "500"}],
+            "label-sm": ["11px", {"lineHeight": "14px", "letterSpacing": "0.08em", "fontWeight": "500"}],
+            "headline-lg": ["32px", {"lineHeight": "42px", "letterSpacing": "-0.01em", "fontWeight": "400"}],
+            "body-lg": ["16px", {"lineHeight": "26px", "fontWeight": "400"}],
+            "headline-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "0em", "fontWeight": "400"}],
+            "body-md": ["14px", {"lineHeight": "22px", "fontWeight": "400"}]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 350, 'GRAD' 0, 'opsz' 20;
+      font-size: 1.15rem;
+      line-height: 1;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    /* Keyframe animations for calibration simulation */
+    @keyframes gentlePulse {
+      0%, 100% { opacity: 0.9; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.98); }
+    }
+    .pulse-amber {
+      animation: gentlePulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes scanline {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(1000%); }
+    }
+    .scanner-beam {
+      animation: scanline 8s linear infinite;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-[#1C1917] text-[#F5F2ED] min-h-screen flex flex-col justify-between antialiased overflow-x-hidden">
+<!-- Phone Layout Container (Full bleed 390px format) -->
+<div class="w-full max-w-[390px] mx-auto min-h-screen flex flex-col justify-between relative px-4 pt-3 pb-6">
+<!-- Top Section: Status & Progress -->
+<div>
+<!-- iOS Status Bar Placeholder Metrics (Compact) -->
+<div class="flex items-center justify-between text-xs text-[#9C948B] pt-1 pb-3 px-1">
+<span class="font-medium tracking-tight text-[#F5F2ED] text-[13px]">9:41</span>
+<div class="flex items-center gap-1.5 opacity-80">
+<span class="material-symbols-outlined text-[14px]">signal_cellular_4_bar</span>
+<span class="material-symbols-outlined text-[14px]">wifi</span>
+<span class="material-symbols-outlined text-[16px]">battery_full</span>
+</div>
+</div>
+<!-- 4-Step Progress Indicator -->
+<div class="w-full pt-1 pb-4">
+<div class="flex items-center justify-between px-2 text-[11px] font-label-sm text-[#9C948B] tracking-wider">
+<!-- Step 1: Completed -->
+<div class="flex items-center gap-1.5 opacity-60">
+<span class="w-4 h-4 rounded-full border border-[#D4A24E]/50 flex items-center justify-center text-[9px] text-[#D4A24E]">✓</span>
+<span class="text-[#9C948B]">摆放</span>
+</div>
+<span class="h-[1px] w-6 bg-[#332D29]"></span>
+<!-- Step 2: Active -->
+<div class="flex items-center gap-1.5">
+<span class="w-4 h-4 rounded-full bg-[#D4A24E] text-[#1C1917] flex items-center justify-center text-[10px] font-bold shadow-[0_0_8px_rgba(212,162,78,0.35)]">2</span>
+<span class="text-[#F5F2ED] font-medium tracking-wide">取景</span>
+</div>
+<span class="h-[1px] w-6 bg-[#332D29]"></span>
+<!-- Step 3: Future -->
+<div class="flex items-center gap-1.5 opacity-40">
+<span class="w-4 h-4 rounded-full border border-[#4f4537] flex items-center justify-center text-[9px]">3</span>
+<span>试录</span>
+</div>
+<span class="h-[1px] w-6 bg-[#332D29]"></span>
+<!-- Step 4: Future -->
+<div class="flex items-center gap-1.5 opacity-40">
+<span class="w-4 h-4 rounded-full border border-[#4f4537] flex items-center justify-center text-[9px]">4</span>
+<span>完成</span>
+</div>
+</div>
+</div>
+<!-- Main Titles -->
+<div class="px-1 pt-1 pb-4">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-[#F5F2ED] font-normal tracking-tight mb-1.5">
+          让手机能看到你的手
+        </h1>
+<p class="font-body-sm text-body-sm text-[#9C948B] leading-relaxed">
+          你只需要跟着画面挪手机，不用记任何规则。
+        </p>
+</div>
+<!-- Main Camera Preview Card (Live Feed Simulation) -->
+<div class="relative w-full aspect-[4/3] rounded-lg bg-[#141210] border border-[#332D29] overflow-hidden shadow-2xl flex flex-col justify-between p-3.5 group">
+<!-- Live Camera Stream Visual Mockup (Piano Keys + Vision Skeleton) -->
+<div class="absolute inset-0 pointer-events-none opacity-85 overflow-hidden">
+<!-- Background Subtle Vignette and Grid Pattern -->
+<div class="absolute inset-0 bg-gradient-to-b from-[#1C1917]/70 via-transparent to-[#100E0C]/90 z-10"></div>
+<!-- Subtle Scanner Beam Line -->
+<div class="scanner-beam absolute left-0 right-0 h-14 bg-gradient-to-b from-transparent via-[#D4A24E]/5 to-transparent z-10 pointer-events-none"></div>
+<!-- Abstract Perspective Piano Keyboard Mockup -->
+<div class="absolute bottom-0 inset-x-0 h-32 flex justify-center items-end opacity-40 transform perspective-[500px] rotate-x-12">
+<!-- White Keys Row -->
+<div class="flex gap-[2px] w-full px-2 justify-center">
+<div class="h-28 w-6 bg-[#DCD7D0] rounded-b-[2px]"></div>
+<div class="h-28 w-6 bg-[#E5E0DA] rounded-b-[2px]"></div>
+<div class="h-28 w-6 bg-[#DCD7D0] rounded-b-[2px]"></div>
+<div class="h-28 w-6 bg-[#E5E0DA] rounded-b-[2px]"></div>
+<div class="h-28 w-6 bg-[#DCD7D0] rounded-b-[2px]"></div>
+<div class="h-28 w-6 bg-[#E5E0DA] rounded-b-[2px]"></div>
+<div class="h-28 w-6 bg-[#DCD7D0] rounded-b-[2px]"></div>
+<div class="h-28 w-6 bg-[#E5E0DA] rounded-b-[2px]"></div>
+<div class="h-28 w-6 bg-[#DCD7D0] rounded-b-[2px]"></div>
+<div class="h-28 w-6 bg-[#E5E0DA] rounded-b-[2px]"></div>
+<div class="h-28 w-6 bg-[#DCD7D0] rounded-b-[2px]"></div>
+<div class="h-28 w-6 bg-[#E5E0DA] rounded-b-[2px]"></div>
+<div class="h-28 w-6 bg-[#DCD7D0] rounded-b-[2px]"></div>
+</div>
+<!-- Black Keys Overlay -->
+<div class="absolute top-4 inset-x-0 flex justify-center gap-[10px] pointer-events-none pl-3">
+<div class="h-16 w-3.5 bg-[#201D1A] border-b border-[#3D3531] rounded-b-[1px]"></div>
+<div class="h-16 w-3.5 bg-[#201D1A] border-b border-[#3D3531] rounded-b-[1px]"></div>
+<div class="w-4"></div>
+<div class="h-16 w-3.5 bg-[#201D1A] border-b border-[#3D3531] rounded-b-[1px]"></div>
+<div class="h-16 w-3.5 bg-[#201D1A] border-b border-[#3D3531] rounded-b-[1px]"></div>
+<div class="h-16 w-3.5 bg-[#201D1A] border-b border-[#3D3531] rounded-b-[1px]"></div>
+<div class="w-4"></div>
+<div class="h-16 w-3.5 bg-[#201D1A] border-b border-[#3D3531] rounded-b-[1px]"></div>
+<div class="h-16 w-3.5 bg-[#201D1A] border-b border-[#3D3531] rounded-b-[1px]"></div>
+</div>
+</div>
+<!-- Hand Skeleton AI Wireframe (Ethereal stroke over keyboard) -->
+<svg class="absolute inset-0 w-full h-full z-10 opacity-70" fill="none" viewbox="0 0 360 270" xmlns="http://www.w3.org/2000/svg">
+<!-- Right hand skeleton bones hovering -->
+<g opacity="0.6" stroke="#F5F2ED" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2">
+<!-- Wrist to Palm nodes -->
+<path d="M220 230 L210 195 L228 175 L245 190 Z" fill="rgba(212, 162, 78, 0.05)"></path>
+<!-- Thumb -->
+<path d="M210 195 L186 190 L172 178"></path>
+<!-- Index finger (slightly tilted leftwards toward note) -->
+<path d="M214 175 L200 145 L192 120 L188 108"></path>
+<!-- Middle finger -->
+<path d="M226 172 L224 138 L222 112 L220 98"></path>
+<!-- Ring finger -->
+<path d="M238 177 L246 142 L250 118 L252 105"></path>
+<!-- Pinky (slightly drifting off frame right, prompting warning) -->
+<path d="M246 190 L268 165 L282 142 L294 132" stroke="#D4A24E" stroke-width="1.6"></path>
+</g>
+<!-- Tracking keypoints / joint dots -->
+<g fill="#D4A24E" opacity="0.85">
+<circle cx="210" cy="195" r="2.5"></circle>
+<circle cx="228" cy="175" r="2.5"></circle>
+<circle cx="186" cy="190" r="2"></circle>
+<circle cx="172" cy="178" fill="#F5F2ED" r="2.5"></circle>
+<circle cx="200" cy="145" r="2"></circle>
+<circle cx="192" cy="120" r="2"></circle>
+<circle cx="188" cy="108" fill="#F5F2ED" r="2.5"></circle>
+<circle cx="224" cy="138" r="2"></circle>
+<circle cx="222" cy="112" r="2"></circle>
+<circle cx="220" cy="98" fill="#F5F2ED" r="2.5"></circle>
+<circle cx="246" cy="142" r="2"></circle>
+<circle cx="250" cy="118" r="2"></circle>
+<circle cx="252" cy="105" fill="#F5F2ED" r="2.5"></circle>
+<!-- Pinky tip joint pulsing in amber -->
+<circle class="animate-ping opacity-75" cx="294" cy="132" fill="#D4A24E" r="3.5"></circle>
+<circle cx="294" cy="132" fill="#D4A24E" r="2.5"></circle>
+</g>
+</svg>
+</div>
+<!-- Overlaid Reticle Guide: Hand Area Framing -->
+<div class="absolute inset-x-8 top-7 bottom-12 rounded-xl border border-dashed border-[#D4A24E]/50 pointer-events-none z-20 flex flex-col justify-between p-2.5">
+<!-- 4 Reticle Corner Brackets -->
+<div class="w-full flex justify-between items-start">
+<div class="w-3.5 h-3.5 border-t-2 border-l-2 border-[#D4A24E]"></div>
+<div class="w-3.5 h-3.5 border-t-2 border-r-2 border-[#D4A24E]"></div>
+</div>
+<!-- Reticle Label Badge -->
+<div class="self-center bg-[#1C1917]/80 backdrop-blur-md px-2 py-0.5 rounded border border-[#D4A24E]/25 text-[10px] font-label-sm text-[#D4A24E] tracking-widest uppercase">
+            手部区域
+          </div>
+<div class="w-full flex justify-between items-end">
+<div class="w-3.5 h-3.5 border-b-2 border-l-2 border-[#D4A24E]"></div>
+<div class="w-3.5 h-3.5 border-b-2 border-r-2 border-[#D4A24E]"></div>
+</div>
+</div>
+<!-- Real-Time Detection HUD Chips (Overlaid inside top and bottom preview) -->
+<div class="relative z-30 flex flex-col gap-1.5 w-full items-start">
+<!-- Chip 1: Green Keyboard Visibility -->
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#161412]/85 backdrop-blur-md border border-[#7FA97C]/40 text-[#7FA97C] text-[11px] font-medium shadow-sm">
+<span class="text-[12px] font-bold">✓</span>
+<span>键盘完整可见</span>
+</div>
+</div>
+<!-- Chip 2: Warning Message at lower preview area -->
+<div class="relative z-30 w-full mt-auto">
+<div class="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-[#2D2724]/90 backdrop-blur-md border border-[#D4A24E]/50 shadow-md">
+<div class="flex items-center gap-1.5 text-[11px] text-[#D4A24E] font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-[#D4A24E] pulse-amber"></span>
+<span>⚠ 指尖略出框，请向左转一点</span>
+</div>
+<span class="material-symbols-outlined text-[#D4A24E] text-[15px] opacity-80" data-icon="rotate_left">rotate_left</span>
+</div>
+</div>
+</div>
+<!-- 3 Short Tip Rows -->
+<div class="mt-3.5 bg-[#262220] rounded-xl border border-[#332D29] divide-y divide-[#332D29]/60 px-3">
+<!-- Tip Row 1 -->
+<div class="flex items-center py-2.5 gap-2.5">
+<div class="w-6 h-6 rounded bg-[#1C1917] border border-[#332D29] flex items-center justify-center text-[#D4A24E] flex-shrink-0">
+<span class="material-symbols-outlined text-[14px]" data-icon="videocam">videocam</span>
+</div>
+<span class="text-[12px] text-[#F5F2ED] tracking-wide font-normal font-body-sm leading-tight">
+            手机架在琴右侧，镜头朝键盘
+          </span>
+</div>
+<!-- Tip Row 2 -->
+<div class="flex items-center py-2.5 gap-2.5">
+<div class="w-6 h-6 rounded bg-[#1C1917] border border-[#332D29] flex items-center justify-center text-[#D4A24E] flex-shrink-0">
+<span class="material-symbols-outlined text-[14px]" data-icon="menu_book">menu_book</span>
+</div>
+<span class="text-[12px] text-[#F5F2ED] tracking-wide font-normal font-body-sm leading-tight">
+            不用买支架，靠在谱架上就行
+          </span>
+</div>
+<!-- Tip Row 3 -->
+<div class="flex items-center py-2.5 gap-2.5">
+<div class="w-6 h-6 rounded bg-[#1C1917] border border-[#332D29] flex items-center justify-center text-[#D4A24E] flex-shrink-0">
+<span class="material-symbols-outlined text-[14px]" data-icon="timer">timer</span>
+</div>
+<span class="text-[12px] text-[#F5F2ED] tracking-wide font-normal font-body-sm leading-tight">
+            每次校准 30 秒，只在你主动录像时需要
+          </span>
+</div>
+</div>
+<!-- Permanent Disclaimer Box -->
+<div class="mt-3 p-2.5 rounded-lg bg-[#221E1B] border border-[#D4A24E]/20 flex items-start gap-2">
+<span class="material-symbols-outlined text-[15px] text-[#D4A24E]/80 mt-0.5 flex-shrink-0" data-icon="info">info</span>
+<p class="text-[11px] text-[#9C948B] font-body-sm leading-[17px]">
+          单个摄像头有死角：手掌遮挡、触键深度永远无法判断，手型建议不会影响过关。
+        </p>
+</div>
+</div>
+<!-- Bottom Action Bar (Docked, No Bottom Nav Shell) -->
+<div class="w-full pt-4 mt-auto">
+<div class="grid grid-cols-2 gap-2.5">
+<!-- Secondary / Outline Button -->
+<button class="w-full py-3 px-2 rounded-lg bg-transparent border border-[#332D29] text-[#9C948B] hover:text-[#F5F2ED] hover:border-[#D4A24E]/40 active:scale-[0.98] transition-all duration-150 text-[13px] font-medium font-body-md text-center flex items-center justify-center" type="button">
+          跳过，直接试录
+        </button>
+<!-- Primary / Solid Amber Button -->
+<button class="w-full py-3 px-2 rounded-lg bg-[#D4A24E] text-[#1C1917] hover:bg-[#E8C882] active:scale-[0.98] transition-all duration-150 text-[13px] font-medium font-body-md shadow-[0_0_16px_rgba(212,162,78,0.25)] text-center flex items-center justify-center" type="button">
+          按建议调整
+        </button>
+</div>
+<!-- Home Indicator Line for Mobile Precision -->
+<div class="w-32 h-1 bg-[#332D29] rounded-full mx-auto mt-4 opacity-50"></div>
+</div>
+</div>
+</body></html>

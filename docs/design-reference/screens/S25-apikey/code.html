@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>PianoSempai - AI 助教 · 服务商</title>
+<!-- Material Symbols Outlined Font -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts: Noto Serif SC & Noto Sans SC -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&amp;family=Noto+Serif+SC:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-tertiary-fixed-variant": "#594409",
+            "secondary-container": "#38312B",
+            "primary-fixed-dim": "#D4A24E",
+            "on-primary-fixed-variant": "#432c00",
+            "tertiary-fixed-dim": "#D4A24E",
+            "tertiary-container": "#D4A24E",
+            "surface-dim": "#1C1917",
+            "on-primary": "#1C1917",
+            "secondary-fixed": "#ffddb2",
+            "outline-variant": "#332D29",
+            "inverse-surface": "#E6E1DC",
+            "on-error": "#690005",
+            "surface-bright": "#332D29",
+            "inverse-primary": "#D4A24E",
+            "error": "#E06D63",
+            "on-secondary-container": "#D4A24E",
+            "error-container": "#93000a",
+            "primary": "#D4A24E",
+            "surface-container-highest": "#332D29",
+            "on-background": "#E6E1DC",
+            "on-tertiary-container": "#1C1917",
+            "surface-tint": "#D4A24E",
+            "tertiary": "#D4A24E",
+            "surface-container-lowest": "#141210",
+            "surface-container-high": "#2D2825",
+            "on-surface": "#E6E1DC",
+            "secondary": "#D4A24E",
+            "on-primary-fixed": "#1C1917",
+            "outline": "#9C948B",
+            "secondary-fixed-dim": "#D4A24E",
+            "on-secondary-fixed": "#1C1917",
+            "surface-container-low": "#262220",
+            "on-secondary": "#1C1917",
+            "primary-container": "#D4A24E",
+            "tertiary-fixed": "#ffdf9a",
+            "background": "#1C1917",
+            "primary-fixed": "#ffdead",
+            "on-primary-container": "#1C1917",
+            "on-tertiary-fixed": "#251a00",
+            "inverse-on-surface": "#262220",
+            "surface-container": "#262220",
+            "surface": "#1C1917",
+            "on-surface-variant": "#C8C2BC",
+            "surface-variant": "#262220",
+            "on-secondary-fixed-variant": "#5e4113",
+            "on-tertiary": "#1C1917",
+            "on-error-container": "#ffdad6"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "fontFamily": {
+            "serif": ["\"Noto Serif SC\"", "serif"],
+            "sans": ["\"Noto Sans SC\"", "sans-serif"],
+            "mono": ["\"JetBrains Mono\"", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+    }
+    body {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-[#1C1917] text-[#E6E1DC] font-sans antialiased min-h-screen flex justify-center selection:bg-[#D4A24E] selection:text-[#1C1917]">
+<!-- iPhone Max Viewport Shell -->
+<div class="relative w-full max-w-[428px] min-h-screen bg-[#1C1917] flex flex-col border-x border-[#332D29] shadow-2xl overflow-hidden pb-8">
+<!-- iOS Status Bar Simulation -->
+<div class="w-full pt-3 px-7 flex justify-between items-center text-xs font-medium text-[#9C948B] select-none z-30">
+<span class="tracking-tight font-semibold text-sm">9:41</span>
+<div class="flex items-center space-x-1.5 text-[#9C948B]">
+<span class="material-symbols-outlined text-[15px]">signal_cellular_alt</span>
+<span class="material-symbols-outlined text-[15px]">wifi</span>
+<span class="material-symbols-outlined text-[17px]">battery_full</span>
+</div>
+</div>
+<!-- Top App Bar (Focused View Back Navigation) -->
+<header class="sticky top-0 z-20 backdrop-blur-md bg-[#1C1917]/90 border-b border-[#332D29] px-3 h-12 flex items-center justify-between transition-colors">
+<button aria-label="返回" class="flex items-center gap-1 text-[#D4A24E] hover:text-[#D4A24E]/80 transition-colors py-2 px-1 rounded active:opacity-60">
+<span class="material-symbols-outlined text-[24px]">chevron_left</span>
+<span class="text-sm font-medium tracking-tight">返回</span>
+</button>
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#D4A24E] inline-block"></span>
+<h1 class="text-base font-serif font-semibold text-[#E6E1DC] tracking-wide">AI 助教 · 服务商</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center text-[#9C948B] hover:text-[#D4A24E] active:opacity-60 transition-colors" title="使用说明与帮助">
+<span class="material-symbols-outlined text-[20px]">help_outline</span>
+</button>
+</header>
+<!-- Main Scrollable Content -->
+<main class="flex-1 px-4 pt-3.5 space-y-5 overflow-y-auto custom-scrollbar">
+<!-- Active Status Banner Card -->
+<section class="relative overflow-hidden rounded-xl bg-[#262220] border border-[#332D29] p-4 shadow-lg">
+<!-- Subtle amber glow effect in corner -->
+<div class="absolute -top-10 -right-10 w-28 h-28 bg-[#D4A24E]/10 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-start justify-between gap-3">
+<div class="flex-1 space-y-1.5">
+<div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#1C1917] border border-[#332D29]">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#7FA97C] opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-[#7FA97C]"></span>
+</span>
+<span class="text-xs font-medium text-[#7FA97C] tracking-wide">链路正常 · 实时就绪</span>
+</div>
+<div class="pt-1">
+<h2 class="text-sm font-semibold text-[#E6E1DC] flex items-center gap-1.5">
+<span>当前主力：百炼</span>
+<span class="text-xs font-mono font-normal text-[#D4A24E] bg-[#38312B] px-1.5 py-0.5 rounded border border-[#D4A24E]/25">qwen3-vl</span>
+</h2>
+<p class="text-xs text-[#C8C2BC] leading-relaxed mt-1">
+                提问时按顺序尝试，任一可用即工作，遇到超限或故障毫秒级自动平滑切换。
+              </p>
+</div>
+</div>
+<div class="shrink-0 pt-0.5">
+<div class="w-9 h-9 rounded-lg bg-[#2D2825] border border-[#332D29] flex items-center justify-center text-[#D4A24E] shadow-inner">
+<span class="material-symbols-outlined text-[20px]">swap_calls</span>
+</div>
+</div>
+</div>
+<!-- Latency meter line -->
+<div class="mt-3 pt-2.5 border-t border-[#332D29] flex items-center justify-between text-[11px] text-[#C8C2BC]">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-[#D4A24E]">speed</span>
+<span>响应延迟：~1.8s</span>
+</div>
+<span class="text-[#9C948B] font-mono">容灾策略：故障顺延 (Failover)</span>
+</div>
+</section>
+<!-- Model Priority Pipeline Section -->
+<section class="space-y-2.5">
+<div class="flex items-center justify-between px-1">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[#D4A24E] text-[18px]">alt_route</span>
+<h3 class="text-sm font-semibold text-[#E6E1DC] tracking-tight">模型链路（拖动排序）</h3>
+</div>
+<span class="text-[11px] text-[#9C948B]">长按右侧手柄微调优先级</span>
+</div>
+<!-- Provider Priority List -->
+<div class="space-y-2" id="provider-sortable-list">
+<!-- Item 1: 百炼 (Active Primary) -->
+<div class="group relative flex items-center justify-between p-3.5 bg-[#262220] border border-[#D4A24E]/50 rounded-xl shadow-sm hover:border-[#D4A24E]/80 transition-all">
+<div class="flex items-center gap-3 min-w-0">
+<!-- Priority Badge -->
+<div class="flex-shrink-0 w-7 h-7 rounded-lg bg-[#D4A24E] text-[#1C1917] font-mono font-bold text-xs flex items-center justify-center shadow-inner">
+                1
+              </div>
+<div class="min-w-0 space-y-0.5">
+<div class="flex items-center gap-2">
+<span class="font-medium text-sm text-[#E6E1DC] truncate">百炼</span>
+<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-[#D4A24E]/15 text-[#D4A24E] border border-[#D4A24E]/30">
+<span class="w-1 h-1 rounded-full bg-[#7FA97C]"></span>
+                    首选生效
+                  </span>
+</div>
+<div class="flex items-center gap-2 text-xs text-[#C8C2BC]">
+<span class="font-mono text-xs text-[#C8C2BC]">qwen3-vl-plus</span>
+<span class="text-[10px] text-[#9C948B]">•</span>
+<span class="text-[11px] text-[#7FA97C] font-mono">活跃中</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2 pl-2">
+<button class="p-1.5 text-[#9C948B] hover:text-[#E6E1DC] rounded active:bg-[#1C1917]" title="配置参数">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+</button>
+<div class="cursor-grab active:cursor-grabbing p-1.5 text-[#9C948B] hover:text-[#D4A24E] active:text-[#D4A24E] transition-colors touch-none" title="按住拖动排序">
+<span class="material-symbols-outlined text-[20px]">drag_indicator</span>
+</div>
+</div>
+</div>
+<!-- Item 2: 火山方舟 (Standby) -->
+<div class="group relative flex items-center justify-between p-3.5 bg-[#262220] border border-[#332D29] rounded-xl hover:border-[#9C948B]/40 transition-all">
+<div class="flex items-center gap-3 min-w-0">
+<!-- Priority Badge -->
+<div class="flex-shrink-0 w-7 h-7 rounded-lg bg-[#2D2825] text-[#9C948B] font-mono font-medium text-xs flex items-center justify-center border border-[#332D29]">
+                2
+              </div>
+<div class="min-w-0 space-y-0.5">
+<div class="flex items-center gap-2">
+<span class="font-medium text-sm text-[#E6E1DC] truncate">火山方舟</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-normal bg-[#1C1917] text-[#9C948B] border border-[#332D29]">
+                    备选 1
+                  </span>
+</div>
+<div class="flex items-center gap-2 text-xs text-[#C8C2BC]">
+<span class="font-mono text-xs text-[#C8C2BC] truncate max-w-[150px]">doubao-seed-2-1-pro</span>
+<span class="text-[10px] text-[#9C948B]">•</span>
+<span class="text-[11px] text-[#9C948B]">待命就绪</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2 pl-2">
+<button class="p-1.5 text-[#9C948B] hover:text-[#E6E1DC] rounded active:bg-[#1C1917]" title="配置参数">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+</button>
+<div class="cursor-grab active:cursor-grabbing p-1.5 text-[#9C948B] hover:text-[#D4A24E] active:text-[#D4A24E] transition-colors touch-none" title="按住拖动排序">
+<span class="material-symbols-outlined text-[20px]">drag_indicator</span>
+</div>
+</div>
+</div>
+<!-- Item 3: DeepSeek (Standby Backup) -->
+<div class="group relative flex items-center justify-between p-3.5 bg-[#262220] border border-[#332D29] rounded-xl hover:border-[#9C948B]/40 transition-all">
+<div class="flex items-center gap-3 min-w-0">
+<!-- Priority Badge -->
+<div class="flex-shrink-0 w-7 h-7 rounded-lg bg-[#2D2825] text-[#9C948B] font-mono font-medium text-xs flex items-center justify-center border border-[#332D29]">
+                3
+              </div>
+<div class="min-w-0 space-y-0.5">
+<div class="flex items-center gap-2">
+<span class="font-medium text-sm text-[#E6E1DC] truncate">DeepSeek</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-normal bg-[#1C1917] text-[#9C948B] border border-[#332D29]">
+                    备选 2
+                  </span>
+</div>
+<div class="flex items-center gap-2 text-xs text-[#C8C2BC]">
+<span class="font-mono text-xs text-[#C8C2BC]">deepseek-vl2</span>
+<span class="text-[10px] text-[#9C948B]">•</span>
+<span class="text-[11px] text-[#9C948B]">待命就绪</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2 pl-2">
+<button class="p-1.5 text-[#9C948B] hover:text-[#E6E1DC] rounded active:bg-[#1C1917]" title="配置参数">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+</button>
+<div class="cursor-grab active:cursor-grabbing p-1.5 text-[#9C948B] hover:text-[#D4A24E] active:text-[#D4A24E] transition-colors touch-none" title="按住拖动排序">
+<span class="material-symbols-outlined text-[20px]">drag_indicator</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Add Provider Button with Dashed Border -->
+<button class="w-full py-3 px-4 border border-dashed border-[#D4A24E]/50 hover:border-[#D4A24E] active:bg-[#D4A24E]/10 rounded-xl flex items-center justify-center gap-2 text-[#D4A24E] font-medium text-sm transition-all group">
+<span class="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform">add_circle</span>
+<span>添加模型服务商</span>
+</button>
+</section>
+<!-- Diagnostic & Test Logs Section -->
+<section class="space-y-2">
+<div class="flex items-center justify-between px-1">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[#D4A24E] text-[18px]">terminal</span>
+<h3 class="text-sm font-semibold text-[#E6E1DC] tracking-tight">诊断记录</h3>
+</div>
+<span class="text-[11px] text-[#9C948B]">最近调用与自动化健康探测</span>
+</div>
+<div class="rounded-xl bg-[#262220] border border-[#332D29] p-3.5 space-y-2.5 font-mono text-xs">
+<!-- Log Item 1 -->
+<div class="flex items-center justify-between text-[#C8C2BC] pb-2 border-b border-[#332D29]/60">
+<div class="flex items-center gap-2 truncate">
+<span class="text-[#9C948B] text-[11px]">09-20 23:12</span>
+<span class="text-[#E6E1DC] font-medium truncate">百炼 qwen3-vl-plus</span>
+</div>
+<div class="flex items-center gap-1 text-[#7FA97C] font-semibold shrink-0">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+<span class="text-[11px]">1.8s</span>
+</div>
+</div>
+<!-- Log Item 2 -->
+<div class="flex items-center justify-between text-[#C8C2BC] pb-2 border-b border-[#332D29]/60">
+<div class="flex items-center gap-2 truncate">
+<span class="text-[#9C948B] text-[11px]">09-20 22:40</span>
+<span class="text-[#C8C2BC] truncate">火山方舟 doubao-seed...</span>
+</div>
+<div class="flex items-center gap-1 text-[#E06D63] shrink-0" title="模型未开通权限或密钥失效">
+<span class="material-symbols-outlined text-[14px]">cancel</span>
+<span class="text-[11px]">ModelNotOpen</span>
+</div>
+</div>
+<!-- Log Item 3 -->
+<div class="flex items-center justify-between text-[#C8C2BC]">
+<div class="flex items-center gap-2 truncate">
+<span class="text-[#9C948B] text-[11px]">09-20 21:05</span>
+<span class="text-[#E6E1DC] font-medium truncate">百炼 qwen3-vl-plus</span>
+</div>
+<div class="flex items-center gap-1 text-[#7FA97C] font-semibold shrink-0">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+<span class="text-[11px]">2.3s</span>
+</div>
+</div>
+<!-- Audit Log Footer Link -->
+<div class="pt-1.5 flex justify-end">
+<button class="inline-flex items-center gap-0.5 text-[11px] font-sans text-[#D4A24E] hover:text-[#D4A24E]/80 transition-colors py-0.5">
+<span>查看全部诊断日志</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Security & Privacy Keychain Guarantee -->
+<section class="rounded-xl bg-[#262220] border border-[#332D29] p-3.5 flex items-start gap-3">
+<div class="p-1.5 rounded-lg bg-[#38312B] text-[#D4A24E] shrink-0 mt-0.5 border border-[#332D29]">
+<span class="material-symbols-outlined text-[18px]">lock</span>
+</div>
+<div class="space-y-0.5 text-xs">
+<h4 class="font-medium text-[#E6E1DC] text-xs tracking-tight">钥匙串硬件加密保障</h4>
+<p class="text-[11px] text-[#C8C2BC] leading-relaxed font-sans">
+            每个 API Key 仅加密存于本机 iOS Keychain，不进入 iCloud 备份、导出包或日志；练习分析视频须经你单独确认后才会传输。
+          </p>
+</div>
+</section>
+</main>
+<!-- Native iOS Home Indicator -->
+<footer class="w-full pt-4 pb-2 flex justify-center items-center select-none bg-[#1C1917]">
+<div class="w-32 h-1 bg-[#9C948B]/30 rounded-full"></div>
+</footer>
+</div>
+<!-- Interactive Drag & Drop Micro-interaction simulation -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const handles = document.querySelectorAll('.cursor-grab');
+      handles.forEach(handle => {
+        handle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // Subtle touch haptic visual feedback
+          const card = handle.closest('.group');
+          card.classList.add('ring-2', 'ring-[#D4A24E]', 'scale-[1.01]');
+          setTimeout(() => {
+            card.classList.remove('ring-2', 'ring-[#D4A24E]', 'scale-[1.01]');
+          }, 300);
+        });
+      });
+    });
+  </script>
+</body></html>

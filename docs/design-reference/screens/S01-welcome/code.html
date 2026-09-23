@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=390, height=844, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<title>PianoSempai - 欢迎</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600&amp;family=Noto+Sans+SC:wght@300;400;500;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-secondary-fixed": "#291800",
+            "outline": "#9c8f7e",
+            "primary": "#f3be67",
+            "on-surface": "#e9e1dd",
+            "on-primary-fixed": "#281900",
+            "surface-dim": "#161311",
+            "on-tertiary": "#3f2e00",
+            "surface": "#161311",
+            "inverse-surface": "#e9e1dd",
+            "tertiary-container": "#c5a764",
+            "primary-fixed": "#ffdead",
+            "tertiary-fixed-dim": "#e2c37d",
+            "inverse-primary": "#7e5703",
+            "on-background": "#e9e1dd",
+            "surface-container": "#221f1d",
+            "error": "#ffb4ab",
+            "on-tertiary-fixed": "#251a00",
+            "surface-variant": "#383432",
+            "on-tertiary-container": "#513c02",
+            "on-primary": "#432c00",
+            "on-secondary-fixed-variant": "#5e4113",
+            "on-error-container": "#ffdad6",
+            "surface-container-low": "#1e1b19",
+            "outline-variant": "#4f4537",
+            "on-surface-variant": "#d3c4b2",
+            "secondary-fixed-dim": "#eac085",
+            "on-primary-container": "#563900",
+            "tertiary-fixed": "#ffdf9a",
+            "inverse-on-surface": "#33302d",
+            "surface-container-lowest": "#100e0c",
+            "primary-fixed-dim": "#f3be67",
+            "on-primary-fixed-variant": "#604100",
+            "surface-container-highest": "#383432",
+            "surface-bright": "#3c3836",
+            "surface-tint": "#f3be67",
+            "secondary-fixed": "#ffddb2",
+            "tertiary": "#e2c37d",
+            "primary-container": "#d4a24e",
+            "surface-container-high": "#2d2927",
+            "on-secondary": "#442b00",
+            "on-error": "#690005",
+            "on-tertiary-fixed-variant": "#594409",
+            "secondary-container": "#614415",
+            "secondary": "#eac085",
+            "error-container": "#93000a",
+            "background": "#161311",
+            "on-secondary-container": "#dbb279"
+          },
+          borderRadius: {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          spacing: {
+            "space-md": "1rem",
+            "space-lg": "1.5rem",
+            "margin": "3rem",
+            "gutter-sm": "1rem",
+            "gutter": "1.5rem",
+            "space-sm": "0.5rem",
+            "margin-sm": "1.25rem",
+            "space-xs": "0.25rem",
+            "space-xl": "2.5rem"
+          },
+          fontFamily: {
+            "body-sm": ["\"Noto Sans SC\", sans-serif"],
+            "display-lg": ["\"Noto Serif SC\", serif"],
+            "headline-lg-mobile": ["\"Noto Serif SC\", serif"],
+            "body-lg": ["\"Noto Sans SC\", sans-serif"],
+            "label-sm": ["\"Noto Sans SC\", sans-serif"],
+            "headline-sm": ["\"Noto Serif SC\", serif"],
+            "headline-md": ["\"Noto Serif SC\", serif"],
+            "headline-lg": ["\"Noto Serif SC\", serif"],
+            "body-md": ["\"Noto Sans SC\", sans-serif"],
+            "label-md": ["\"Noto Sans SC\", sans-serif"],
+            "title-md": ["\"Noto Sans SC\", sans-serif"],
+            "display-lg-mobile": ["\"Noto Serif SC\", serif"]
+          },
+          fontSize: {
+            "body-sm": ["12px", { lineHeight: "18px", fontWeight: "400" }],
+            "display-lg": ["48px", { lineHeight: "60px", letterSpacing: "-0.02em", fontWeight: "400" }],
+            "headline-lg-mobile": ["24px", { lineHeight: "32px", letterSpacing: "0em", fontWeight: "400" }],
+            "body-lg": ["16px", { lineHeight: "26px", fontWeight: "400" }],
+            "label-sm": ["11px", { lineHeight: "14px", letterSpacing: "0.08em", fontWeight: "500" }],
+            "headline-sm": ["20px", { lineHeight: "28px", fontWeight: "500" }],
+            "headline-md": ["24px", { lineHeight: "32px", fontWeight: "400" }],
+            "headline-lg": ["32px", { lineHeight: "42px", letterSpacing: "-0.01em", fontWeight: "400" }],
+            "body-md": ["14px", { lineHeight: "22px", fontWeight: "400" }],
+            "label-md": ["12px", { lineHeight: "16px", letterSpacing: "0.06em", fontWeight: "500" }],
+            "title-md": ["16px", { lineHeight: "24px", letterSpacing: "0.01em", fontWeight: "500" }],
+            "display-lg-mobile": ["32px", { lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "400" }]
+          }
+        }
+      }
+    };
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    
+    /* Subtle amber acoustic bloom */
+    .amber-bloom {
+      background: radial-gradient(circle at 50% 32%, rgba(212, 162, 78, 0.12) 0%, rgba(22, 19, 17, 0) 70%);
+    }
+
+    /* Soft top hairline illumination */
+    .top-panel-glow {
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface m-0 p-0 overflow-hidden select-none font-body-md antialiased min-h-screen w-full flex justify-center items-center">
+<!-- Full-bleed iPhone Frame Canvas (390 x 844) -->
+<main class="relative w-full max-w-[390px] h-[844px] bg-surface flex flex-col justify-between overflow-hidden px-margin-sm pt-0 pb-2">
+<!-- Atmospheric Ambient Lighting Layer -->
+<div class="absolute inset-0 amber-bloom pointer-events-none z-0"></div>
+<div class="absolute -top-16 left-1/2 -translate-x-1/2 w-72 h-72 bg-primary-container/10 rounded-full blur-3xl pointer-events-none z-0"></div>
+<!-- 1. Minimal iOS Status Bar Area -->
+<header class="relative z-10 w-full pt-3 flex justify-between items-center h-11 shrink-0 px-space-xs">
+<span class="font-body-md text-label-md font-medium tracking-tight text-on-surface">9:41</span>
+<!-- iPhone Subtle Dynamic Island Notch Area -->
+<div class="w-24 h-5 bg-surface-container-lowest/80 rounded-full border border-outline-variant/30 flex items-center justify-center space-x-1.5 px-2">
+<div class="w-1.5 h-1.5 rounded-full bg-primary-container/40"></div>
+<div class="w-2.5 h-1 rounded-full bg-surface-variant"></div>
+</div>
+<!-- System Telemetry Glyphs -->
+<div class="flex items-center space-x-1.5 text-on-surface">
+<span class="material-symbols-outlined text-[15px] opacity-80" data-icon="signal_cellular_alt">signal_cellular_alt</span>
+<span class="material-symbols-outlined text-[15px] opacity-80" data-icon="wifi">wifi</span>
+<span class="material-symbols-outlined text-[17px] opacity-90" data-icon="battery_full">battery_full</span>
+</div>
+</header>
+<!-- Content Chamber (Vertically poised) -->
+<div class="relative z-10 flex-1 flex flex-col justify-between py-space-sm">
+<!-- 2 & 3. Emblem & Center Brand Typography -->
+<section class="flex flex-col items-center text-center mt-2">
+<!-- Warm Amber Architectural Emblem: Cat Face Silhouette with Piano Key Geometry -->
+<div class="relative w-24 h-24 mb-4 flex items-center justify-center">
+<div class="absolute inset-0 rounded-full bg-primary-container/10 blur-md"></div>
+<svg class="w-20 h-20 text-primary relative z-10 drop-shadow-[0_4px_16px_rgba(212,162,78,0.35)]" fill="none" viewbox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<!-- Architectural Cat Ears & Cranium Outline -->
+<path d="M24 38L18 16L40 26C43.2 25.4 46.5 25 50 25C53.5 25 56.8 25.4 60 26L82 16L76 38C82.5 45.4 86 54.8 86 65C86 78 76 86 50 86C24 86 14 78 14 65C14 54.8 17.5 45.4 24 38Z" stroke="#D4A24E" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"></path>
+<!-- Upright Symmetrical Whiskers/Harmonic Soundbars -->
+<path d="M22 61L12 60" opacity="0.6" stroke="#D4A24E" stroke-linecap="round" stroke-width="1.25"></path>
+<path d="M22 66L14 68" opacity="0.6" stroke="#D4A24E" stroke-linecap="round" stroke-width="1.25"></path>
+<path d="M78 61L88 60" opacity="0.6" stroke="#D4A24E" stroke-linecap="round" stroke-width="1.25"></path>
+<path d="M78 66L86 68" opacity="0.6" stroke="#D4A24E" stroke-linecap="round" stroke-width="1.25"></path>
+<!-- Elegant Piano Key Bed Inset -->
+<rect fill="#1C1917" fill-opacity="0.8" height="24" rx="2" stroke="#D4A24E" stroke-width="1.5" width="34" x="33" y="44"></rect>
+<!-- White Key Dividing Lines -->
+<line opacity="0.5" stroke="#D4A24E" stroke-width="1" x1="39.8" x2="39.8" y1="44" y2="68"></line>
+<line opacity="0.5" stroke="#D4A24E" stroke-width="1" x1="46.6" x2="46.6" y1="44" y2="68"></line>
+<line opacity="0.5" stroke="#D4A24E" stroke-width="1" x1="53.4" x2="53.4" y1="44" y2="68"></line>
+<line opacity="0.5" stroke="#D4A24E" stroke-width="1" x1="60.2" x2="60.2" y1="44" y2="68"></line>
+<!-- Ebony Piano Keys -->
+<rect fill="#D4A24E" height="13" width="4.2" x="37.5" y="44"></rect>
+<rect fill="#D4A24E" height="13" width="4.2" x="44.5" y="44"></rect>
+<rect fill="#D4A24E" height="13" width="4.2" x="58" y="44"></rect>
+<!-- Delicate Nose Dot -->
+<circle cx="50" cy="38" fill="#D4A24E" r="1.5"></circle>
+</svg>
+</div>
+<!-- Serif Brand Title -->
+<h1 class="font-display-lg-mobile text-display-lg-mobile tracking-tight text-on-surface font-headline-sm font-medium drop-shadow-[0_2px_12px_rgba(212,162,78,0.2)]">
+          PianoSempai
+        </h1>
+<!-- Muted Warm Gray Subtitle -->
+<p class="font-body-md text-outline mt-1.5 text-[15px] tracking-wide font-normal">
+          你的钢琴前辈，住在手机里
+        </p>
+</section>
+<!-- 4. Feature Highlights (Harmonic Three-Row Bento/List Module) -->
+<section class="space-y-space-sm my-auto px-1">
+<!-- Row 1: MIDI Precision -->
+<div class="top-panel-glow bg-surface-container/60 hover:bg-surface-container-high transition-colors duration-200 border border-outline-variant/30 rounded-lg px-space-md py-3.5 flex items-center justify-between">
+<div class="flex items-center space-x-3.5">
+<div class="w-8 h-8 rounded-DEFAULT bg-surface-container-high flex items-center justify-center border border-primary-container/20 shrink-0">
+<span class="material-symbols-outlined text-primary text-[19px]" data-icon="piano">piano</span>
+</div>
+<span class="font-body-md text-on-surface text-[14px] font-medium tracking-normal">只听 MIDI，不乱猜</span>
+</div>
+<span class="font-label-sm text-outline-variant text-[11px] uppercase tracking-wider font-mono">SIGNAL</span>
+</div>
+<!-- Row 2: Classical Pedagogy Anchor -->
+<div class="top-panel-glow bg-surface-container/60 hover:bg-surface-container-high transition-colors duration-200 border border-outline-variant/30 rounded-lg px-space-md py-3.5 flex items-center justify-between">
+<div class="flex items-center space-x-3.5">
+<div class="w-8 h-8 rounded-DEFAULT bg-surface-container-high flex items-center justify-center border border-primary-container/20 shrink-0">
+<span class="material-symbols-outlined text-primary text-[19px]" data-icon="menu_book">menu_book</span>
+</div>
+<span class="font-body-md text-on-surface text-[14px] font-medium tracking-normal">课程锚定拜厄·哈农·车尔尼</span>
+</div>
+<span class="font-label-sm text-outline-variant text-[11px] uppercase tracking-wider font-mono">OPUS</span>
+</div>
+<!-- Row 3: Absolute Local Privacy Lock -->
+<div class="top-panel-glow bg-surface-container/60 hover:bg-surface-container-high transition-colors duration-200 border border-outline-variant/30 rounded-lg px-space-md py-3.5 flex items-center justify-between">
+<div class="flex items-center space-x-3.5">
+<div class="w-8 h-8 rounded-DEFAULT bg-surface-container-high flex items-center justify-center border border-primary-container/20 shrink-0">
+<span class="material-symbols-outlined text-primary text-[19px]" data-icon="lock">lock</span>
+</div>
+<span class="font-body-md text-on-surface text-[14px] font-medium tracking-normal">数据只在你手机里</span>
+</div>
+<span class="font-label-sm text-outline-variant text-[11px] uppercase tracking-wider font-mono">LOCAL</span>
+</div>
+</section>
+<!-- 5. Lower CTA & Disclaimers -->
+<section class="flex flex-col items-center pt-2 pb-1">
+<!-- Solid Warm Amber Gold Action Button -->
+<button class="w-full bg-primary-container hover:bg-tertiary active:scale-[0.985] text-surface-container-lowest font-body-lg font-bold py-4 rounded-xl transition-all duration-200 shadow-[0_4px_24px_rgba(212,162,78,0.22)] flex items-center justify-center space-x-2 cursor-pointer border-none" type="button">
+<span class="text-[17px] tracking-widest pl-1">开始</span>
+<span class="material-symbols-outlined text-[20px] font-bold" data-icon="arrow_forward">arrow_forward</span>
+</button>
+<!-- Critical Compliance Disclaimer Notice -->
+<p class="font-body-sm text-outline text-[11px] text-center leading-relaxed mt-3 px-space-xs font-normal">
+          继续即表示同意：视频只在你主动录制时工作，手型建议永不决定过关
+        </p>
+</section>
+</div>
+<!-- 6. Very Bottom Status Anchor & Home Indicator -->
+<footer class="relative z-10 w-full flex flex-col items-center pb-2 shrink-0">
+<!-- Verbatim Local Version Descriptor -->
+<span class="font-label-sm text-outline/60 text-[11px] tracking-wider mb-2 font-normal">
+        v0.1.0 · 纯自用，无账号，无服务器
+      </span>
+<!-- iOS Native Virtual Home Indicator Bar -->
+<div class="w-32 h-1 bg-on-surface/30 rounded-full mt-1 mb-0.5"></div>
+</footer>
+</main>
+</body></html>

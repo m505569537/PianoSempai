@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>PianoSempai - 你的起点 (S5)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#1C1917',
+            card: '#262220',
+            cardBorder: '#332D29',
+            amber: '#D4A24E',
+            amberLight: '#F3C97C',
+            textMain: '#F5F2ED',
+            textMuted: '#9C948B',
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    /* Hide scrollbar */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+</head>
+<body class="bg-bg text-textMain min-h-screen flex flex-col justify-between selection:bg-amber selection:text-bg">
+  <!-- Container with full-bleed iPhone dimensions: fills entire frame, no phone mockup frame -->
+  <div class="w-full max-w-[390px] mx-auto min-h-screen flex flex-col justify-between px-5 pt-3 pb-8">
+    
+    <!-- Top Area: Status Bar & Stepper -->
+    <div>
+      <!-- Status Bar (iOS Native Minimal) -->
+      <div class="flex justify-between items-center text-[13px] font-semibold text-textMuted/90 tracking-tight pt-1 pb-2">
+        <span>9:41</span>
+        <div class="flex items-center space-x-1.5 text-textMuted">
+          <svg class="w-4 h-3.5 fill-current" viewBox="0 0 16 12">
+            <path d="M1 9.5h2v2.5H1v-2.5zm4-3h2v5.5H5V6.5zm4-3h2v8.5H9V3.5zm4-3h2v11.5h-2V.5z" />
+          </svg>
+          <svg class="w-4 h-3.5 fill-current" viewBox="0 0 16 12">
+            <path d="M8 2.5C5.2 2.5 2.7 3.7 1 5.6l7 8 7-8C13.3 3.7 10.8 2.5 8 2.5z" />
+          </svg>
+          <div class="w-6 h-3 rounded-[3.5px] border border-textMuted/80 p-0.5 flex items-center">
+            <div class="w-full h-full bg-textMuted rounded-[2px]"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step Indicator (All Done) -->
+      <div class="flex items-center justify-between mt-3 mb-5">
+        <div class="flex items-center space-x-2">
+          <!-- Step 1 Done -->
+          <div class="w-1.5 h-1.5 rounded-full bg-amber"></div>
+          <div class="w-3.5 h-[1px] bg-amber/60"></div>
+          <!-- Step 2 Done -->
+          <div class="w-1.5 h-1.5 rounded-full bg-amber"></div>
+          <div class="w-3.5 h-[1px] bg-amber/60"></div>
+          <!-- Step 3 Done -->
+          <div class="w-1.5 h-1.5 rounded-full bg-amber"></div>
+        </div>
+        <span class="text-[12px] text-textMuted tracking-wider font-normal">评估完成</span>
+      </div>
+
+      <!-- Main Header -->
+      <div class="mb-5">
+        <h1 class="font-serif text-[28px] font-bold text-textMain tracking-wide mb-2 leading-tight">你的起点</h1>
+        <p class="text-[13.5px] text-textMuted leading-relaxed">基础扎实，卡点在视奏速度与双手协同。</p>
+      </div>
+
+      <!-- Card 1: Radar Chart Card (Hexagon Radar) -->
+      <div class="bg-card border border-cardBorder rounded-2xl p-4 mb-3.5 relative shadow-sm">
+        <div class="w-full flex justify-center items-center py-1">
+          <!-- SVG Radar Chart (Center: 150, 120, Radius: 70) -->
+          <svg class="w-[290px] h-[210px] overflow-visible" viewBox="0 0 300 230">
+            <defs>
+              <linearGradient id="amberGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#D4A24E" stop-opacity="0.32" />
+                <stop offset="100%" stop-color="#D4A24E" stop-opacity="0.12" />
+              </linearGradient>
+            </defs>
+
+            <!-- Center: (150, 112)
+                 Angles:
+                 Top (0° / -90° from math): (150, 42) -> 音准
+                 Top-Right (60°): (210.6, 77) -> 节奏
+                 Bottom-Right (120°): (210.6, 147) -> 连续性
+                 Bottom (180°): (150, 182) -> 速度
+                 Bottom-Left (240°): (89.4, 147) -> 读谱
+                 Top-Left (300°): (89.4, 77) -> 双手协同
+            -->
+            <!-- Concentric Hexagon 1 (100% - R=70) -->
+            <polygon points="150,42 210.6,77 210.6,147 150,182 89.4,147 89.4,77" 
+                     fill="none" stroke="#332D29" stroke-width="1" />
+            <!-- Concentric Hexagon 2 (75% - R=52.5) -->
+            <polygon points="150,59.5 195.5,85.8 195.5,138.3 150,164.5 104.5,138.3 104.5,85.8" 
+                     fill="none" stroke="#332D29" stroke-width="1" stroke-dasharray="2 2" />
+            <!-- Concentric Hexagon 3 (50% - R=35) -->
+            <polygon points="150,77 180.3,94.5 180.3,129.5 150,147 119.7,129.5 119.7,94.5" 
+                     fill="none" stroke="#332D29" stroke-width="1" stroke-dasharray="2 2" />
+            <!-- Concentric Hexagon 4 (25% - R=17.5) -->
+            <polygon points="150,94.5 165.2,103.3 165.2,120.8 150,129.5 134.8,120.8 134.8,103.3" 
+                     fill="none" stroke="#332D29" stroke-width="1" />
+
+            <!-- Axis Lines -->
+            <line x1="150" y1="112" x2="150" y2="42" stroke="#332D29" stroke-width="1" />
+            <line x1="150" y1="112" x2="210.6" y2="77" stroke="#332D29" stroke-width="1" />
+            <line x1="150" y1="112" x2="210.6" y2="147" stroke="#332D29" stroke-width="1" />
+            <line x1="150" y1="112" x2="150" y2="182" stroke="#332D29" stroke-width="1" />
+            <line x1="150" y1="112" x2="89.4" y2="147" stroke="#332D29" stroke-width="1" />
+            <line x1="150" y1="112" x2="89.4" y2="77" stroke="#332D29" stroke-width="1" />
+
+            <!-- Data Polygon:
+                 Values out of 5:
+                 1. 音准: 4.0 / 5.0 (80% -> R=56): (150, 56)
+                 2. 节奏: 3.5 / 5.0 (70% -> R=49): (150 + 49*0.866 = 192.4, 112 - 49*0.5 = 87.5)
+                 3. 连续性: 3.0 / 5.0 (60% -> R=42): (150 + 42*0.866 = 186.4, 112 + 42*0.5 = 133)
+                 4. 速度: 3.0 / 5.0 (60% -> R=42): (150, 112 + 42 = 154)
+                 5. 读谱: 2.5 / 5.0 (50% -> R=35): (150 - 35*0.866 = 119.7, 112 + 35*0.5 = 129.5)
+                 6. 双手协同: 2.5 / 5.0 (50% -> R=35): (150 - 35*0.866 = 119.7, 112 - 35*0.5 = 94.5)
+            -->
+            <polygon points="150,56 192.4,87.5 186.4,133 150,154 119.7,129.5 119.7,94.5" 
+                     fill="url(#amberGlow)" stroke="#D4A24E" stroke-width="1.75" stroke-linejoin="round" />
+
+            <!-- Amber Dots at Vertices -->
+            <circle cx="150" cy="56" r="3.5" fill="#D4A24E" stroke="#1C1917" stroke-width="1.5" />
+            <circle cx="192.4" cy="87.5" r="3.5" fill="#D4A24E" stroke="#1C1917" stroke-width="1.5" />
+            <circle cx="186.4" cy="133" r="3.5" fill="#D4A24E" stroke="#1C1917" stroke-width="1.5" />
+            <circle cx="150" cy="154" r="3.5" fill="#D4A24E" stroke="#1C1917" stroke-width="1.5" />
+            <circle cx="119.7" cy="129.5" r="3.5" fill="#D4A24E" stroke="#1C1917" stroke-width="1.5" />
+            <circle cx="119.7" cy="94.5" r="3.5" fill="#D4A24E" stroke="#1C1917" stroke-width="1.5" />
+
+            <!-- 6 Axis Labels EXACTLY as specified -->
+            <!-- 1. 音准 (Top) -->
+            <text x="150" y="28" fill="#F5F2ED" font-size="12" font-weight="500" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif">音准</text>
+            <!-- 2. 节奏 (Top-Right) -->
+            <text x="226" y="74" fill="#F5F2ED" font-size="12" font-weight="500" text-anchor="start" font-family="'Plus Jakarta Sans', sans-serif">节奏</text>
+            <!-- 3. 连续性 (Bottom-Right) -->
+            <text x="226" y="154" fill="#F5F2ED" font-size="12" font-weight="500" text-anchor="start" font-family="'Plus Jakarta Sans', sans-serif">连续性</text>
+            <!-- 4. 速度 (Bottom) -->
+            <text x="150" y="202" fill="#F5F2ED" font-size="12" font-weight="500" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif">速度</text>
+            <!-- 5. 读谱 (Bottom-Left) -->
+            <text x="74" y="154" fill="#F5F2ED" font-size="12" font-weight="500" text-anchor="end" font-family="'Plus Jakarta Sans', sans-serif">读谱</text>
+            <!-- 6. 双手协同 (Top-Left) -->
+            <text x="74" y="74" fill="#F5F2ED" font-size="12" font-weight="500" text-anchor="end" font-family="'Plus Jakarta Sans', sans-serif">双手协同</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Card 2: 路线插入点 -->
+      <div class="bg-card border border-cardBorder rounded-2xl p-4 mb-3.5">
+        <div class="flex items-center space-x-1.5 mb-3.5">
+          <span class="material-symbols-outlined text-[17px] text-amber">auto_stories</span>
+          <h2 class="text-[14px] font-semibold text-textMain tracking-tight">路线插入点</h2>
+        </div>
+
+        <div class="space-y-3">
+          <!-- Row 1: 拜厄 -->
+          <div class="flex items-center justify-between text-[13.5px] pb-2.5 border-b border-cardBorder/60">
+            <div class="flex items-center space-x-2.5">
+              <span class="material-symbols-outlined text-[18px] text-textMuted">menu_book</span>
+              <span class="text-textMain font-medium">拜厄</span>
+            </div>
+            <span class="text-amber font-medium">从第 45 条进入</span>
+          </div>
+
+          <!-- Row 2: 哈农 -->
+          <div class="flex items-center justify-between text-[13.5px] pb-2.5 border-b border-cardBorder/60">
+            <div class="flex items-center space-x-2.5">
+              <span class="material-symbols-outlined text-[18px] text-textMuted">menu_book</span>
+              <span class="text-textMain font-medium">哈农</span>
+            </div>
+            <span class="text-textMain font-medium">从第 1 条开始</span>
+          </div>
+
+          <!-- Row 3: 车尔尼 599 -->
+          <div class="flex items-center justify-between text-[13.5px]">
+            <div class="flex items-center space-x-2.5">
+              <span class="material-symbols-outlined text-[18px] text-textMuted/60">menu_book</span>
+              <span class="text-textMuted">车尔尼 599</span>
+            </div>
+            <span class="text-textMuted text-[12.5px]">暂不开始（预计 8 周后）</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Info Note Card -->
+      <div class="bg-card/70 border border-cardBorder/70 rounded-xl px-3.5 py-3 mb-3.5 flex items-start space-x-2.5">
+        <span class="material-symbols-outlined text-[17px] text-textMuted shrink-0 mt-0.5">info</span>
+        <p class="text-[12.5px] text-textMuted leading-snug">手型维度将在你启用视觉陪练后补充，不影响当前路线。</p>
+      </div>
+
+      <!-- Card 3: 力度校准 -->
+      <div class="bg-card border border-cardBorder rounded-xl p-3.5 mb-5 flex items-center justify-between">
+        <div class="flex items-center space-x-2.5">
+          <span class="material-symbols-outlined text-[19px] text-amber">speed</span>
+          <span class="text-[13.5px] font-medium text-textMain">个人力度曲线</span>
+        </div>
+        <div class="flex items-center space-x-1.5 text-textMuted">
+          <div class="w-1.5 h-1.5 rounded-full bg-[#4ADE80]"></div>
+          <span class="text-[13px] text-textMain font-medium">已校准</span>
+          <span class="material-symbols-outlined text-[18px] text-textMuted ml-0.5">chevron_right</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Actions & Home Indicator (No tab bar) -->
+    <div class="pt-2">
+      <!-- Amber Full-width Button (Dark text on amber fill) -->
+      <button class="w-full bg-amber hover:bg-amberLight active:scale-[0.99] transition-all duration-150 text-[#1C1917] font-semibold text-[15px] py-3.5 rounded-xl shadow-lg shadow-amber/10 flex items-center justify-center space-x-1.5">
+        <span>生成我的第一周计划</span>
+      </button>
+
+      <!-- Ghost Link -->
+      <div class="text-center mt-3 mb-2">
+        <button class="text-textMuted hover:text-textMain text-[13px] transition-colors py-1">
+          重新评估
+        </button>
+      </div>
+
+      <!-- Home Indicator -->
+      <div class="w-full flex justify-center pt-2">
+        <div class="w-32 h-1 bg-textMuted/40 rounded-full"></div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

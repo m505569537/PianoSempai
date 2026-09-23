@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>练琴笔记 - 琴伴 PianoSempai</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&amp;family=Noto+Serif+SC:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-variant": "#383432",
+            "secondary-fixed-dim": "#eac085",
+            "on-tertiary-fixed-variant": "#594409",
+            "tertiary-fixed": "#ffdf9a",
+            "on-secondary-fixed": "#291800",
+            "on-primary-container": "#563900",
+            "outline-variant": "#4f4537",
+            "surface-container-lowest": "#100e0c",
+            "primary-fixed": "#ffdead",
+            "surface-bright": "#3c3836",
+            "secondary-fixed": "#ffddb2",
+            "on-surface-variant": "#d3c4b2",
+            "on-primary-fixed": "#281900",
+            "inverse-surface": "#e9e1dd",
+            "background": "#161311",
+            "tertiary-fixed-dim": "#e2c37d",
+            "primary-container": "#d4a24e",
+            "primary-fixed-dim": "#f3be67",
+            "tertiary-container": "#c5a764",
+            "surface-dim": "#161311",
+            "on-secondary": "#442b00",
+            "on-primary": "#432c00",
+            "tertiary": "#e2c37d",
+            "surface-container-low": "#1e1b19",
+            "on-primary-fixed-variant": "#604100",
+            "inverse-on-surface": "#33302d",
+            "error": "#ffb4ab",
+            "surface": "#161311",
+            "outline": "#9c8f7e",
+            "on-tertiary": "#3f2e00",
+            "on-secondary-container": "#dbb279",
+            "secondary": "#eac085",
+            "primary": "#f3be67",
+            "on-surface": "#e9e1dd",
+            "surface-container": "#221f1d",
+            "surface-container-high": "#2d2927",
+            "on-error": "#690005",
+            "error-container": "#93000a",
+            "surface-tint": "#f3be67",
+            "on-tertiary-fixed": "#251a00",
+            "on-error-container": "#ffdad6",
+            "on-tertiary-container": "#513c02",
+            "inverse-primary": "#7e5703",
+            "on-secondary-fixed-variant": "#5e4113",
+            "on-background": "#e9e1dd",
+            "surface-container-highest": "#383432",
+            "secondary-container": "#614415"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "gutter": "1.5rem",
+            "margin-sm": "1.25rem",
+            "margin": "3rem",
+            "space-xl": "2.5rem",
+            "space-md": "1rem",
+            "space-sm": "0.5rem",
+            "gutter-sm": "1rem",
+            "space-xs": "0.25rem",
+            "space-lg": "1.5rem"
+          },
+          "fontFamily": {
+            "display-lg-mobile": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "body-lg": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "body-md": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "display-lg": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "label-sm": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "label-md": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "headline-lg": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "body-sm": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "headline-md": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "title-md": ["\"Noto Sans SC\", \"Noto Sans\", sans-serif"],
+            "headline-lg-mobile": ["\"Noto Serif SC\", \"Noto Serif\", serif"],
+            "headline-sm": ["\"Noto Serif SC\", \"Noto Serif\", serif"]
+          },
+          "fontSize": {
+            "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+            "body-lg": ["16px", { "lineHeight": "26px", "fontWeight": "400" }],
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "display-lg": ["48px", { "lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "400" }],
+            "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.08em", "fontWeight": "500" }],
+            "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.06em", "fontWeight": "500" }],
+            "headline-lg": ["32px", { "lineHeight": "42px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "400" }],
+            "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.01em", "fontWeight": "500" }],
+            "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "0em", "fontWeight": "400" }],
+            "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "500" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    /* Subtle touch & scroll styles */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface antialiased min-h-screen flex justify-center selection:bg-primary-container selection:text-surface">
+<!-- Mobile Canvas Frame: 390x844 strict aesthetic proportions, edge-to-edge full bleed layout -->
+<main class="w-full max-w-[390px] min-h-screen bg-background relative flex flex-col justify-between overflow-x-hidden border-x border-outline-variant/10 shadow-2xl">
+<!-- Content Scroller -->
+<div class="flex-1 flex flex-col pb-28">
+<!-- 1. iOS Status Bar -->
+<header class="w-full pt-3 px-6 flex justify-between items-center z-30 select-none">
+<span class="font-body-sm text-body-sm font-semibold tracking-tight text-on-surface">9:41</span>
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="material-symbols-outlined text-[15px]" data-icon="signal_cellular_alt">signal_cellular_alt</span>
+<span class="material-symbols-outlined text-[15px]" data-icon="wifi">wifi</span>
+<span class="material-symbols-outlined text-[18px]" data-icon="battery_full">battery_full</span>
+</div>
+</header>
+<!-- 2. Navigation Header (Pushed Page Sub-header) -->
+<nav class="w-full px-margin-sm pt-4 pb-3 flex items-center justify-between z-20">
+<!-- Back Button -->
+<button aria-label="返回" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors duration-200 active:scale-95" type="button">
+<span class="material-symbols-outlined text-[22px]" data-icon="arrow_back_ios_new">arrow_back_ios_new</span>
+</button>
+<!-- Centered Serif Heading -->
+<h1 class="font-headline-sm text-headline-sm text-on-surface tracking-wide">练琴笔记</h1>
+<!-- Search Icon -->
+<button aria-label="搜索" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors duration-200 active:scale-95" type="button">
+<span class="material-symbols-outlined text-[22px]" data-icon="search">search</span>
+</button>
+</nav>
+<!-- 3. Filter Chips Row -->
+<section class="w-full px-margin-sm py-2 overflow-x-auto no-scrollbar flex items-center gap-space-xs">
+<!-- Chip 1: 全部 (Active) -->
+<button class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-primary-container text-on-primary-container font-label-md text-label-md font-medium shadow-[0_0_12px_rgba(212,162,78,0.2)] active:opacity-90 transition-all" type="button">
+          全部
+        </button>
+<!-- Chip 2: 我的记录 -->
+<button class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-surface-container border border-outline-variant/30 text-outline font-label-md text-label-md hover:text-on-surface hover:border-outline-variant transition-colors active:scale-95" type="button">
+          我的记录
+        </button>
+<!-- Chip 3: Neko 周报 -->
+<button class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-surface-container border border-outline-variant/30 text-outline font-label-md text-label-md hover:text-on-surface hover:border-outline-variant transition-colors active:scale-95" type="button">
+          Neko 周报
+        </button>
+<!-- Chip 4: 问题 -->
+<button class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-surface-container border border-outline-variant/30 text-outline font-label-md text-label-md hover:text-on-surface hover:border-outline-variant transition-colors active:scale-95" type="button">
+          问题
+        </button>
+</section>
+<!-- 4. Notes List Cards -->
+<section class="w-full px-margin-sm pt-3 flex flex-col gap-space-md">
+<!-- Card 1: 拜厄 45 · 21 小节转指 -->
+<article class="w-full bg-surface-container rounded-xl border border-outline-variant/20 p-space-md flex flex-col gap-space-sm hover:border-primary-container/40 transition-all duration-200">
+<!-- Header Row -->
+<div class="flex items-center justify-between">
+<span class="font-body-sm text-body-sm text-outline tracking-wider">9/18 周五</span>
+<span class="px-2 py-0.5 rounded bg-primary-container/15 text-primary font-label-sm text-label-sm border border-primary-container/30">
+              课后
+            </span>
+</div>
+<!-- Title -->
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-medium pt-0.5">
+            拜厄 45 · 21 小节转指
+          </h2>
+<!-- Body copy -->
+<p class="font-body-md text-body-md text-on-surface-variant/90 leading-relaxed">
+            今天 60 速度单手能稳定在 ±40ms 了，但一合手右手 1 指还是会平。下周试 64。
+          </p>
+<!-- Footer Action Pill -->
+<div class="pt-1">
+<button class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-high border border-outline-variant/30 text-on-surface-variant hover:text-primary hover:border-primary/40 transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px] text-primary" data-icon="graphic_eq">graphic_eq</span>
+<span class="font-label-sm text-label-sm">关联 take：今天 20:31</span>
+<span class="material-symbols-outlined text-[13px] opacity-70" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</article>
+<!-- Card 2: 第 3 周观察 -->
+<article class="w-full bg-surface-container rounded-xl border border-outline-variant/20 p-space-md flex flex-col gap-space-sm hover:border-primary-container/40 transition-all duration-200">
+<!-- Header Row -->
+<div class="flex items-center justify-between">
+<span class="font-body-sm text-body-sm text-outline tracking-wider">9/16</span>
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-secondary-fixed-dim font-label-sm text-label-sm border border-outline-variant/40 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" data-icon="auto_awesome">auto_awesome</span>
+              Neko 周报
+            </span>
+</div>
+<!-- Title -->
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-medium pt-0.5">
+            第 3 周观察
+          </h2>
+<!-- Body copy -->
+<p class="font-body-md text-body-md text-on-surface-variant/90 leading-relaxed">
+            热身完成率 100%；奖励曲时间被挤压，本周至少留两次给 Summer。
+          </p>
+<!-- Footer Metadata -->
+<div class="pt-1 flex items-center gap-1.5 text-outline">
+<span class="material-symbols-outlined text-[13px]" data-icon="schedule">schedule</span>
+<span class="font-body-sm text-body-sm">周日 21:00 自动生成</span>
+</div>
+</article>
+<!-- Card 3: 黑键移动手腕紧 -->
+<article class="w-full bg-surface-container rounded-xl border border-outline-variant/20 p-space-md flex flex-col gap-space-sm hover:border-primary-container/40 transition-all duration-200">
+<!-- Header Row -->
+<div class="flex items-center justify-between">
+<span class="font-body-sm text-body-sm text-outline tracking-wider">9/14</span>
+<span class="px-2 py-0.5 rounded bg-error-container/20 text-error font-label-sm text-label-sm border border-error/30 flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[12px]" data-icon="error_outline">error_outline</span>
+              问题
+            </span>
+</div>
+<!-- Title -->
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-medium pt-0.5">
+            黑键移动手腕紧
+          </h2>
+<!-- Body copy -->
+<p class="font-body-md text-body-md text-on-surface-variant/90 leading-relaxed">
+            暂无结论 · 已标记，等下次侧拍一起问 Neko
+          </p>
+<!-- Footer Status Indicator -->
+<div class="pt-1 flex items-center justify-between">
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm text-primary tracking-wide">
+<span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
+              待处理
+            </span>
+<span class="font-body-sm text-body-sm text-outline">标记于练琴中</span>
+</div>
+</article>
+</section>
+</div>
+<!-- 5. Floating Action Button (FAB) -->
+<!-- Fixed anchored above the mobile content viewport -->
+<aside class="fixed bottom-10 right-1/2 translate-x-[165px] z-40">
+<button aria-label="新建笔记" class="w-14 h-14 rounded-full bg-primary-container text-surface flex items-center justify-center shadow-[0_8px_24px_rgba(212,162,78,0.35)] active:scale-90 hover:bg-secondary-fixed transition-transform duration-150 group" type="button">
+<span class="material-symbols-outlined text-[24px] text-on-primary-container group-hover:scale-110 transition-transform" data-icon="edit">edit</span>
+</button>
+</aside>
+<!-- 6. iOS Home Indicator -->
+<footer class="w-full pb-2 pt-1 flex justify-center items-center select-none z-30">
+<div class="w-32 h-1 bg-on-surface-variant/30 rounded-full"></div>
+</footer>
+</main>
+</body></html>

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=390, height=844, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PianoSempai - 标记疑似谱面错误</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#1C1917',
+            sheet: '#262220',
+            borderCol: '#332D29',
+            amberMain: '#D4A24E',
+            amberMuted: '#A37B34',
+            redAlert: '#C97064',
+            textMain: '#F5F2ED',
+            textMuted: '#9C948B',
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      width: 390px;
+      height: 844px;
+      margin: 0 auto;
+      overflow: hidden;
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      position: relative;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+    .sheet-shadow {
+      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.65), 0 -1px 0 #332D29;
+    }
+    .notation-paper {
+      background-color: #F9F7F1;
+      background-image: radial-gradient(#E8E3D5 1px, transparent 1px);
+      background-size: 16px 16px;
+    }
+  </style>
+</head>
+<body class="flex flex-col justify-between">
+
+  <!-- BACKGROUND: Dimmed Take Report page barely visible -->
+  <div class="absolute inset-0 z-0 bg-[#141211] opacity-35 filter blur-[0.6px] pointer-events-none p-5 flex flex-col justify-between">
+    <!-- Status bar placeholder -->
+    <div class="flex justify-between items-center text-xs text-textMuted pt-2">
+      <span>9:41</span>
+      <div class="flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-[14px]">signal_cellular_alt</span>
+        <span class="material-symbols-outlined text-[14px]">wifi</span>
+        <span class="material-symbols-outlined text-[14px]">battery_full</span>
+      </div>
+    </div>
+
+    <!-- Take Report Header Mock -->
+    <div class="mt-4 border-b border-[#282320] pb-3">
+      <div class="flex justify-between items-center text-textMuted text-xs">
+        <span>主课练习 · OP.101</span>
+        <span>♩=72 · 2分14秒</span>
+      </div>
+      <h1 class="font-serif text-xl font-bold mt-1 text-[#E5DFD7]">拜厄 第45条 · 17–24 小节</h1>
+      <div class="flex items-baseline gap-2 mt-2">
+        <span class="font-serif text-3xl font-bold text-amberMain">78</span>
+        <span class="text-xs text-textMuted">/100 · 较上一遍提升 +6 分</span>
+      </div>
+    </div>
+
+    <!-- Mock Take Cards in background -->
+    <div class="space-y-3 mt-3">
+      <div class="p-3.5 rounded-xl bg-[#201D1A] border border-[#2D2825]">
+        <div class="flex justify-between text-xs mb-2">
+          <span class="text-[#E08A7C] font-medium">错音与漏音 (4处)</span>
+          <span class="text-textMuted">重点集中于 21 小节</span>
+        </div>
+        <div class="grid grid-cols-8 gap-1 text-[10px] text-center">
+          <div class="py-1 rounded bg-[#2A2522] text-textMuted">17</div>
+          <div class="py-1 rounded bg-[#2A2522] text-textMuted">18</div>
+          <div class="py-1 rounded bg-[#2A2522] text-textMuted">19</div>
+          <div class="py-1 rounded bg-[#3A2C26] text-amberMain">20</div>
+          <div class="py-1 rounded bg-[#482822] text-[#E08A7C] font-bold">21</div>
+          <div class="py-1 rounded bg-[#3A2C26] text-amberMain">22</div>
+          <div class="py-1 rounded bg-[#2A2522] text-textMuted">23</div>
+          <div class="py-1 rounded bg-[#2A2522] text-textMuted">24</div>
+        </div>
+      </div>
+      <div class="p-3.5 rounded-xl bg-[#201D1A] border border-[#2D2825] h-20">
+        <div class="text-xs text-textMuted">拍子偏差曲线 (ms)</div>
+      </div>
+    </div>
+
+    <div class="w-full h-11 rounded-xl bg-[#342D28] opacity-50"></div>
+  </div>
+
+  <!-- DIM OVERLAY -->
+  <div class="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-10 transition-opacity duration-300"></div>
+
+  <!-- BOTTOM SHEET (Card #262220 with grab handle) -->
+  <div class="relative z-20 mt-auto w-full bg-sheet border-t border-borderCol rounded-t-[28px] sheet-shadow px-5 pt-3 pb-7 flex flex-col justify-end">
+    
+    <!-- Grab Handle -->
+    <div class="w-full flex justify-center pb-2.5">
+      <div class="w-10 h-1 rounded-full bg-[#463F3A]"></div>
+    </div>
+
+    <!-- Header & Context -->
+    <div class="mb-3">
+      <div class="flex items-center justify-between">
+        <h2 class="font-serif text-[20px] font-semibold tracking-tight text-textMain">标记疑似谱面错误</h2>
+        <span class="text-xs text-amberMain/80 font-medium px-2 py-0.5 rounded-full bg-amberMain/10 border border-amberMain/20">
+          反馈给 Neko
+        </span>
+      </div>
+      <p class="text-[12px] text-textMuted mt-1 tracking-normal">
+        拜厄 45 · 第 21 小节 · 今天 20:31 的 take
+      </p>
+    </div>
+
+    <!-- Small Paper-White Notation Strip showing bar 21 treble+bass with red dotted circle -->
+    <div class="mb-3.5 rounded-xl notation-paper border border-[#E0DACB] overflow-hidden p-2.5 shadow-inner">
+      <div class="flex justify-between items-center mb-1 text-[10px] text-[#786E65] font-serif border-b border-[#E6E0D2] pb-1">
+        <span class="font-bold text-[#423C36]">m. 21 (第 21 小节)</span>
+        <span class="text-[#8C8276] flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-redAlert inline-block"></span>
+          异常音符位置
+        </span>
+      </div>
+
+      <div class="relative w-full h-[88px] flex items-center justify-center">
+        <!-- SVG Five-line Staves & Notes with red dotted circle -->
+        <svg viewBox="0 0 330 84" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <!-- Clefs / Labels -->
+          <text x="8" y="24" font-family="'Noto Serif SC', serif" font-size="11" fill="#4B443D" font-weight="bold">𝄞</text>
+          <text x="8" y="66" font-family="'Noto Serif SC', serif" font-size="11" fill="#4B443D" font-weight="bold">𝄢</text>
+
+          <!-- Treble Staff (5 lines) -->
+          <g stroke="#7A7067" stroke-width="0.8" opacity="0.85">
+            <line x1="26" y1="12" x2="320" y2="12" />
+            <line x1="26" y1="17" x2="320" y2="17" />
+            <line x1="26" y1="22" x2="320" y2="22" />
+            <line x1="26" y1="27" x2="320" y2="27" />
+            <line x1="26" y1="32" x2="320" y2="32" />
+          </g>
+
+          <!-- Bass Staff (5 lines) -->
+          <g stroke="#7A7067" stroke-width="0.8" opacity="0.85">
+            <line x1="26" y1="52" x2="320" y2="52" />
+            <line x1="26" y1="57" x2="320" y2="57" />
+            <line x1="26" y1="62" x2="320" y2="62" />
+            <line x1="26" y1="67" x2="320" y2="67" />
+            <line x1="26" y1="72" x2="320" y2="72" />
+          </g>
+
+          <!-- Bar lines -->
+          <line x1="26" y1="12" x2="26" y2="72" stroke="#4A433D" stroke-width="1.2" />
+          <line x1="320" y1="12" x2="320" y2="72" stroke="#4A433D" stroke-width="1.2" />
+
+          <!-- Normal Notes (Beat 1) -->
+          <!-- Treble note 1 -->
+          <ellipse cx="68" cy="22" rx="3.8" ry="2.8" fill="#2C2723" transform="rotate(-20 68 22)" />
+          <line x1="71.5" y1="22" x2="71.5" y2="7" stroke="#2C2723" stroke-width="1.1" />
+          <!-- Bass chord 1 -->
+          <ellipse cx="68" cy="62" rx="3.8" ry="2.8" fill="#2C2723" transform="rotate(-20 68 62)" />
+          <line x1="71.5" y1="62" x2="71.5" y2="46" stroke="#2C2723" stroke-width="1.1" />
+
+          <!-- SUSPECTED CHORD / NOTE (Beat 2 - Under Inspection) -->
+          <!-- Red Highlight / Dotted Circle Area -->
+          <g>
+            <circle cx="158" cy="42" r="28" fill="#C97064" fill-opacity="0.12" stroke="#C97064" stroke-width="1.5" stroke-dasharray="3.5 2.5" />
+            <!-- Treble Chord Notes -->
+            <ellipse cx="158" cy="17" rx="4" ry="3" fill="#B34032" transform="rotate(-20 158 17)" />
+            <ellipse cx="158" cy="27" rx="4" ry="3" fill="#B34032" transform="rotate(-20 158 27)" />
+            <line x1="161.5" y1="27" x2="161.5" y2="4" stroke="#B34032" stroke-width="1.3" />
+            
+            <!-- Bass Chord Note -->
+            <ellipse cx="158" cy="57" rx="4" ry="3" fill="#B34032" transform="rotate(-20 158 57)" />
+            <ellipse cx="158" cy="67" rx="4" ry="3" fill="#B34032" transform="rotate(-20 158 67)" />
+            <line x1="161.5" y1="67" x2="161.5" y2="44" stroke="#B34032" stroke-width="1.3" />
+
+            <!-- Mini annotation callout -->
+            <rect x="180" y="34" width="48" height="15" rx="3" fill="#C97064" fill-opacity="0.9" />
+            <text x="185" y="45" font-family="'Plus Jakarta Sans', sans-serif" font-size="8.5" fill="#FFFFFF" font-weight="600">疑点和弦</text>
+          </g>
+
+          <!-- Normal Notes (Beat 3) -->
+          <!-- Treble note 3 -->
+          <ellipse cx="258" cy="19.5" rx="3.8" ry="2.8" fill="#2C2723" transform="rotate(-20 258 19.5)" />
+          <line x1="261.5" y1="19.5" x2="261.5" y2="6" stroke="#2C2723" stroke-width="1.1" />
+          <!-- Bass chord 3 -->
+          <ellipse cx="258" cy="62" rx="3.8" ry="2.8" fill="#2C2723" transform="rotate(-20 258 62)" />
+          <line x1="261.5" y1="62" x2="261.5" y2="46" stroke="#2C2723" stroke-width="1.1" />
+        </svg>
+      </div>
+    </div>
+
+    <!-- Explanatory Body Text -->
+    <div class="p-2.5 rounded-lg bg-[#201D1B] border border-borderCol/70 mb-3.5">
+      <p class="text-[12px] leading-relaxed text-[#D6D0C7]">
+        这个地方你连续 3 遍都弹成了同一个音。可能是你弹错，也可能是谱子本身印错了。标记后不会扣分，Neko 会把它和原始 MIDI 一起留着。
+      </p>
+    </div>
+
+    <!-- Label & Chips: 问题类型（可选） -->
+    <div class="mb-3.5">
+      <label class="block text-[11px] uppercase tracking-wider text-textMuted font-medium mb-1.5">
+        问题类型（可选）
+      </label>
+      <div class="flex items-center gap-2">
+        <!-- Selected chip -->
+        <button type="button" class="px-3 py-1.5 rounded-full text-xs font-medium bg-amberMain/20 text-amberMain border border-amberMain flex items-center gap-1 shadow-sm">
+          <span class="w-1.5 h-1.5 rounded-full bg-amberMain"></span>
+          音符/和弦不对
+        </button>
+        <!-- Unselected chip 1 -->
+        <button type="button" class="px-3 py-1.5 rounded-full text-xs font-normal bg-[#1F1C1A] text-textMuted border border-borderCol hover:text-textMain transition-colors">
+          节奏不对
+        </button>
+        <!-- Unselected chip 2 -->
+        <button type="button" class="px-3 py-1.5 rounded-full text-xs font-normal bg-[#1F1C1A] text-textMuted border border-borderCol hover:text-textMain transition-colors">
+          指法标记可疑
+        </button>
+      </div>
+    </div>
+
+    <!-- Label & Input: 备注（可选） -->
+    <div class="mb-3.5">
+      <label class="block text-[11px] uppercase tracking-wider text-textMuted font-medium mb-1.5">
+        备注（可选）
+      </label>
+      <div class="relative">
+        <input 
+          type="text" 
+          placeholder="例如：教材上是 do-mi-sol，但听起来像错的" 
+          value=""
+          class="w-full bg-bg border border-borderCol rounded-xl px-3.5 py-2.5 text-xs text-textMain placeholder:text-[#69625A] focus:outline-none focus:border-amberMain/80 transition-colors"
+        />
+      </div>
+    </div>
+
+    <!-- Checkbox Row: unselected -->
+    <div class="flex items-center gap-2.5 mb-5 cursor-pointer select-none group">
+      <div class="w-4 h-4 rounded border border-borderCol bg-bg flex items-center justify-center group-hover:border-amberMain/60 transition-colors">
+        <!-- Unselected state: empty check box square -->
+      </div>
+      <span class="text-[12px] text-textMuted group-hover:text-textMain transition-colors">
+        同时在下次问 Neko 时带上这个标记
+      </span>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex items-center gap-2.5 pt-1">
+      <button 
+        type="button" 
+        class="flex-1 py-3 px-4 rounded-xl border border-borderCol bg-transparent text-textMuted text-xs font-medium hover:text-textMain hover:bg-[#2C2724] active:scale-[0.98] transition-all text-center">
+        取消
+      </button>
+      <button 
+        type="button" 
+        class="flex-[2] py-3 px-4 rounded-xl bg-amberMain hover:bg-[#e0ad57] active:scale-[0.98] text-[#1A1715] text-xs font-bold shadow-md shadow-amberMain/15 transition-all text-center flex items-center justify-center gap-1.5">
+        <span class="material-symbols-outlined text-[16px] leading-none font-bold">check</span>
+        提交标记
+      </button>
+    </div>
+
+    <!-- iOS Home Indicator bar -->
+    <div class="w-full flex justify-center pt-4">
+      <div class="w-32 h-1 rounded-full bg-[#463F3A]"></div>
+    </div>
+
+  </div>
+
+</body>
+</html>

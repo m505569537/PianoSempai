@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=390, height=844, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>PianoSempai - 练习室 (MIDI 断开)</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts: Noto Serif SC & Noto Sans SC -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&amp;family=Noto+Serif+SC:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-container-highest": "#383432",
+            "surface-dim": "#161311",
+            "primary-fixed": "#ffdead",
+            "inverse-primary": "#7e5703",
+            "surface-container-high": "#2d2927",
+            "secondary": "#eac085",
+            "primary-fixed-dim": "#f3be67",
+            "on-tertiary-fixed-variant": "#594409",
+            "on-primary-fixed-variant": "#604100",
+            "on-secondary": "#442b00",
+            "on-error-container": "#ffdad6",
+            "surface-container": "#221f1d",
+            "error-container": "#93000a",
+            "tertiary-container": "#c5a764",
+            "outline-variant": "#4f4537",
+            "on-secondary-fixed-variant": "#5e4113",
+            "surface-container-lowest": "#100e0c",
+            "surface": "#161311",
+            "outline": "#9c8f7e",
+            "on-tertiary": "#3f2e00",
+            "tertiary-fixed-dim": "#e2c37d",
+            "on-primary-fixed": "#281900",
+            "tertiary-fixed": "#ffdf9a",
+            "inverse-surface": "#e9e1dd",
+            "on-tertiary-fixed": "#251a00",
+            "inverse-on-surface": "#33302d",
+            "error": "#ffb4ab",
+            "background": "#161311",
+            "on-secondary-container": "#dbb279",
+            "on-error": "#690005",
+            "on-background": "#e9e1dd",
+            "primary-container": "#d4a24e",
+            "surface-container-low": "#1e1b19",
+            "secondary-fixed-dim": "#eac085",
+            "secondary-fixed": "#ffddb2",
+            "tertiary": "#e2c37d",
+            "surface-variant": "#383432",
+            "on-surface-variant": "#d3c4b2",
+            "surface-tint": "#f3be67",
+            "secondary-container": "#614415",
+            "on-secondary-fixed": "#291800",
+            "on-primary-container": "#563900",
+            "primary": "#f3be67",
+            "on-primary": "#432c00",
+            "on-tertiary-container": "#513c02",
+            "on-surface": "#e9e1dd",
+            "surface-bright": "#3c3836"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "space-xl": "2.5rem",
+            "space-xs": "0.25rem",
+            "space-md": "1rem",
+            "space-lg": "1.5rem",
+            "margin": "3rem",
+            "gutter": "1.5rem",
+            "margin-sm": "1.25rem",
+            "space-sm": "0.5rem",
+            "gutter-sm": "1rem"
+          },
+          "fontFamily": {
+            "title-md": ["\"Noto Sans SC\", \"PingFang SC\", sans-serif"],
+            "body-lg": ["\"Noto Sans SC\", \"PingFang SC\", sans-serif"],
+            "headline-sm": ["\"Noto Serif SC\", \"PingFang SC\", serif"],
+            "display-lg": ["\"Noto Serif SC\", \"PingFang SC\", serif"],
+            "body-md": ["\"Noto Sans SC\", \"PingFang SC\", sans-serif"],
+            "label-md": ["\"Noto Sans SC\", \"PingFang SC\", sans-serif"],
+            "body-sm": ["\"Noto Sans SC\", \"PingFang SC\", sans-serif"],
+            "headline-md": ["\"Noto Serif SC\", \"PingFang SC\", serif"],
+            "label-sm": ["\"Noto Sans SC\", \"PingFang SC\", sans-serif"],
+            "headline-lg-mobile": ["\"Noto Serif SC\", \"PingFang SC\", serif"],
+            "headline-lg": ["\"Noto Serif SC\", \"PingFang SC\", serif"],
+            "display-lg-mobile": ["\"Noto Serif SC\", \"PingFang SC\", serif"]
+          },
+          "fontSize": {
+            "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.01em", "fontWeight": "500" }],
+            "body-lg": ["16px", { "lineHeight": "26px", "fontWeight": "400" }],
+            "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "500" }],
+            "display-lg": ["48px", { "lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "400" }],
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.06em", "fontWeight": "500" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "400" }],
+            "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.08em", "fontWeight": "500" }],
+            "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "0em", "fontWeight": "400" }],
+            "headline-lg": ["32px", { "lineHeight": "42px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+            "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: 'Noto Sans SC', 'PingFang SC', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+    .serif-font {
+      font-family: 'Noto Serif SC', 'PingFang SC', serif;
+    }
+    .custom-score-bg {
+      background-color: #FBF9F5;
+    }
+    .staff-line {
+      stroke: #181513;
+      stroke-width: 1.1;
+    }
+    .bar-line {
+      stroke: #181513;
+      stroke-width: 1.3;
+    }
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 0.9; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(1.15); }
+    }
+    .animate-pulse-subtle {
+      animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="w-[390px] h-[844px] overflow-hidden mx-auto relative flex flex-col justify-between p-0 shadow-2xl bg-[#1C1917]">
+<!-- TOP BAR (Sub-page linear practice journey: BottomNavBar deliberately suppressed per hierarchy) -->
+<header class="w-full pt-4 pb-2 px-3 flex items-center justify-between z-20 shrink-0 border-b border-[#332D29]/60">
+<!-- Back Button -->
+<button aria-label="返回" class="w-9 h-9 rounded-lg flex items-center justify-center text-[#9C948B] hover:text-[#F5F2ED] active:scale-90 transition-all duration-150">
+<span class="material-symbols-outlined text-[22px]">arrow_back_ios_new</span>
+</button>
+<!-- Center Piece & Tempo Info -->
+<div class="flex flex-col items-center max-w-[190px]">
+<h1 class="serif-font text-[14px] font-medium text-[#F5F2ED] tracking-tight truncate w-full text-center">
+        拜厄 45 · 17–24小节 · ♩=60
+      </h1>
+<span class="text-[10px] text-[#9C948B] font-label-sm tracking-wider uppercase">Take 04 · 练习进行中</span>
+</div>
+<!-- Right Top Disconnected Status Capsule & Settings -->
+<div class="flex items-center gap-1.5">
+<div class="flex items-center gap-1.5 bg-[#3A2522]/80 border border-[#C97064]/50 rounded-full px-2 py-0.5 shadow-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-[#C97064] animate-pulse-subtle"></span>
+<span class="text-[11px] font-medium text-[#E8A59E] tracking-tight">未连接</span>
+</div>
+<button class="w-8 h-8 rounded-lg flex items-center justify-center text-[#9C948B] hover:text-[#D4A24E] active:opacity-75 transition-colors" title="问 Neko / 辅助设置">
+<span class="material-symbols-outlined text-[19px]">smart_toy</span>
+</button>
+</div>
+</header>
+<!-- MAIN SCROLLABLE CONTENT CANVAS -->
+<main class="flex-1 flex flex-col px-3 pt-2 pb-2 gap-2.5 overflow-hidden justify-between">
+<!-- 1. RED RECONNECT BANNER (Warning / Disconnected Alert) -->
+<section class="w-full bg-[#3A2522] border border-[#C97064]/40 rounded-xl p-3 shrink-0 shadow-lg relative overflow-hidden">
+<!-- Ambient light effect -->
+<div class="absolute -right-6 -bottom-6 w-24 h-24 bg-[#C97064]/10 rounded-full blur-xl pointer-events-none"></div>
+<!-- Top Row -->
+<div class="flex items-center justify-between gap-2">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-[#C97064]/20 flex items-center justify-center text-[#E8A59E] shrink-0">
+<span class="material-symbols-outlined text-[18px]">bluetooth_disabled</span>
+</div>
+<span class="text-[13px] font-medium text-[#F5F2ED] tracking-wide">
+            MIDI 已断开 · 判分已暂停
+          </span>
+</div>
+<button class="bg-[#C97064] hover:bg-[#d67e72] active:scale-95 transition-all text-white text-[11px] font-medium px-2.5 py-1 rounded-full shrink-0 flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-[13px]">refresh</span>
+          重新连接
+        </button>
+</div>
+<!-- Subline -->
+<p class="text-[11px] text-[#E8A59E]/90 mt-1.5 leading-relaxed tracking-normal pl-9">
+        已弹奏的内容保留在本次 take，重连后从断点继续，不丢音符。
+      </p>
+</section>
+<!-- 2. CENTER MUSIC NOTATION GRAND-STAFF SHEET PAPER -->
+<section class="w-full flex-1 min-h-[280px] max-h-[340px] custom-score-bg rounded-xl p-3.5 relative flex flex-col justify-between shadow-md border border-[#DCD6CA]/40 select-none overflow-hidden">
+<!-- Score Paper Header & Clefs Bar -->
+<div class="flex items-center justify-between text-[#2D2927] border-b border-[#E3DDD1] pb-1 z-0">
+<div class="flex items-center gap-2">
+<span class="serif-font text-[13px] font-semibold tracking-tight text-[#161311]">Beyer Op. 101 No. 45</span>
+<span class="text-[10px] text-[#7A7268] bg-[#ECE5D8] px-1.5 py-0.5 rounded">C Major · 3/4</span>
+</div>
+<div class="flex items-center gap-3 text-[10px] text-[#7A7268]">
+<span class="font-mono">m.17-24</span>
+<span class="flex items-center gap-0.5 text-[#A36D1F]">
+<span class="w-1.5 h-1.5 rounded-full bg-[#D4A24E]"></span>
+            断点: m.21
+          </span>
+</div>
+</div>
+<!-- SVG Realistic Grand Staff Notation -->
+<div class="w-full flex-1 relative flex items-center my-0.5">
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 350 190">
+<!-- Measure 21 Ambient Amber Highlight Backdrop -->
+<rect fill="#D4A24E" fill-opacity="0.14" height="170" rx="3" width="85" x="175" y="10"></rect>
+<line stroke="#D4A24E" stroke-dasharray="2 2" stroke-width="1.8" x1="175" x2="175" y1="10" y2="180"></line>
+<!-- TREBLE STAFF (5 lines) -->
+<g class="staff-line">
+<line x1="10" x2="340" y1="30" y2="30"></line>
+<line x1="10" x2="340" y1="40" y2="40"></line>
+<line x1="10" x2="340" y1="50" y2="50"></line>
+<line x1="10" x2="340" y1="60" y2="60"></line>
+<line x1="10" x2="340" y1="70" y2="70"></line>
+</g>
+<!-- BASS STAFF (5 lines) -->
+<g class="staff-line">
+<line x1="10" x2="340" y1="110" y2="110"></line>
+<line x1="10" x2="340" y1="120" y2="120"></line>
+<line x1="10" x2="340" y1="130" y2="130"></line>
+<line x1="10" x2="340" y1="140" y2="140"></line>
+<line x1="10" x2="340" y1="150" y2="150"></line>
+</g>
+<!-- Left Brace System Bracket -->
+<line stroke="#181513" stroke-width="2.5" x1="10" x2="10" y1="30" y2="150"></line>
+<!-- Measure Barlines -->
+<!-- m.17 -->
+<line class="bar-line" x1="10" x2="10" y1="30" y2="70"></line>
+<line class="bar-line" x1="10" x2="10" y1="110" y2="150"></line>
+<!-- m.18 / m.19 -->
+<line class="bar-line" x1="95" x2="95" y1="30" y2="70"></line>
+<line class="bar-line" x1="95" x2="95" y1="110" y2="150"></line>
+<!-- m.20 / m.21 (Break region) -->
+<line class="bar-line" x1="175" x2="175" y1="30" y2="70"></line>
+<line class="bar-line" x1="175" x2="175" y1="110" y2="150"></line>
+<!-- m.22 / m.23 -->
+<line class="bar-line" x1="260" x2="260" y1="30" y2="70"></line>
+<line class="bar-line" x1="260" x2="260" y1="110" y2="150"></line>
+<!-- End m.24 -->
+<line stroke="#181513" stroke-width="2.5" x1="340" x2="340" y1="30" y2="70"></line>
+<line stroke="#181513" stroke-width="2.5" x1="340" x2="340" y1="110" y2="150"></line>
+<!-- Measure Numbers -->
+<text fill="#7A7268" font-family="'Noto Serif SC', serif" font-size="9" font-weight="600" x="14" y="24">17</text>
+<text fill="#7A7268" font-family="'Noto Serif SC', serif" font-size="9" font-weight="600" x="99" y="24">19</text>
+<text fill="#B47A22" font-family="'Noto Serif SC', serif" font-size="9" font-weight="700" x="179" y="24">21 ▾</text>
+<text fill="#7A7268" font-family="'Noto Serif SC', serif" font-size="9" font-weight="600" x="264" y="24">23</text>
+<!-- Treble Clef Graphic & Bass Clef Representation -->
+<text fill="#181513" font-family="serif" font-size="34" x="14" y="65">𝄞</text>
+<text fill="#181513" font-family="serif" font-size="28" x="14" y="138">𝄢</text>
+<!-- Notes: Measure 17-18 (Completed - Muted Crisp Ink) -->
+<!-- Treble notes -->
+<ellipse cx="48" cy="50" fill="#181513" rx="4.5" ry="3.5" transform="rotate(-20 48 50)"></ellipse>
+<line stroke="#181513" stroke-width="1.2" x1="52" x2="52" y1="50" y2="24"></line>
+<ellipse cx="68" cy="40" fill="#181513" rx="4.5" ry="3.5" transform="rotate(-20 68 40)"></ellipse>
+<line stroke="#181513" stroke-width="1.2" x1="72" x2="72" y1="40" y2="15"></line>
+<ellipse cx="120" cy="45" fill="#181513" rx="4.5" ry="3.5" transform="rotate(-20 120 45)"></ellipse>
+<line stroke="#181513" stroke-width="1.2" x1="124" x2="124" y1="45" y2="20"></line>
+<ellipse cx="145" cy="35" fill="#181513" rx="4.5" ry="3.5" transform="rotate(-20 145 35)"></ellipse>
+<line stroke="#181513" stroke-width="1.2" x1="149" x2="149" y1="35" y2="12"></line>
+<!-- Bass accompaniment pattern -->
+<ellipse cx="48" cy="120" fill="#181513" rx="4.5" ry="3.5" transform="rotate(-20 48 120)"></ellipse>
+<line stroke="#181513" stroke-width="1.2" x1="52" x2="52" y1="120" y2="94"></line>
+<ellipse cx="72" cy="130" fill="#181513" rx="4.5" ry="3.5" transform="rotate(-20 72 130)"></ellipse>
+<line stroke="#181513" stroke-width="1.2" x1="76" x2="76" y1="130" y2="104"></line>
+<ellipse cx="120" cy="120" fill="#181513" rx="4.5" ry="3.5" transform="rotate(-20 120 120)"></ellipse>
+<line stroke="#181513" stroke-width="1.2" x1="124" x2="124" y1="120" y2="94"></line>
+<!-- Measure 21 (The Disconnect Anchor Point) -->
+<ellipse cx="195" cy="50" fill="#D4A24E" rx="4.8" ry="3.8" transform="rotate(-20 195 50)"></ellipse>
+<line stroke="#D4A24E" stroke-width="1.5" x1="199" x2="199" y1="50" y2="24"></line>
+<ellipse cx="225" cy="40" fill="#686058" rx="4.5" ry="3.5" transform="rotate(-20 225 40)"></ellipse>
+<line stroke="#686058" stroke-width="1.2" x1="229" x2="229" y1="40" y2="15"></line>
+<!-- Measure 23-24 (Upcoming Notes) -->
+<ellipse cx="280" cy="45" fill="#948D85" rx="4.5" ry="3.5" transform="rotate(-20 280 45)"></ellipse>
+<line stroke="#948D85" stroke-width="1.2" x1="284" x2="284" y1="45" y2="20"></line>
+<ellipse cx="310" cy="50" fill="#948D85" rx="4.5" ry="3.5" transform="rotate(-20 310 50)"></ellipse>
+<line stroke="#948D85" stroke-width="1.2" x1="314" x2="314" y1="50" y2="24"></line>
+</svg>
+<!-- Soft Elegant Translucent Frosted Scrim Overlay -->
+<div class="absolute inset-0 bg-[#1C1917]/75 backdrop-blur-[2px] rounded-lg flex flex-col items-center justify-center p-4 transition-all duration-300">
+<!-- Circular Paused Badge -->
+<div class="w-12 h-12 rounded-full bg-[#262220] border border-[#D4A24E]/40 flex items-center justify-center shadow-xl mb-2.5">
+<span class="material-symbols-outlined text-[#D4A24E] text-[24px]">pause</span>
+</div>
+<!-- Serif Primary Paused Text -->
+<p class="serif-font text-[14px] font-medium text-[#F5F2ED] tracking-wide text-center">
+            等待特伦斯 V70 重新连接…
+          </p>
+<!-- Small Secondary Subtitle -->
+<p class="text-[11px] text-[#9C948B] mt-1 text-center font-normal tracking-normal">
+            保持琴盖开启并靠近手机
+          </p>
+</div>
+</div>
+<!-- Real-time Pitch Decay / Resonance Bar (Aesthetic harmonic indicator) -->
+<div class="flex items-center justify-between pt-1 text-[10px] text-[#7A7268] border-t border-[#E3DDD1]">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-[#8C847A]">speed</span>
+<span>原速 60 BPM</span>
+</div>
+<div class="flex items-center gap-2">
+<span>断点已缓存 (第 21 小节第 1 拍)</span>
+</div>
+</div>
+</section>
+<!-- 3. BOTTOM CONTROLS & PLAY BAR -->
+<div class="w-full flex flex-col gap-2 shrink-0">
+<!-- Nocturne 4-Controls Grid -->
+<div class="grid grid-cols-4 gap-1.5">
+<!-- Metronome -->
+<div class="bg-[#262220] border border-[#332D29] rounded-lg p-2 flex flex-col items-center justify-center gap-1 active:bg-[#2D2724] transition-colors">
+<span class="material-symbols-outlined text-[18px] text-[#9C948B]">timer</span>
+<span class="text-[11px] text-[#F5F2ED] font-medium leading-none">节拍器</span>
+<span class="text-[9px] text-[#D4A24E] font-mono leading-none">3/4拍</span>
+</div>
+<!-- Loop -->
+<div class="bg-[#262220] border border-[#332D29] rounded-lg p-2 flex flex-col items-center justify-center gap-1 active:bg-[#2D2724] transition-colors">
+<span class="material-symbols-outlined text-[18px] text-[#9C948B]">repeat</span>
+<span class="text-[11px] text-[#F5F2ED] font-medium leading-none">循环</span>
+<span class="text-[9px] text-[#D4A24E] font-mono leading-none">17-24节</span>
+</div>
+<!-- Count-in -->
+<div class="bg-[#262220] border border-[#332D29] rounded-lg p-2 flex flex-col items-center justify-center gap-1 active:bg-[#2D2724] transition-colors">
+<span class="material-symbols-outlined text-[18px] text-[#9C948B]">hourglass_top</span>
+<span class="text-[11px] text-[#F5F2ED] font-medium leading-none">预备拍</span>
+<span class="text-[9px] text-[#9C948B] font-mono leading-none">1小节</span>
+</div>
+<!-- Hand Mode -->
+<div class="bg-[#262220] border border-[#332D29] rounded-lg p-2 flex flex-col items-center justify-center gap-1 active:bg-[#2D2724] transition-colors">
+<span class="material-symbols-outlined text-[18px] text-[#9C948B]">front_hand</span>
+<span class="text-[11px] text-[#F5F2ED] font-medium leading-none">双手</span>
+<span class="text-[9px] text-[#9C948B] font-mono leading-none">同步练习</span>
+</div>
+</div>
+<!-- Main Action Button: Disabled Muted Grey State -->
+<button class="w-full py-3 px-4 rounded-xl bg-[#262220] border border-[#332D29] flex items-center justify-center gap-2 cursor-not-allowed text-[#9C948B] opacity-90 shadow-inner" disabled="">
+<span class="material-symbols-outlined text-[18px] text-[#9C948B]">lock_clock</span>
+<span class="serif-font text-[14px] font-medium tracking-wide">练习已暂停 (等待设备)</span>
+</button>
+</div>
+<!-- 4. BOTTOM TROUBLESHOOTING HINT CARD -->
+<section class="w-full bg-[#262220] border border-[#332D29] rounded-xl p-3 shrink-0 flex items-center justify-between gap-3 shadow-md">
+<div class="flex items-start gap-2 flex-1">
+<span class="material-symbols-outlined text-[16px] text-[#D4A24E] shrink-0 mt-0.5">info</span>
+<p class="text-[11px] text-[#9C948B] leading-relaxed">
+          提示：检查蓝牙是否被其他设备占用；USB 线可直接插上替代蓝牙。
+        </p>
+</div>
+<button class="shrink-0 text-[12px] font-medium text-[#D4A24E] hover:text-[#E8C882] active:opacity-75 transition-colors whitespace-nowrap pl-1 pr-0.5">
+        打开 MIDI 诊断 →
+      </button>
+</section>
+</main>
+</body></html>

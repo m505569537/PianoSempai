@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=390, height=844, initial-scale=1.0, user-scalable=no">
+  <title>PianoSempai - MIDI 诊断</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bgDark: '#1C1917',
+            cardBg: '#262220',
+            cardBorder: '#332D29',
+            amberAccent: '#D4A24E',
+            greenAccent: '#7FA97C',
+            textMain: '#F5F2ED',
+            textMuted: '#9C948B'
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      width: 390px;
+      min-height: 844px;
+      margin: 0 auto;
+      overflow-x: hidden;
+      box-sizing: border-box;
+    }
+    .font-serif-sc {
+      font-family: 'Noto Serif SC', serif;
+    }
+    .font-mono-numbers {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    @keyframes pulse-dot {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.4;
+        transform: scale(0.85);
+      }
+    }
+    .animate-pulse-subtle {
+      animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
+</head>
+<body class="bg-[#1C1917] text-[#F5F2ED] min-h-[844px] flex flex-col justify-between select-none relative">
+  <!-- Top Safe Area / Status Bar -->
+  <div>
+    <div class="h-11 px-7 flex items-center justify-between text-xs font-mono-numbers text-[#9C948B] pt-2">
+      <span class="font-medium text-[#F5F2ED]">9:41</span>
+      <div class="flex items-center space-x-1.5">
+        <span class="material-symbols-outlined text-[15px]">signal_cellular_alt</span>
+        <span class="material-symbols-outlined text-[15px]">wifi</span>
+        <span class="material-symbols-outlined text-[17px]">battery_full</span>
+      </div>
+    </div>
+
+    <!-- Navigation Bar: Back Chevron + Serif Title (pushed from settings) -->
+    <header class="px-5 pt-3 pb-4 flex items-center justify-between border-b border-[#332D29]/40">
+      <div class="flex items-center space-x-3">
+        <button class="w-8 h-8 -ml-1.5 flex items-center justify-center rounded-full text-[#F5F2ED] active:bg-[#262220] transition-colors" aria-label="返回">
+          <span class="material-symbols-outlined text-[24px]">arrow_back_ios_new</span>
+        </button>
+        <h1 class="font-serif-sc text-[21px] font-semibold tracking-tight text-[#F5F2ED]">MIDI 诊断</h1>
+      </div>
+      <div class="flex items-center space-x-1">
+        <span class="w-2 h-2 rounded-full bg-[#7FA97C]"></span>
+        <span class="text-[11px] font-mono-numbers text-[#7FA97C] font-medium">ONLINE</span>
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="px-4 py-4 space-y-3.5">
+      <!-- 1. Connection Card -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center justify-between pb-3.5 border-b border-[#332D29]/70">
+          <div class="flex items-center space-x-2.5">
+            <span class="relative flex h-2.5 w-2.5">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#7FA97C] opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#7FA97C]"></span>
+            </span>
+            <span class="font-semibold text-[15px] tracking-tight text-[#F5F2ED]">特伦斯 V70 已连接</span>
+          </div>
+          <div class="flex items-center text-[#9C948B] text-xs">
+            <span class="material-symbols-outlined text-[15px] mr-1 text-[#D4A24E]">piano</span>
+            <span>88键力度键盘</span>
+          </div>
+        </div>
+
+        <!-- 4 Readouts Grid -->
+        <div class="grid grid-cols-2 gap-2.5 pt-3.5">
+          <div class="bg-[#1C1917]/70 rounded-xl p-2.5 border border-[#332D29]/50">
+            <div class="text-[11px] text-[#9C948B] mb-0.5">传输协议</div>
+            <div class="text-[13.5px] font-mono-numbers font-medium text-[#F5F2ED]">协议 BLE-MIDI</div>
+          </div>
+          <div class="bg-[#1C1917]/70 rounded-xl p-2.5 border border-[#332D29]/50">
+            <div class="text-[11px] text-[#9C948B] mb-0.5">传输延迟</div>
+            <div class="text-[13.5px] font-mono-numbers font-medium text-[#7FA97C] flex items-center">
+              <span>延迟 12ms</span>
+              <span class="ml-1 text-[10px] text-[#7FA97C]/80 bg-[#7FA97C]/15 px-1 rounded">优</span>
+            </div>
+          </div>
+          <div class="bg-[#1C1917]/70 rounded-xl p-2.5 border border-[#332D29]/50">
+            <div class="text-[11px] text-[#9C948B] mb-0.5">最后事件</div>
+            <div class="text-[13.5px] font-mono-numbers font-medium text-[#D4A24E]">最后事件 刚刚</div>
+          </div>
+          <div class="bg-[#1C1917]/70 rounded-xl p-2.5 border border-[#332D29]/50">
+            <div class="text-[11px] text-[#9C948B] mb-0.5">本会话吞吐</div>
+            <div class="text-[13.5px] font-mono-numbers font-medium text-[#F5F2ED]">事件总数 1,284</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Live Monitor Card -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center space-x-2">
+            <h2 class="font-serif-sc text-[15px] font-semibold text-[#F5F2ED] tracking-wide">实时信号</h2>
+            <span class="text-[10px] uppercase font-mono tracking-widest bg-[#332D29] text-[#9C948B] px-1.5 py-0.5 rounded">CH 1</span>
+          </div>
+          <div class="flex items-center space-x-1.5 bg-[#7FA97C]/10 border border-[#7FA97C]/30 px-2 py-0.5 rounded-full">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#7FA97C] animate-pulse-subtle"></span>
+            <span class="text-[11px] text-[#7FA97C] font-medium">正在监听</span>
+          </div>
+        </div>
+
+        <!-- Three Live Rows -->
+        <div class="space-y-3 pt-1">
+          <!-- Row 1: Note -->
+          <div class="bg-[#1C1917]/60 rounded-xl p-2.5 border border-[#332D29]/40">
+            <div class="flex items-center justify-between text-xs mb-1.5">
+              <span class="text-[#9C948B]">音高 (Note)</span>
+              <span class="font-mono-numbers font-semibold text-[#F5F2ED] text-[13px]">C4 · 60</span>
+            </div>
+            <div class="w-full bg-[#332D29] h-1.5 rounded-full overflow-hidden flex">
+              <div class="bg-[#D4A24E] h-full rounded-full transition-all duration-150" style="width: 48%"></div>
+            </div>
+          </div>
+
+          <!-- Row 2: Velocity -->
+          <div class="bg-[#1C1917]/60 rounded-xl p-2.5 border border-[#332D29]/40">
+            <div class="flex items-center justify-between text-xs mb-1.5">
+              <span class="text-[#9C948B]">力度 (Velocity)</span>
+              <span class="font-mono-numbers font-semibold text-[#D4A24E] text-[13px]">96 / 127</span>
+            </div>
+            <div class="w-full bg-[#332D29] h-1.5 rounded-full overflow-hidden flex">
+              <div class="bg-[#D4A24E] h-full rounded-full shadow-[0_0_8px_rgba(212,162,78,0.5)] transition-all duration-150" style="width: 75%"></div>
+            </div>
+          </div>
+
+          <!-- Row 3: Pedal CC64 -->
+          <div class="bg-[#1C1917]/60 rounded-xl p-2.5 border border-[#332D29]/40">
+            <div class="flex items-center justify-between text-xs mb-1.5">
+              <span class="text-[#9C948B]">踏板 (CC64)</span>
+              <span class="font-mono-numbers font-semibold text-[#7FA97C] text-[13px]">127 踩下</span>
+            </div>
+            <div class="w-full bg-[#332D29] h-1.5 rounded-full overflow-hidden flex">
+              <div class="bg-[#7FA97C] h-full rounded-full transition-all duration-150" style="width: 100%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timestamp Readout -->
+        <div class="mt-3 pt-2.5 border-t border-[#332D29]/60 flex items-center justify-between text-[11px] text-[#9C948B]">
+          <div class="flex items-center space-x-1">
+            <span class="material-symbols-outlined text-[13px]">schedule</span>
+            <span>时间戳 hostTime</span>
+          </div>
+          <span class="font-mono-numbers text-[#9C948B]">184,332,901,221</span>
+        </div>
+      </section>
+
+      <!-- 3. Hint Card -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-2xl p-4 shadow-sm">
+        <div class="flex items-start space-x-2.5 mb-3">
+          <span class="material-symbols-outlined text-[#D4A24E] text-[19px] mt-0.5 shrink-0">touch_app</span>
+          <p class="text-[12.5px] leading-relaxed text-[#F5F2ED]/90">
+            随便弹几个音、踩一下踏板，四个数值都应该跟着动。力度不准可回到上一级做 2 分钟个人校准。
+          </p>
+        </div>
+        <button class="w-full py-2 px-3 rounded-xl border border-[#D4A24E]/50 text-[#D4A24E] text-xs font-medium hover:bg-[#D4A24E]/10 active:scale-[0.99] transition-all flex items-center justify-center space-x-1.5">
+          <span class="material-symbols-outlined text-[16px]">tune</span>
+          <span>重新校准力度</span>
+        </button>
+      </section>
+
+      <!-- 4. Troubleshooting Card -->
+      <section class="bg-[#262220] border border-[#332D29] rounded-2xl overflow-hidden shadow-sm">
+        <div class="px-4 pt-3.5 pb-2 text-[11.5px] uppercase font-serif-sc tracking-wider text-[#9C948B] font-semibold">
+          常见排查指引
+        </div>
+        <div class="divide-y divide-[#332D29]/70">
+          <div class="px-4 py-3 flex items-center justify-between hover:bg-[#1C1917]/40 active:bg-[#1C1917]/70 transition-colors cursor-pointer">
+            <div class="flex items-center space-x-2.5">
+              <span class="material-symbols-outlined text-[#9C948B] text-[18px]">bluetooth_searching</span>
+              <span class="text-[13.5px] text-[#F5F2ED]">蓝牙搜不到设备</span>
+            </div>
+            <span class="material-symbols-outlined text-[18px] text-[#9C948B]">chevron_right</span>
+          </div>
+
+          <div class="px-4 py-3 flex items-center justify-between hover:bg-[#1C1917]/40 active:bg-[#1C1917]/70 transition-colors cursor-pointer">
+            <div class="flex items-center space-x-2.5">
+              <span class="material-symbols-outlined text-[#9C948B] text-[18px]">volume_off</span>
+              <span class="text-[13.5px] text-[#F5F2ED]">有声音但没有信号</span>
+            </div>
+            <span class="material-symbols-outlined text-[18px] text-[#9C948B]">chevron_right</span>
+          </div>
+
+          <div class="px-4 py-3 flex items-center justify-between hover:bg-[#1C1917]/40 active:bg-[#1C1917]/70 transition-colors cursor-pointer">
+            <div class="flex items-center space-x-2.5">
+              <span class="material-symbols-outlined text-[#9C948B] text-[18px]">speed</span>
+              <span class="text-[13.5px] text-[#F5F2ED]">声音断续或拖拍</span>
+            </div>
+            <span class="material-symbols-outlined text-[18px] text-[#9C948B]">chevron_right</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Bottom Muted Text & Home Indicator -->
+  <footer class="px-4 pt-2 pb-2 text-center">
+    <div class="flex items-center justify-center space-x-1 text-[11.5px] text-[#9C948B] mb-3">
+      <span class="material-symbols-outlined text-[14px]">shield</span>
+      <span>诊断信息不会上传，仅用于本机排查</span>
+    </div>
+    <!-- iPhone Home Indicator Bar -->
+    <div class="w-32 h-1 bg-[#332D29] rounded-full mx-auto mb-1"></div>
+  </footer>
+</body>
+</html>

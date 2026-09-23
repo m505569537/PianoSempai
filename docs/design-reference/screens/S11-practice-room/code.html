@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>PianoSempai - 练习室 (S11)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#1C1917',
+            panel: '#262220',
+            'panel-subtle': '#312C29',
+            amber: {
+              DEFAULT: '#D4A24E',
+              bright: '#E5B869',
+              dim: '#9E742E',
+              glow: 'rgba(212, 162, 78, 0.25)',
+              translucent: 'rgba(212, 162, 78, 0.16)'
+            },
+            score: '#FBF8F2',
+            scoreStaff: '#4A463F',
+            scoreNote: '#1A1815',
+            ink: '#1A1815',
+            text: '#F5F2ED',
+            muted: '#9C948B',
+            borderDim: 'rgba(245, 242, 237, 0.08)'
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'Georgia', 'serif'],
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      overflow: hidden;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 350, 'GRAD' 0, 'opsz' 22;
+      vertical-align: middle;
+    }
+    .material-symbols-outlined.fill-1 {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 22;
+    }
+    @keyframes pulseRing {
+      0% { box-shadow: 0 0 0 0 rgba(212, 162, 78, 0.5); }
+      70% { box-shadow: 0 0 0 6px rgba(212, 162, 78, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(212, 162, 78, 0); }
+    }
+    .pulsing-indicator {
+      animation: pulseRing 1.8s infinite ease-out;
+    }
+    @keyframes cursorGlow {
+      0%, 100% { opacity: 0.95; }
+      50% { opacity: 0.45; }
+    }
+    .cursor-line {
+      animation: cursorGlow 1.2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="w-full h-screen max-w-[390px] mx-auto flex flex-col justify-between p-0 relative overflow-hidden bg-bg border-x border-stone-800/40 shadow-2xl">
+
+  <!-- TOP APP / PRACTICE BAR (Ultra Slim) -->
+  <header class="pt-3 pb-2 px-3.5 flex items-center justify-between z-30 shrink-0 border-b border-white/5 bg-[#1C1917]/95 backdrop-blur-md">
+    <!-- Left: Neko ghost button & MIDI Status -->
+    <div class="flex items-center gap-1.5">
+      <!-- 问 Neko Ghost Button -->
+      <button class="flex items-center gap-1 py-1 px-2 rounded-full bg-white/[0.05] hover:bg-white/[0.1] active:scale-95 border border-white/10 text-xs text-amber transition-all">
+        <svg class="w-3.5 h-3.5 text-amber" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 4.25-.57 4.77C21.66 9.4 22 11.16 22 13c0 5-4.5 9-10 9S2 18 2 13c0-1.84.34-3.6 1.15-5.23-.15-.52-1.97-4.19-.57-4.77 1.39-.58 4.64.26 6.42 2.26.65-.17 1.33-.26 2-.26z"></path>
+          <circle cx="9" cy="13" r="1" fill="currentColor"></circle>
+          <circle cx="15" cy="13" r="1" fill="currentColor"></circle>
+          <path d="M10 16.5c1 .5 3 .5 4 0"></path>
+        </svg>
+        <span class="font-serif text-[11px] text-[#F5F2ED]/90 tracking-tight">问 Neko</span>
+      </button>
+
+      <!-- Small MIDI connected pill -->
+      <div class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#262220] border border-amber/25 text-[10.5px]">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber inline-block"></span>
+        <span class="text-amber/90 font-medium scale-[0.95]">MIDI 已连接</span>
+      </div>
+    </div>
+
+    <!-- Center: Title and Bar / Tempo info -->
+    <div class="text-center flex flex-col items-center">
+      <h1 class="font-serif font-semibold text-sm text-text tracking-wide flex items-center gap-1">
+        拜厄 第45条
+      </h1>
+      <p class="text-[10px] text-muted tracking-tight">17–24 小节 · ♩=72</p>
+    </div>
+
+    <!-- Right: Pause & Exit close buttons -->
+    <div class="flex items-center gap-1">
+      <button class="w-7 h-7 rounded-full flex items-center justify-center bg-white/[0.04] text-muted hover:text-text active:scale-95 transition-all">
+        <span class="material-symbols-outlined text-[18px]">equalizer</span>
+      </button>
+      <button class="w-7 h-7 rounded-full flex items-center justify-center bg-white/[0.04] text-muted hover:text-text active:scale-95 transition-all" title="退出">
+        <span class="material-symbols-outlined text-[18px]">close</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN AREA: ENGRAVED SHEET MUSIC ON WARM PAPER (Dominating Screen) -->
+  <main class="flex-1 flex flex-col justify-center px-3 py-1.5 overflow-hidden z-10">
+    <div class="w-full bg-[#FBF8F2] text-ink rounded-2xl p-3 shadow-2xl relative border border-[#EBE4D5] flex flex-col justify-between overflow-hidden" style="min-height: 480px; max-height: 520px;">
+      
+      <!-- Paper grain & background watermark subtleness -->
+      <div class="absolute inset-0 opacity-[0.035] pointer-events-none mix-blend-multiply" style="background-image: radial-gradient(#1A1815 1px, transparent 1px); background-size: 8px 8px;"></div>
+      
+      <!-- Measure 21 Real-time Active Highlight Overlay (Translucent Amber Box) -->
+      <!-- Measure 21 is the 1st measure of Grand Staff 2 -->
+      <div class="absolute left-[38px] top-[246px] w-[156px] h-[228px] bg-[#D4A24E]/15 border-x-2 border-amber/60 rounded-sm pointer-events-none z-10">
+        <!-- Live Amber Scanning Cursor Line -->
+        <div class="cursor-line absolute left-[44px] top-0 bottom-0 w-[2.5px] bg-amber shadow-[0_0_8px_#D4A24E] z-20"></div>
+        <div class="absolute top-1 right-1.5 px-1 rounded text-[8.5px] font-sans font-bold text-[#845A17] bg-[#D4A24E]/30">当前小节</div>
+      </div>
+
+      <!-- Score Header inside Paper: Piece Subheading & Tempo Engraving -->
+      <div class="flex justify-between items-end border-b border-[#DCD3C1] pb-1 px-1 shrink-0">
+        <div class="flex items-baseline gap-2">
+          <span class="font-serif font-bold text-base text-ink tracking-tight">No. 45</span>
+          <span class="font-serif text-[11px] text-stone-600 italic">Moderato cantabile</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-[11px] font-serif text-stone-700">
+          <span class="font-sans font-bold text-xs">♩</span>
+          <span class="text-[11px] font-sans font-semibold">= 72</span>
+          <span class="ml-2 text-[9.5px] px-1.5 py-0.5 rounded bg-[#EFE9DC] text-stone-600 font-sans">双手协同</span>
+        </div>
+      </div>
+
+      <!-- SVG SCORE CANVAS: Two Grand Staves (Staff 1: Bars 17-20, Staff 2: Bars 21-24) -->
+      <div class="relative w-full flex-1 flex flex-col justify-around py-1">
+        <svg viewBox="0 0 354 440" class="w-full h-full select-none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <!-- Amber Glow Filter for Hit Notes -->
+            <filter id="amberGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#D4A24E" flood-opacity="0.8"/>
+            </filter>
+            
+            <!-- Standard Treble Clef path -->
+            <g id="trebleClef">
+              <text x="0" y="34" font-family="'Noto Serif SC', 'Georgia', serif" font-size="44" font-weight="bold" fill="#1A1815">𝄞</text>
+            </g>
+            <!-- Standard Bass Clef path -->
+            <g id="bassClef">
+              <text x="0" y="31" font-family="'Noto Serif SC', 'Georgia', serif" font-size="34" font-weight="bold" fill="#1A1815">𝄢</text>
+            </g>
+            <!-- Grand Staff Brace symbol -->
+            <g id="brace">
+              <path d="M 12 18 C 8 40, 5 80, 2 108 C 5 136, 8 176, 12 198 C 9 176, 6 136, 0 108 C 6 80, 9 40, 12 18 Z" fill="#1A1815"/>
+              <line x1="12" y1="18" x2="12" y2="198" stroke="#1A1815" stroke-width="1.5"/>
+            </g>
+          </defs>
+
+          <!-- ================= SYSTEM 1: BARS 17 – 20 (Played: Tinted Amber / Evaluated) ================= -->
+          <g transform="translate(4, 10)">
+            <!-- Left grand brace -->
+            <use href="#brace" x="-2" y="0"/>
+
+            <!-- Treble Stave 1 lines (Y: 20, 28, 36, 44, 52) -->
+            <g stroke="#3A3630" stroke-width="1">
+              <line x1="10" y1="20" x2="348" y2="20"/>
+              <line x1="10" y1="28" x2="348" y2="28"/>
+              <line x1="10" y1="36" x2="348" y2="36"/>
+              <line x1="10" y1="44" x2="348" y2="44"/>
+              <line x1="10" y1="52" x2="348" y2="52"/>
+            </g>
+
+            <!-- Bass Stave 1 lines (Y: 96, 104, 112, 120, 128) -->
+            <g stroke="#3A3630" stroke-width="1">
+              <line x1="10" y1="96" x2="348" y2="96"/>
+              <line x1="10" y1="104" x2="348" y2="104"/>
+              <line x1="10" y1="112" x2="348" y2="112"/>
+              <line x1="10" y1="120" x2="348" y2="120"/>
+              <line x1="10" y1="128" x2="348" y2="128"/>
+            </g>
+
+            <!-- Clefs & Time Signature (3/4 time) -->
+            <use href="#trebleClef" x="12" y="14"/>
+            <use href="#bassClef" x="12" y="94"/>
+            
+            <g font-family="'Plus Jakarta Sans', serif" font-weight="700" font-size="13" fill="#1A1815">
+              <text x="36" y="33">3</text>
+              <text x="36" y="47">4</text>
+              <text x="36" y="109">3</text>
+              <text x="36" y="123">4</text>
+            </g>
+
+            <!-- Bar Dividers for System 1 -->
+            <!-- Bar 17 ends at x=122, Bar 18 ends at x=198, Bar 19 ends at x=274, Bar 20 ends at x=348 -->
+            <g stroke="#2C2824" stroke-width="1.2">
+              <!-- Measure 17 bar line -->
+              <line x1="122" y1="20" x2="122" y2="52"/>
+              <line x1="122" y1="96" x2="122" y2="128"/>
+              <!-- Measure 18 bar line -->
+              <line x1="198" y1="20" x2="198" y2="52"/>
+              <line x1="198" y1="96" x2="198" y2="128"/>
+              <!-- Measure 19 bar line -->
+              <line x1="274" y1="20" x2="274" y2="52"/>
+              <line x1="274" y1="96" x2="274" y2="128"/>
+              <!-- Measure 20 bar line -->
+              <line x1="348" y1="20" x2="348" y2="52"/>
+              <line x1="348" y1="96" x2="348" y2="128"/>
+            </g>
+
+            <!-- Measure Numbers -->
+            <g font-family="sans-serif" font-size="8.5" font-weight="600" fill="#7A746B">
+              <text x="50" y="14">17</text>
+              <text x="126" y="14">18</text>
+              <text x="202" y="14">19</text>
+              <text x="278" y="14">20</text>
+            </g>
+
+            <!-- Notes in Bar 17 (Played successfully - Tinted Amber) -->
+            <g fill="#D4A24E" stroke="#D4A24E">
+              <!-- Treble melody notes (C5, E5, G5) -->
+              <ellipse cx="62" cy="28" rx="4.5" ry="3.2" transform="rotate(-20 62 28)"/>
+              <line x1="66" y1="28" x2="66" y2="8" stroke-width="1.2"/>
+              <ellipse cx="82" cy="20" rx="4.5" ry="3.2" transform="rotate(-20 82 20)"/>
+              <line x1="86" y1="20" x2="86" y2="0" stroke-width="1.2"/>
+              <ellipse cx="104" cy="14" rx="4.5" ry="3.2" transform="rotate(-20 104 14)"/>
+              <line x1="100" y1="14" x2="100" y2="34" stroke-width="1.2"/>
+              <!-- Bass accompaniment (C3 half note + quarter note) -->
+              <ellipse cx="64" cy="120" rx="4.5" ry="3.2" fill="none" stroke-width="1.5" transform="rotate(-20 64 120)"/>
+              <line x1="68" y1="120" x2="68" y2="100" stroke-width="1.2"/>
+              <ellipse cx="102" cy="112" rx="4.5" ry="3.2" fill="#D4A24E" transform="rotate(-20 102 112)"/>
+              <line x1="106" y1="112" x2="106" y2="92" stroke-width="1.2"/>
+            </g>
+            <!-- Slur / Expression marking -->
+            <path d="M 60 4 Q 82 -2 106 6" fill="none" stroke="#D4A24E" stroke-width="1" opacity="0.8"/>
+
+            <!-- Notes in Bar 18 (Played successfully - Tinted Amber) -->
+            <g fill="#D4A24E" stroke="#D4A24E">
+              <ellipse cx="138" cy="20" rx="4.5" ry="3.2" transform="rotate(-20 138 20)"/>
+              <line x1="142" y1="20" x2="142" y2="2" stroke-width="1.2"/>
+              <ellipse cx="158" cy="28" rx="4.5" ry="3.2" transform="rotate(-20 158 28)"/>
+              <line x1="162" y1="28" x2="162" y2="8" stroke-width="1.2"/>
+              <ellipse cx="178" cy="36" rx="4.5" ry="3.2" transform="rotate(-20 178 36)"/>
+              <line x1="182" y1="36" x2="182" y2="16" stroke-width="1.2"/>
+              <!-- Bass Bar 18 -->
+              <ellipse cx="140" cy="112" rx="4.5" ry="3.2" transform="rotate(-20 140 112)"/>
+              <line x1="144" y1="112" x2="144" y2="92" stroke-width="1.2"/>
+              <ellipse cx="176" cy="120" rx="4.5" ry="3.2" transform="rotate(-20 176 120)"/>
+              <line x1="180" y1="120" x2="180" y2="100" stroke-width="1.2"/>
+            </g>
+
+            <!-- Notes in Bar 19 (Played - Amber) -->
+            <g fill="#D4A24E" stroke="#D4A24E">
+              <ellipse cx="216" cy="28" rx="4.5" ry="3.2" transform="rotate(-20 216 28)"/>
+              <line x1="220" y1="28" x2="220" y2="8" stroke-width="1.2"/>
+              <ellipse cx="236" cy="20" rx="4.5" ry="3.2" transform="rotate(-20 236 20)"/>
+              <line x1="240" y1="20" x2="240" y2="0" stroke-width="1.2"/>
+              <ellipse cx="256" cy="14" rx="4.5" ry="3.2" transform="rotate(-20 256 14)"/>
+              <line x1="252" y1="14" x2="252" y2="34" stroke-width="1.2"/>
+              <!-- Bass Bar 19 -->
+              <ellipse cx="218" cy="104" rx="4.5" ry="3.2" fill="none" stroke-width="1.5" transform="rotate(-20 218 104)"/>
+              <line x1="222" y1="104" x2="222" y2="84" stroke-width="1.2"/>
+            </g>
+
+            <!-- Notes in Bar 20 (Played - Amber completed phrase) -->
+            <g fill="#D4A24E" stroke="#D4A24E">
+              <!-- Dotted half note on G5 -->
+              <ellipse cx="298" cy="14" rx="4.8" ry="3.4" fill="none" stroke-width="1.6" transform="rotate(-20 298 14)"/>
+              <line x1="294" y1="14" x2="294" y2="36" stroke-width="1.2"/>
+              <circle cx="308" cy="14" r="1.5" fill="#D4A24E"/>
+              <!-- Bass Bar 20 -->
+              <ellipse cx="298" cy="120" rx="4.8" ry="3.4" fill="none" stroke-width="1.6" transform="rotate(-20 298 120)"/>
+              <line x1="302" y1="120" x2="302" y2="100" stroke-width="1.2"/>
+              <circle cx="308" cy="120" r="1.5" fill="#D4A24E"/>
+            </g>
+          </g>
+
+          <!-- ================= SYSTEM 2: BARS 21 – 24 (Active Bar 21 with Amber cursor + Crisp Black Notation) ================= -->
+          <g transform="translate(4, 220)">
+            <!-- Left grand brace -->
+            <use href="#brace" x="-2" y="0"/>
+
+            <!-- Treble Stave 2 lines (Y: 20, 28, 36, 44, 52) -->
+            <g stroke="#3A3630" stroke-width="1">
+              <line x1="10" y1="20" x2="348" y2="20"/>
+              <line x1="10" y1="28" x2="348" y2="28"/>
+              <line x1="10" y1="36" x2="348" y2="36"/>
+              <line x1="10" y1="44" x2="348" y2="44"/>
+              <line x1="10" y1="52" x2="348" y2="52"/>
+            </g>
+
+            <!-- Bass Stave 2 lines (Y: 96, 104, 112, 120, 128) -->
+            <g stroke="#3A3630" stroke-width="1">
+              <line x1="10" y1="96" x2="348" y2="96"/>
+              <line x1="10" y1="104" x2="348" y2="104"/>
+              <line x1="10" y1="112" x2="348" y2="112"/>
+              <line x1="10" y1="120" x2="348" y2="120"/>
+              <line x1="10" y1="128" x2="348" y2="128"/>
+            </g>
+
+            <!-- Clefs for System 2 -->
+            <use href="#trebleClef" x="12" y="14"/>
+            <use href="#bassClef" x="12" y="94"/>
+
+            <!-- Bar Dividers for System 2 -->
+            <!-- Measure 21 ends at x=190 (wide active bar), 22 ends at x=244, 23 ends at x=298, 24 double barline -->
+            <g stroke="#2C2824" stroke-width="1.2">
+              <line x1="190" y1="20" x2="190" y2="52"/>
+              <line x1="190" y1="96" x2="190" y2="128"/>
+              <line x1="244" y1="20" x2="244" y2="52"/>
+              <line x1="244" y1="96" x2="244" y2="128"/>
+              <line x1="298" y1="20" x2="298" y2="52"/>
+              <line x1="298" y1="96" x2="298" y2="128"/>
+              <!-- Double final barline at 348 -->
+              <line x1="344" y1="20" x2="344" y2="52" stroke-width="1"/>
+              <line x1="344" y1="96" x2="344" y2="128" stroke-width="1"/>
+              <line x1="348" y1="20" x2="348" y2="52" stroke-width="2.5"/>
+              <line x1="348" y1="96" x2="348" y2="128" stroke-width="2.5"/>
+            </g>
+
+            <!-- Measure Numbers System 2 -->
+            <g font-family="sans-serif" font-size="9" font-weight="700">
+              <!-- Active bar 21 highlighted badge -->
+              <rect x="42" y="4" width="16" height="12" rx="3" fill="#D4A24E"/>
+              <text x="45" y="13.5" fill="#1A1815">21</text>
+              <text x="194" y="14" fill="#7A746B" font-weight="600" font-size="8.5">22</text>
+              <text x="248" y="14" fill="#7A746B" font-weight="600" font-size="8.5">23</text>
+              <text x="302" y="14" fill="#7A746B" font-weight="600" font-size="8.5">24</text>
+            </g>
+
+            <!-- Fingerings Guide (Beyer classic pedagogical cues) -->
+            <g font-family="sans-serif" font-size="7.5" font-weight="600" fill="#8C8479">
+              <text x="76" y="8">1</text>
+              <text x="110" y="8">3</text>
+              <text x="150" y="2">5</text>
+              <!-- Left hand fingering reminder where error occurred -->
+              <text x="76" y="86" fill="#D4A24E" font-weight="700">5!</text>
+            </g>
+
+            <!-- BAR 21: CURRENT ACTIVE NOTE TARGET -->
+            <!-- First beat: hit already, tinted amber -->
+            <g fill="#D4A24E" stroke="#D4A24E">
+              <ellipse cx="56" cy="36" rx="4.5" ry="3.2" transform="rotate(-20 56 36)"/>
+              <line x1="60" y1="36" x2="60" y2="16" stroke-width="1.2"/>
+              <!-- Left hand match beat 1 -->
+              <ellipse cx="56" cy="112" rx="4.5" ry="3.2" transform="rotate(-20 56 112)"/>
+              <line x1="60" y1="112" x2="60" y2="92" stroke-width="1.2"/>
+            </g>
+
+            <!-- Second beat: TARGET NOTE at X=80 (Right at cursor line!) -->
+            <g fill="#1A1815" stroke="#1A1815">
+              <!-- Notehead in Black Engraving, crisp classical font -->
+              <ellipse cx="80" cy="28" rx="4.7" ry="3.3" transform="rotate(-20 80 28)" filter="url(#amberGlow)" stroke="#D4A24E" stroke-width="1.2"/>
+              <line x1="84" y1="28" x2="84" y2="8" stroke-width="1.4"/>
+              <!-- Left hand corresponding note (G3) - target note -->
+              <ellipse cx="80" cy="104" rx="4.7" ry="3.3" transform="rotate(-20 80 104)" stroke="#D4A24E" stroke-width="1"/>
+              <line x1="84" y1="104" x2="84" y2="84" stroke-width="1.3"/>
+            </g>
+
+            <!-- Third beat in Bar 21 (Upcoming) -->
+            <g fill="#1A1815" stroke="#1A1815">
+              <ellipse cx="114" cy="20" rx="4.5" ry="3.2" transform="rotate(-20 114 20)"/>
+              <line x1="118" y1="20" x2="118" y2="0" stroke-width="1.2"/>
+              <ellipse cx="114" cy="112" rx="4.5" ry="3.2" transform="rotate(-20 114 112)"/>
+              <line x1="118" y1="112" x2="118" y2="92" stroke-width="1.2"/>
+            </g>
+            <!-- Slur over Bar 21 melody -->
+            <path d="M 54 12 Q 84 2 116 10" fill="none" stroke="#2C2824" stroke-width="1"/>
+
+            <!-- BAR 22 (Upcoming Crisp Notation) -->
+            <g fill="#1A1815" stroke="#1A1815">
+              <ellipse cx="204" cy="28" rx="4.2" ry="3" transform="rotate(-20 204 28)"/>
+              <line x1="208" y1="28" x2="208" y2="8" stroke-width="1.2"/>
+              <ellipse cx="218" cy="36" rx="4.2" ry="3" transform="rotate(-20 218 36)"/>
+              <line x1="222" y1="36" x2="222" y2="16" stroke-width="1.2"/>
+              <ellipse cx="232" cy="44" rx="4.2" ry="3" transform="rotate(-20 232 44)"/>
+              <line x1="236" y1="44" x2="236" y2="24" stroke-width="1.2"/>
+              <!-- Bass bar 22 half note -->
+              <ellipse cx="206" cy="120" rx="4.5" ry="3.2" fill="none" stroke-width="1.4" transform="rotate(-20 206 120)"/>
+              <line x1="210" y1="120" x2="210" y2="100" stroke-width="1.2"/>
+            </g>
+
+            <!-- BAR 23 (Upcoming) -->
+            <g fill="#1A1815" stroke="#1A1815">
+              <ellipse cx="258" cy="36" rx="4.2" ry="3" transform="rotate(-20 258 36)"/>
+              <line x1="262" y1="36" x2="262" y2="16" stroke-width="1.2"/>
+              <ellipse cx="272" cy="28" rx="4.2" ry="3" transform="rotate(-20 272 28)"/>
+              <line x1="276" y1="28" x2="276" y2="8" stroke-width="1.2"/>
+              <ellipse cx="286" cy="20" rx="4.2" ry="3" transform="rotate(-20 286 20)"/>
+              <line x1="290" y1="20" x2="290" y2="0" stroke-width="1.2"/>
+              <!-- Bass bar 23 -->
+              <ellipse cx="260" cy="112" rx="4.5" ry="3.2" transform="rotate(-20 260 112)"/>
+              <line x1="264" y1="112" x2="264" y2="92" stroke-width="1.2"/>
+              <ellipse cx="284" cy="104" rx="4.5" ry="3.2" transform="rotate(-20 284 104)"/>
+              <line x1="288" y1="104" x2="288" y2="84" stroke-width="1.2"/>
+            </g>
+
+            <!-- BAR 24 (Final resolving chord) -->
+            <g fill="#1A1815" stroke="#1A1815">
+              <!-- Treble chord C5+E5 (dotted half) -->
+              <ellipse cx="320" cy="28" rx="4.6" ry="3.3" fill="none" stroke-width="1.5" transform="rotate(-20 320 28)"/>
+              <ellipse cx="320" cy="44" rx="4.6" ry="3.3" fill="none" stroke-width="1.5" transform="rotate(-20 320 44)"/>
+              <line x1="324" y1="44" x2="324" y2="10" stroke-width="1.2"/>
+              <circle cx="330" cy="28" r="1.5" fill="#1A1815"/>
+              <circle cx="330" cy="44" r="1.5" fill="#1A1815"/>
+              <!-- Bass root C3 dotted half -->
+              <ellipse cx="320" cy="128" rx="4.6" ry="3.3" fill="none" stroke-width="1.5" transform="rotate(-20 320 128)"/>
+              <line x1="324" y1="128" x2="324" y2="104" stroke-width="1.2"/>
+              <circle cx="330" cy="128" r="1.5" fill="#1A1815"/>
+            </g>
+          </g>
+        </svg>
+      </div>
+
+      <!-- Score Card Footer: Focus Tip / Practice Cue -->
+      <div class="pt-1 px-1 flex items-center justify-between border-t border-[#EBE4D5] text-[10px] text-stone-600">
+        <div class="flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber"></span>
+          <span class="font-serif">提示：第21小节注意左手3指转指提前就位</span>
+        </div>
+        <span class="font-sans font-medium text-stone-500 text-[9px] uppercase tracking-wider">Beyer Op.101</span>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- SECTION PROGRESS STRIP (Measures 17–24) -->
+  <section class="px-4 py-1.5 z-20 shrink-0">
+    <div class="bg-panel/70 rounded-xl px-3 py-2 border border-borderDim backdrop-blur-sm flex flex-col gap-1.5">
+      <!-- Top info line: Loop status & measure dots -->
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-medium text-muted flex items-center gap-1">
+          <span class="material-symbols-outlined text-[13px] text-amber">all_inclusive</span>
+          连续循环 <strong class="text-text font-semibold">3/5</strong> 遍
+        </span>
+        <span class="text-[10px] text-amber font-mono bg-amber/10 px-1.5 py-0.5 rounded border border-amber/20">
+          目标 5 遍全绿通关
+        </span>
+      </div>
+
+      <!-- 8 Measure progress dots & labels (17-20 amber filled, 21 pulsing amber ring, 22-24 dim) -->
+      <div class="grid grid-cols-8 gap-1 items-center pt-0.5">
+        <!-- 17: Finished -->
+        <div class="flex flex-col items-center gap-1">
+          <div class="w-full h-1.5 rounded-full bg-amber shadow-[0_0_6px_rgba(212,162,78,0.5)]"></div>
+          <span class="text-[9.5px] font-mono font-medium text-amber">17</span>
+        </div>
+        <!-- 18: Finished -->
+        <div class="flex flex-col items-center gap-1">
+          <div class="w-full h-1.5 rounded-full bg-amber shadow-[0_0_6px_rgba(212,162,78,0.5)]"></div>
+          <span class="text-[9.5px] font-mono font-medium text-amber">18</span>
+        </div>
+        <!-- 19: Finished -->
+        <div class="flex flex-col items-center gap-1">
+          <div class="w-full h-1.5 rounded-full bg-amber shadow-[0_0_6px_rgba(212,162,78,0.5)]"></div>
+          <span class="text-[9.5px] font-mono font-medium text-amber">19</span>
+        </div>
+        <!-- 20: Finished -->
+        <div class="flex flex-col items-center gap-1">
+          <div class="w-full h-1.5 rounded-full bg-amber shadow-[0_0_6px_rgba(212,162,78,0.5)]"></div>
+          <span class="text-[9.5px] font-mono font-medium text-amber">20</span>
+        </div>
+        <!-- 21: Active Playing (Pulsing ring) -->
+        <div class="flex flex-col items-center gap-1 relative">
+          <div class="w-full h-1.5 rounded-full bg-amber pulsing-indicator"></div>
+          <span class="text-[9.5px] font-mono font-bold text-text bg-amber/30 px-1 rounded">21</span>
+        </div>
+        <!-- 22: Dim -->
+        <div class="flex flex-col items-center gap-1">
+          <div class="w-full h-1.5 rounded-full bg-stone-700/60"></div>
+          <span class="text-[9.5px] font-mono text-muted/70">22</span>
+        </div>
+        <!-- 23: Dim -->
+        <div class="flex flex-col items-center gap-1">
+          <div class="w-full h-1.5 rounded-full bg-stone-700/60"></div>
+          <span class="text-[9.5px] font-mono text-muted/70">23</span>
+        </div>
+        <!-- 24: Dim -->
+        <div class="flex flex-col items-center gap-1">
+          <div class="w-full h-1.5 rounded-full bg-stone-700/60"></div>
+          <span class="text-[9.5px] font-mono text-muted/70">24</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOTTOM CONTROL DOCK & LARGE AMBER PLAY BUTTON -->
+  <footer class="px-4 pb-6 pt-1 z-30 shrink-0 flex flex-col items-center gap-3">
+    <!-- Dark Espresso Rounded Control Dock -->
+    <div class="w-full bg-[#262220] border border-[#3C3530] rounded-2xl p-1.5 shadow-xl grid grid-cols-4 gap-1.5">
+      
+      <!-- 1. 速度 Control with -/+ steppers -->
+      <div class="flex flex-col items-center justify-center p-1.5 rounded-xl bg-white/[0.03] border border-white/5">
+        <span class="text-[10px] text-muted tracking-tight mb-0.5">速度</span>
+        <div class="flex items-center gap-1">
+          <button class="w-5 h-5 rounded flex items-center justify-center bg-white/5 text-muted hover:text-text active:bg-white/10 text-xs font-bold leading-none">−</button>
+          <span class="font-sans font-bold text-xs text-text">72</span>
+          <button class="w-5 h-5 rounded flex items-center justify-center bg-white/5 text-muted hover:text-text active:bg-white/10 text-xs font-bold leading-none">+</button>
+        </div>
+        <span class="text-[8.5px] text-muted/80 mt-0.5">♩ 拍/分</span>
+      </div>
+
+      <!-- 2. 循环 (Active amber outline & settings chevron) -->
+      <button class="flex flex-col items-center justify-center p-1.5 rounded-xl bg-amber/10 border border-amber/70 text-amber active:scale-95 transition-all shadow-[inset_0_0_8px_rgba(212,162,78,0.15)]">
+        <div class="flex items-center gap-0.5">
+          <span class="material-symbols-outlined text-[16px] text-amber">repeat</span>
+          <span class="material-symbols-outlined text-[12px] text-amber/80">expand_more</span>
+        </div>
+        <span class="text-[11px] font-semibold text-text mt-0.5">循环</span>
+        <span class="text-[8.5px] text-amber font-mono">17–24小节</span>
+      </button>
+
+      <!-- 3. 分手 (Muted, shows 双手) -->
+      <button class="flex flex-col items-center justify-center p-1.5 rounded-xl bg-white/[0.03] border border-white/5 text-muted hover:text-text active:scale-95 transition-all">
+        <div class="flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]">front_hand</span>
+        </div>
+        <span class="text-[11px] font-medium text-text mt-0.5">双手</span>
+        <span class="text-[8.5px] text-muted">原速同步</span>
+      </button>
+
+      <!-- 4. 节拍器 (Toggle ON, Amber) -->
+      <button class="flex flex-col items-center justify-center p-1.5 rounded-xl bg-white/[0.03] border border-amber/40 text-amber active:scale-95 transition-all">
+        <div class="relative">
+          <span class="material-symbols-outlined text-[16px] text-amber">metronome</span>
+          <span class="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-amber"></span>
+        </div>
+        <span class="text-[11px] font-semibold text-text mt-0.5">节拍器</span>
+        <span class="text-[8.5px] text-amber font-mono">3/4 拍 开</span>
+      </button>
+
+    </div>
+
+    <!-- Centered Big Round Amber Play/Pause Action Button -->
+    <div class="flex items-center justify-center w-full relative">
+      <button class="w-14 h-14 rounded-full bg-amber hover:bg-amber-bright text-[#1A1815] flex items-center justify-center shadow-[0_8px_24px_rgba(212,162,78,0.4)] active:scale-90 transition-transform">
+        <span class="material-symbols-outlined fill-1 text-[32px]">pause</span>
+      </button>
+
+      <!-- Sub text indicating live practice audio & MIDI listening -->
+      <div class="absolute right-2 flex items-center gap-1 text-[10px] text-muted">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+        <span>识别中</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

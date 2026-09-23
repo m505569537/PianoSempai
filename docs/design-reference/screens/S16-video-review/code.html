@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>PianoSempai - 侧拍回看</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#1C1917',
+            card: '#262220',
+            border: '#332D29',
+            amber: '#D4A24E',
+            green: '#7FA97C',
+            red: '#C97064',
+            light: '#F5F2ED',
+            muted: '#9C948B'
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+  </style>
+</head>
+<body class="bg-bg text-light min-h-screen flex flex-col justify-between overflow-x-hidden select-none">
+  <!-- iPhone Full-bleed Screen Container (fills viewport 390x844) -->
+  <div class="w-full max-w-[390px] mx-auto min-h-screen flex flex-col justify-between px-4 pt-3 pb-6">
+
+    <!-- Top & Stacked 4 Blocks Section -->
+    <div class="flex flex-col gap-3">
+      
+      <!-- iOS Status Bar Placeholder -->
+      <div class="flex justify-between items-center px-1 text-xs text-muted font-medium pt-1">
+        <span>9:41</span>
+        <div class="flex items-center gap-1.5 text-[10px]">
+          <span class="material-symbols-outlined text-[13px]">signal_cellular_alt</span>
+          <span class="material-symbols-outlined text-[13px]">wifi</span>
+          <span class="material-symbols-outlined text-[14px]">battery_full</span>
+        </div>
+      </div>
+
+      <!-- 1) Top Bar -->
+      <header class="flex items-center justify-between py-1">
+        <button class="w-8 h-8 flex items-center justify-start text-light hover:text-amber transition-colors active:opacity-70">
+          <span class="material-symbols-outlined text-[24px]">arrow_back_ios_new</span>
+        </button>
+        <h1 class="font-serif text-lg font-semibold tracking-wide text-light">侧拍回看</h1>
+        <div class="flex items-center gap-2">
+          <button class="w-8 h-8 flex items-center justify-center text-muted hover:text-light transition-colors active:opacity-70">
+            <span class="material-symbols-outlined text-[20px]">ios_share</span>
+          </button>
+          <button class="w-8 h-8 flex items-center justify-center text-muted hover:text-light transition-colors active:opacity-70">
+            <span class="material-symbols-outlined text-[20px]">more_horiz</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- 2) Compact Video Card (height ~190pt) -->
+      <div class="bg-card border border-border rounded-2xl overflow-hidden p-2.5 flex flex-col gap-2">
+        <!-- 16:9 Dark Player with side-view keys + skeleton overlay -->
+        <div class="relative w-full h-[142px] bg-[#141210] rounded-xl overflow-hidden flex items-center justify-center">
+          <!-- Piano Keys & Hand Skeletal Overlay (SVG) -->
+          <svg class="w-full h-full" viewBox="0 0 350 142" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Perspective Piano Bed -->
+            <path d="M0 88 L350 78 L350 142 L0 142 Z" fill="#1b1816"/>
+            <!-- White keys dividers -->
+            <line x1="38" y1="87" x2="32" y2="142" stroke="#2a2522" stroke-width="1.2"/>
+            <line x1="82" y1="85.5" x2="78" y2="142" stroke="#2a2522" stroke-width="1.2"/>
+            <line x1="126" y1="84.2" x2="124" y2="142" stroke="#2a2522" stroke-width="1.2"/>
+            <line x1="170" y1="83" x2="170" y2="142" stroke="#2a2522" stroke-width="1.2"/>
+            <line x1="214" y1="81.8" x2="216" y2="142" stroke="#2a2522" stroke-width="1.2"/>
+            <line x1="258" y1="80.5" x2="262" y2="142" stroke="#2a2522" stroke-width="1.2"/>
+            <line x1="304" y1="79.2" x2="310" y2="142" stroke="#2a2522" stroke-width="1.2"/>
+
+            <!-- Black keys (angled perspective) -->
+            <polygon points="22,87 34,86.5 30,118 19,118" fill="#0d0c0a"/>
+            <polygon points="62,86 74,85.5 70,117 59,117" fill="#0d0c0a"/>
+            <polygon points="148,83.5 160,83 158,115 146,115" fill="#0d0c0a"/>
+            <polygon points="190,82.5 202,82 201,114 189,114" fill="#0d0c0a"/>
+            <polygon points="234,81 246,80.5 247,113 235,113" fill="#0d0c0a"/>
+            <polygon points="280,79.8 292,79.5 294,112 282,112" fill="#0d0c0a"/>
+
+            <!-- Soft Hand Silhouette Contour (dark translucent) -->
+            <path d="M102 108 C90 92 110 52 145 42 C185 30 220 40 238 64 C255 86 242 104 228 114 C190 120 135 122 102 108 Z" fill="#D4A24E" fill-opacity="0.07" filter="blur(6px)"/>
+
+            <!-- Hand Skeleton 21-point Pose Overlay (Amber lines & joints) -->
+            <!-- Wrist to Palm -->
+            <line x1="110" y1="104" x2="136" y2="92" stroke="#D4A24E" stroke-width="1.2" stroke-opacity="0.75"/>
+            <line x1="136" y1="92" x2="162" y2="76" stroke="#D4A24E" stroke-width="1.2" stroke-opacity="0.75"/>
+            <line x1="162" y1="76" x2="190" y2="68" stroke="#D4A24E" stroke-width="1.2" stroke-opacity="0.75"/>
+            <line x1="190" y1="68" x2="216" y2="72" stroke="#D4A24E" stroke-width="1.2" stroke-opacity="0.75"/>
+            <line x1="216" y1="72" x2="236" y2="84" stroke="#D4A24E" stroke-width="1.2" stroke-opacity="0.75"/>
+
+            <!-- Finger 1 (Thumb) -> Flat / Issue (highlighted towards red/amber) -->
+            <line x1="136" y1="92" x2="148" y2="98" stroke="#C97064" stroke-width="1.4" stroke-dasharray="2 1.5"/>
+            <line x1="148" y1="98" x2="160" y2="104" stroke="#C97064" stroke-width="1.4"/>
+            <line x1="160" y1="104" x2="172" y2="108" stroke="#C97064" stroke-width="1.4"/>
+
+            <!-- Finger 2 (Index) -->
+            <line x1="162" y1="76" x2="178" y2="70" stroke="#D4A24E" stroke-width="1.2" stroke-opacity="0.8"/>
+            <line x1="178" y1="70" x2="194" y2="76" stroke="#D4A24E" stroke-width="1.2" stroke-opacity="0.8"/>
+            <line x1="194" y1="76" x2="204" y2="96" stroke="#D4A24E" stroke-width="1.2" stroke-opacity="0.8"/>
+
+            <!-- Finger 3 (Middle) Stable Arch -->
+            <line x1="190" y1="68" x2="205" y2="52" stroke="#7FA97C" stroke-width="1.3" stroke-opacity="0.9"/>
+            <line x1="205" y1="52" x2="220" y2="60" stroke="#7FA97C" stroke-width="1.3" stroke-opacity="0.9"/>
+            <line x1="220" y1="60" x2="226" y2="82" stroke="#7FA97C" stroke-width="1.3" stroke-opacity="0.9"/>
+
+            <!-- Finger 4 (Ring) -->
+            <line x1="216" y1="72" x2="232" y2="64" stroke="#D4A24E" stroke-width="1.1" stroke-opacity="0.7"/>
+            <line x1="232" y1="64" x2="242" y2="74" stroke="#D4A24E" stroke-width="1.1" stroke-opacity="0.7"/>
+            <line x1="242" y1="74" x2="246" y2="92" stroke="#D4A24E" stroke-width="1.1" stroke-opacity="0.7"/>
+
+            <!-- Finger 5 (Pinky) -->
+            <line x1="236" y1="84" x2="250" y2="82" stroke="#D4A24E" stroke-width="1.1" stroke-opacity="0.6"/>
+            <line x1="250" y1="82" x2="258" y2="92" stroke="#D4A24E" stroke-width="1.1" stroke-opacity="0.6"/>
+            <line x1="258" y1="92" x2="260" y2="102" stroke="#D4A24E" stroke-width="1.1" stroke-opacity="0.6"/>
+
+            <!-- Keypoints (21 dots) -->
+            <circle cx="110" cy="104" r="2.8" fill="#D4A24E"/>
+            <circle cx="136" cy="92" r="2.5" fill="#D4A24E"/>
+            <circle cx="162" cy="76" r="2.5" fill="#D4A24E"/>
+            <circle cx="190" cy="68" r="2.5" fill="#D4A24E"/>
+            <circle cx="216" cy="72" r="2.5" fill="#D4A24E"/>
+            <circle cx="236" cy="84" r="2.5" fill="#D4A24E"/>
+
+            <circle cx="148" cy="98" r="2" fill="#C97064"/>
+            <circle cx="160" cy="104" r="2.2" fill="#C97064"/>
+            
+            <circle cx="178" cy="70" r="2" fill="#D4A24E"/>
+            <circle cx="194" cy="76" r="2" fill="#D4A24E"/>
+            <circle cx="204" cy="96" r="2.2" fill="#D4A24E"/>
+
+            <circle cx="205" cy="52" r="2.2" fill="#7FA97C"/>
+            <circle cx="220" cy="60" r="2.2" fill="#7FA97C"/>
+            <circle cx="226" cy="82" r="2.4" fill="#7FA97C"/>
+
+            <circle cx="232" cy="64" r="2" fill="#D4A24E"/>
+            <circle cx="242" cy="74" r="2" fill="#D4A24E"/>
+            <circle cx="246" cy="92" r="2.2" fill="#D4A24E"/>
+
+            <circle cx="250" cy="82" r="1.8" fill="#D4A24E"/>
+            <circle cx="258" cy="92" r="1.8" fill="#D4A24E"/>
+            <circle cx="260" cy="102" r="2" fill="#D4A24E"/>
+
+            <!-- Red Circle Callout around Thumb Keypoint -->
+            <circle cx="172" cy="108" r="7" stroke="#C97064" stroke-width="1.8" fill="#C97064" fill-opacity="0.25"/>
+            <circle cx="172" cy="108" r="13" stroke="#C97064" stroke-dasharray="2 2" stroke-width="1" stroke-opacity="0.8"/>
+            <circle cx="172" cy="108" r="2.4" fill="#C97064"/>
+          </svg>
+
+          <!-- Label: 1指触键偏平 -->
+          <div class="absolute bottom-2 left-3 bg-[#1C1917]/90 border border-red/60 text-red text-[11px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm backdrop-blur-sm">
+            <span class="w-1.5 h-1.5 rounded-full bg-red animate-pulse"></span>
+            <span>1指触键偏平</span>
+          </div>
+
+          <!-- Play / Pause Overlay Icon -->
+          <button class="absolute inset-0 m-auto w-9 h-9 rounded-full bg-black/40 border border-white/20 flex items-center justify-center text-light backdrop-blur-xs active:scale-95 transition-transform">
+            <span class="material-symbols-outlined text-[18px] translate-x-0.5">play_arrow</span>
+          </button>
+
+          <!-- Resolution Tag -->
+          <div class="absolute top-2 right-2 bg-black/50 text-[9px] text-muted px-1.5 py-0.5 rounded tracking-wider">
+            1080P · 60fps
+          </div>
+        </div>
+
+        <!-- Scrubber and Controls -->
+        <div class="flex flex-col gap-1.5 pt-0.5">
+          <!-- Timeline scrubber bar -->
+          <div class="w-full flex items-center gap-2">
+            <span class="text-[11px] font-mono text-amber font-medium">0:14</span>
+            <div class="relative flex-1 h-1 bg-[#1C1917] rounded-full overflow-hidden">
+              <div class="absolute left-0 top-0 bottom-0 w-[43.75%] bg-amber rounded-full"></div>
+              <!-- Marker for 0:14 -->
+              <div class="absolute left-[43.75%] top-0 bottom-0 w-1 bg-red -translate-x-1/2"></div>
+              <!-- Marker for 0:21 -->
+              <div class="absolute left-[65.6%] top-0 bottom-0 w-1 bg-green -translate-x-1/2"></div>
+            </div>
+            <span class="text-[11px] font-mono text-muted">0:32</span>
+          </div>
+
+          <!-- Chips Row: '骨架 ON', '标注 ON', '原片' -->
+          <div class="flex items-center justify-between pt-0.5">
+            <div class="flex items-center gap-1.5">
+              <button class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-amber/15 border border-amber/50 text-amber font-medium active:opacity-75">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber"></span>
+                <span>骨架 ON</span>
+              </button>
+              <button class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-red/15 border border-red/50 text-red font-medium active:opacity-75">
+                <span class="w-1.5 h-1.5 rounded-full bg-red"></span>
+                <span>标注 ON</span>
+              </button>
+              <button class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-[#1C1917] border border-border text-muted active:text-light">
+                <span>原片</span>
+              </button>
+            </div>
+            <span class="text-[10px] text-muted">拜厄 45 · 第 21 小节</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3) OBSERVATION LIST CARD: 这一段的观察（3） -->
+      <div class="bg-card border border-border rounded-2xl p-3 flex flex-col gap-2.5">
+        <div class="flex items-center justify-between border-b border-border/70 pb-2">
+          <div class="flex items-center gap-1.5">
+            <span class="font-serif text-[13px] font-semibold text-light tracking-wide">这一段的观察（3）</span>
+          </div>
+          <span class="text-[10px] text-muted">已对齐音频时间戳</span>
+        </div>
+
+        <div class="flex flex-col divide-y divide-border/60">
+          <!-- Row 1: Amber dot -->
+          <div class="py-2 flex items-start justify-between gap-2 first:pt-0.5">
+            <div class="flex items-start gap-2 flex-1">
+              <span class="w-2 h-2 rounded-full bg-amber mt-1.5 shrink-0 shadow-[0_0_6px_rgba(212,162,78,0.4)]"></span>
+              <div class="flex flex-col">
+                <div class="text-[12px] text-light leading-snug">
+                  <span class="font-mono text-amber font-medium mr-1">0:14</span>
+                  <span>手腕位置偏低，可能影响黑键移动</span>
+                </div>
+              </div>
+            </div>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber/10 border border-amber/30 text-amber shrink-0 self-start font-medium">
+              置信度 中
+            </span>
+          </div>
+
+          <!-- Row 2: Green dot -->
+          <div class="py-2 flex items-start justify-between gap-2">
+            <div class="flex items-start gap-2 flex-1">
+              <span class="w-2 h-2 rounded-full bg-green mt-1.5 shrink-0 shadow-[0_0_6px_rgba(127,169,124,0.4)]"></span>
+              <div class="flex flex-col">
+                <div class="text-[12px] text-light leading-snug">
+                  <span class="font-mono text-green font-medium mr-1">0:21</span>
+                  <span>转指时 3 指支撑稳定</span>
+                </div>
+              </div>
+            </div>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-green/10 border border-green/30 text-green shrink-0 self-start font-medium">
+              置信度 高
+            </span>
+          </div>
+
+          <!-- Row 3: Grey dot -->
+          <div class="py-2 flex items-start justify-between gap-2 last:pb-0.5">
+            <div class="flex items-start gap-2 flex-1">
+              <span class="w-2 h-2 rounded-full bg-muted mt-1.5 shrink-0"></span>
+              <div class="flex flex-col">
+                <div class="text-[12px] text-[#C4BDB5] leading-snug">
+                  <span class="font-mono text-muted font-medium mr-1">0:26</span>
+                  <span>手掌遮挡，无法判断</span>
+                </div>
+              </div>
+            </div>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-[#1C1917] border border-border text-muted shrink-0 self-start">
+              置信度 低 · 不评价
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4) DISCLAIMER CARD with amber hairline border -->
+      <div class="bg-card/70 border border-amber/40 rounded-xl p-2.5 flex items-start gap-2">
+        <span class="material-symbols-outlined text-amber text-[16px] shrink-0 mt-0.5">info</span>
+        <p class="text-[11px] text-[#D8D2C9] leading-relaxed tracking-normal">
+          手型观察仅供参考，永远不会影响过关；单摄有死角，看不清的我会直接说。
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Bottom Buttons (Stacked CTA) -->
+    <div class="flex flex-col gap-2 pt-3">
+      <!-- Solid Amber CTA -->
+      <button class="w-full py-3 px-4 rounded-xl bg-amber text-[#161311] font-semibold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-md hover:bg-[#deb162]">
+        <span class="material-symbols-outlined text-[18px]">chat</span>
+        <span>带着这些去问 Neko</span>
+      </button>
+
+      <!-- Outline Secondary CTA -->
+      <button class="w-full py-2.5 px-4 rounded-xl border border-border bg-card/40 text-muted font-medium text-[13px] flex items-center justify-center gap-1.5 hover:text-light hover:border-muted/50 active:scale-[0.98] transition-all">
+        <span class="material-symbols-outlined text-[16px]">tune</span>
+        <span>重新校准机位</span>
+      </button>
+    </div>
+
+  </div>
+</body>
+</html>

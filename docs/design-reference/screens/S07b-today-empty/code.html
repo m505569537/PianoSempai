@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>PianoSempai - 今日 (定级前空状态)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bgDark: '#1C1917',
+            cardDark: '#262220',
+            borderDark: '#332D29',
+            amberAccent: '#D4A24E',
+            amberHover: '#C2913D',
+            textMain: '#F5F2ED',
+            textMuted: '#9C948B',
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .font-serif-title {
+      font-family: 'Noto Serif SC', serif;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 350, 'GRAD' 0, 'opsz' 24;
+    }
+    .material-symbols-outlined.fill-icon {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+  </style>
+</head>
+<body class="bg-bgDark text-textMain antialiased flex flex-col justify-between min-h-screen select-none pb-24">
+
+  <!-- Main Scrollable Area / Screen Canvas -->
+  <div class="w-full max-w-[420px] mx-auto px-5 pt-3 pb-6 flex flex-col flex-1">
+    
+    <!-- iOS Status Bar (Simulated standard 9:41 dynamic layout) -->
+    <div class="w-full flex items-center justify-between text-xs text-textMuted tracking-wider font-medium pt-1 pb-3">
+      <span>9:41</span>
+      <div class="flex items-center space-x-2 text-textMuted">
+        <span class="material-symbols-outlined text-[15px]">signal_cellular_4_bar</span>
+        <span class="material-symbols-outlined text-[15px]">wifi</span>
+        <span class="material-symbols-outlined text-[18px]">battery_full</span>
+      </div>
+    </div>
+
+    <!-- Header Section -->
+    <header class="w-full flex items-start justify-between mt-2 mb-5">
+      <div>
+        <div class="text-textMuted text-xs font-medium tracking-wide mb-1">晚上好</div>
+        <h1 class="font-serif-title text-[26px] font-bold text-textMain tracking-tight leading-tight">
+          9月18日 周五
+        </h1>
+      </div>
+      <!-- Top-right connection capsule green '特伦斯 V70 已连接' -->
+      <div class="mt-1 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1E2721] border border-[#2B3E30] text-[#4ADE80] text-[11px] font-medium tracking-wide shadow-sm">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse"></span>
+        <span>特伦斯 V70 已连接</span>
+      </div>
+    </header>
+
+    <!-- Center Content: Empty Illustration + Explanations -->
+    <main class="flex-1 flex flex-col items-center justify-center text-center my-auto py-2">
+      
+      <!-- Line-art Amber Piano Key Motif Illustration -->
+      <div class="relative w-40 h-28 flex items-center justify-center mb-5">
+        <div class="absolute inset-0 bg-amberAccent/5 rounded-full blur-2xl pointer-events-none"></div>
+        <svg class="w-full h-full relative z-10" viewBox="0 0 160 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Subtle ambient soundwave / halo curves -->
+          <path d="M20 78C35 60 55 52 80 52C105 52 125 60 140 78" stroke="#D4A24E" stroke-opacity="0.25" stroke-width="1.2" stroke-dasharray="3 3"/>
+          <path d="M35 76C48 64 63 58 80 58C97 58 112 64 125 76" stroke="#D4A24E" stroke-opacity="0.4" stroke-width="1.2"/>
+          <path d="M50 75C60 68 70 65 80 65C90 65 100 68 110 75" stroke="#D4A24E" stroke-opacity="0.6" stroke-width="1.2"/>
+          
+          <!-- Metronome / Sound Pulse subtle tick -->
+          <circle cx="80" cy="38" r="3" fill="#D4A24E" fill-opacity="0.7"/>
+          <line x1="80" y1="41" x2="80" y2="65" stroke="#D4A24E" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="2 2"/>
+
+          <!-- Piano Keyboard Bed -->
+          <rect x="24" y="68" width="112" height="34" rx="4" fill="#262220" stroke="#332D29" stroke-width="1.2"/>
+          
+          <!-- White Keys Dividers -->
+          <line x1="38" y1="68" x2="38" y2="102" stroke="#332D29" stroke-width="1"/>
+          <line x1="52" y1="68" x2="52" y2="102" stroke="#332D29" stroke-width="1"/>
+          <line x1="66" y1="68" x2="66" y2="102" stroke="#332D29" stroke-width="1"/>
+          <line x1="80" y1="68" x2="80" y2="102" stroke="#332D29" stroke-width="1"/>
+          <line x1="94" y1="68" x2="94" y2="102" stroke="#332D29" stroke-width="1"/>
+          <line x1="108" y1="68" x2="108" y2="102" stroke="#332D29" stroke-width="1"/>
+          <line x1="122" y1="68" x2="122" y2="102" stroke="#332D29" stroke-width="1"/>
+
+          <!-- Black Keys (Elevated Minimalist Geometry with Amber Accent Accents) -->
+          <rect x="33" y="68" width="8" height="20" rx="1.5" fill="#1C1917" stroke="#332D29" stroke-width="0.8"/>
+          <rect x="47" y="68" width="8" height="20" rx="1.5" fill="#1C1917" stroke="#332D29" stroke-width="0.8"/>
+          
+          <!-- Center Active Highlight Key (Warm Amber Glow) -->
+          <rect x="75" y="68" width="10" height="21" rx="1.5" fill="#D4A24E" fill-opacity="0.2" stroke="#D4A24E" stroke-width="1.2"/>
+          <circle cx="80" cy="84" r="1.5" fill="#D4A24E"/>
+
+          <rect x="103" y="68" width="8" height="20" rx="1.5" fill="#1C1917" stroke="#332D29" stroke-width="0.8"/>
+          <rect x="117" y="68" width="8" height="20" rx="1.5" fill="#1C1917" stroke="#332D29" stroke-width="0.8"/>
+
+          <!-- Keybed baseline shadow line -->
+          <line x1="28" y1="102" x2="132" y2="102" stroke="#D4A24E" stroke-opacity="0.7" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <!-- Serif heading -->
+      <h2 class="font-serif-title text-[20px] font-bold text-textMain tracking-tight mb-2.5">
+        还没有你的练习计划
+      </h2>
+
+      <!-- Body Muted Centered Explanation -->
+      <p class="text-textMuted text-[13px] leading-relaxed max-w-[320px] px-1 mb-6">
+        花 20 分钟做一次三段定级，Neko 会按你的真实水平排拜厄、哈农和 599。定级随时可以退出，进度会保留。
+      </p>
+
+      <!-- Three Small Horizontal Stat Placeholders in a row -->
+      <div class="w-full grid grid-cols-3 gap-2.5 mb-6">
+        <!-- Stat 1 -->
+        <div class="bg-cardDark border border-borderDark/80 rounded-xl py-2.5 px-2 flex flex-col items-center justify-center">
+          <span class="text-[11px] text-textMuted mb-0.5">本周 streak</span>
+          <span class="text-textMuted font-mono text-[14px] font-medium">—</span>
+        </div>
+        <!-- Stat 2 -->
+        <div class="bg-cardDark border border-borderDark/80 rounded-xl py-2.5 px-2 flex flex-col items-center justify-center">
+          <span class="text-[11px] text-textMuted mb-0.5">本周时长</span>
+          <span class="text-textMuted font-mono text-[14px] font-medium">—</span>
+        </div>
+        <!-- Stat 3 -->
+        <div class="bg-cardDark border border-borderDark/80 rounded-xl py-2.5 px-2 flex flex-col items-center justify-center">
+          <span class="text-[11px] text-textMuted mb-0.5">距 599</span>
+          <span class="text-textMuted font-mono text-[14px] font-medium">—</span>
+        </div>
+      </div>
+
+      <!-- Actions Stack -->
+      <div class="w-full space-y-2.5">
+        <!-- Solid amber full-width button '开始 20 分钟定级' dark text -->
+        <button class="w-full py-3.5 px-4 rounded-xl bg-amberAccent hover:bg-amberHover active:scale-[0.99] transition-all duration-150 text-[#161311] font-semibold text-[15px] tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-amberAccent/10">
+          <span>开始 20 分钟定级</span>
+          <span class="material-symbols-outlined text-[18px] font-bold">arrow_forward</span>
+        </button>
+
+        <!-- Ghost button '我已经有基础，先自己逛逛曲库' -->
+        <button class="w-full py-2.5 px-4 rounded-xl bg-transparent border border-borderDark hover:border-amberAccent/40 hover:bg-cardDark active:scale-[0.99] transition-all duration-150 text-textMuted hover:text-textMain text-[13px] font-medium">
+          我已经有基础，先自己逛逛曲库
+        </button>
+      </div>
+
+      <!-- Small note card muted -->
+      <div class="w-full bg-cardDark/60 border border-borderDark/60 rounded-xl px-3.5 py-2.5 mt-4 flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-amberAccent text-[16px] shrink-0">info</span>
+        <p class="text-[11px] text-textMuted leading-normal text-left">
+          定级内容：自评 1 分钟 + 视奏 2 段 + 力度校准 2 分钟。
+        </p>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Bottom Floating & Navigation Section -->
+  <div class="fixed bottom-0 left-0 w-full z-50 pointer-events-none flex flex-col items-center">
+    
+    <!-- Outer Container for layout constraint (max-w-[420px]) -->
+    <div class="w-full max-w-[420px] relative pointer-events-auto">
+      
+      <!-- Cat-face FAB '问 Neko' above bar right side -->
+      <div class="absolute right-4 -top-12 z-20">
+        <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cardDark/95 border border-amberAccent/40 shadow-xl shadow-black/40 hover:border-amberAccent active:scale-95 transition-all duration-150 text-amberAccent text-[12px] font-medium backdrop-blur-md">
+          <!-- Cat face icon -->
+          <svg class="w-4 h-4 fill-amberAccent" viewBox="0 0 24 24">
+            <path d="M12 15.5c-1.38 0-2.5-.89-2.5-2 0-.28.22-.5.5-.5s.5.22.5.5c0 .55.67 1 1.5 1s1.5-.45 1.5-1c0-.28.22-.5.5-.5s.5.22.5.5c0 1.11-1.12 2-2.5 2zM8.5 11a1 1 0 100-2 1 1 0 000 2zm7 0a1 1 0 100-2 1 1 0 000 2zM12 2C6.48 2 2 6.48 2 12c0 2.14.68 4.12 1.83 5.75L3.1 21.3a.5.5 0 00.68.6l3.77-1.47C9.17 21.45 10.55 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm-7.66 4.34L6 7.67c1.69-1.07 3.73-1.67 6-1.67s4.31.6 6 1.67l1.66-1.33C17.65 4.3 14.97 3.5 12 3.5s-5.65.8-7.66 2.84z"/>
+          </svg>
+          <span class="tracking-wide">问 Neko</span>
+        </button>
+      </div>
+
+      <!-- Bottom Tab Bar (5 tabs: 今日(active), 曲库, 练习室, 档案, 我的) -->
+      <nav class="w-full bg-[#161311]/95 border-t border-borderDark/80 px-2 pt-2.5 pb-6 backdrop-blur-lg flex justify-around items-center">
+        
+        <!-- Tab 1: 今日 (Active) -->
+        <a href="#" class="flex flex-col items-center justify-center flex-1 text-amberAccent transition-colors">
+          <span class="material-symbols-outlined text-[22px] fill-icon">calendar_today</span>
+          <span class="text-[10px] font-semibold mt-1 tracking-wider">今日</span>
+          <span class="w-1 h-1 rounded-full bg-amberAccent mt-0.5"></span>
+        </a>
+
+        <!-- Tab 2: 曲库 -->
+        <a href="#" class="flex flex-col items-center justify-center flex-1 text-textMuted hover:text-textMain transition-colors">
+          <span class="material-symbols-outlined text-[22px]">auto_stories</span>
+          <span class="text-[10px] font-medium mt-1 tracking-wider">曲库</span>
+          <span class="w-1 h-1 rounded-full bg-transparent mt-0.5"></span>
+        </a>
+
+        <!-- Tab 3: 练习室 -->
+        <a href="#" class="flex flex-col items-center justify-center flex-1 text-textMuted hover:text-textMain transition-colors">
+          <span class="material-symbols-outlined text-[22px]">piano</span>
+          <span class="text-[10px] font-medium mt-1 tracking-wider">练习室</span>
+          <span class="w-1 h-1 rounded-full bg-transparent mt-0.5"></span>
+        </a>
+
+        <!-- Tab 4: 档案 -->
+        <a href="#" class="flex flex-col items-center justify-center flex-1 text-textMuted hover:text-textMain transition-colors">
+          <span class="material-symbols-outlined text-[22px]">inventory_2</span>
+          <span class="text-[10px] font-medium mt-1 tracking-wider">档案</span>
+          <span class="w-1 h-1 rounded-full bg-transparent mt-0.5"></span>
+        </a>
+
+        <!-- Tab 5: 我的 -->
+        <a href="#" class="flex flex-col items-center justify-center flex-1 text-textMuted hover:text-textMain transition-colors">
+          <span class="material-symbols-outlined text-[22px]">person</span>
+          <span class="text-[10px] font-medium mt-1 tracking-wider">我的</span>
+          <span class="w-1 h-1 rounded-full bg-transparent mt-0.5"></span>
+        </a>
+
+      </nav>
+
+      <!-- Home Indicator Line for iOS -->
+      <div class="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1 bg-white/20 rounded-full pointer-events-none"></div>
+
+    </div>
+  </div>
+
+</body>
+</html>

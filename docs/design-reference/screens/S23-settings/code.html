@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=390, height=844, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PianoSempai - 我的</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bgDark: '#1C1917',
+            cardDark: '#262220',
+            borderDark: '#332D29',
+            amberAccent: '#D4A24E',
+            textMain: '#F5F2ED',
+            textMuted: '#9C948B',
+            textDim: '#6A635B'
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 20px;
+      line-height: 1;
+    }
+    .material-symbols-outlined.fill-1 {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+    }
+    /* Hide scrollbar for a clean mobile viewport */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    * {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="w-[390px] min-h-[844px] max-w-[390px] mx-auto bg-bgDark text-textMain flex flex-col relative overflow-x-hidden pb-24">
+
+  <!-- iOS Status Bar (Full Bleed) -->
+  <header class="w-full pt-3 px-7 pb-2 flex items-center justify-between text-xs tracking-tight select-none z-30 sticky top-0 bg-bgDark/95 backdrop-blur-md">
+    <span class="font-semibold text-textMain text-[14px]">9:41</span>
+    <div class="flex items-center gap-1.5 text-textMain">
+      <!-- Cellular Signal -->
+      <svg class="w-4 h-3 fill-current" viewBox="0 0 17 11">
+        <rect x="0" y="8" width="2.5" height="3" rx="0.5"/>
+        <rect x="4" y="5.5" width="2.5" height="5.5" rx="0.5"/>
+        <rect x="8" y="3" width="2.5" height="8" rx="0.5"/>
+        <rect x="12" y="0.5" width="2.5" height="10.5" rx="0.5"/>
+      </svg>
+      <!-- WiFi -->
+      <svg class="w-3.5 h-3 fill-current ml-0.5" viewBox="0 0 16 12">
+        <path d="M8 2.8C10.6 2.8 13 3.8 14.8 5.4L16 4.1C13.8 2.1 11 1 8 1S2.2 2.1 0 4.1L1.2 5.4C3 3.8 5.4 2.8 8 2.8ZM8 6.4C9.6 6.4 11.2 7.1 12.3 8.2L13.5 6.9C12.1 5.6 10.1 4.7 8 4.7C5.9 4.7 3.9 5.6 2.5 6.9L3.7 8.2C4.8 7.1 6.4 6.4 8 6.4ZM8 10C8.8 10 9.5 10.7 9.5 11.5C9.5 12.3 8.8 13 8 13C7.2 13 6.5 12.3 6.5 11.5C6.5 10.7 7.2 10 8 10Z"/>
+      </svg>
+      <!-- Battery -->
+      <div class="w-5 h-2.5 border border-textMain/80 rounded-[3px] p-[1px] flex items-center ml-0.5 relative">
+        <div class="h-full w-3.5 bg-textMain rounded-[1.5px]"></div>
+        <div class="w-[1.5px] h-[3.5px] bg-textMain/80 rounded-r-[1px] absolute -right-[2.5px] top-1/2 -translate-y-1/2"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Scrollable Content -->
+  <main class="flex-1 px-4 pt-2 space-y-6">
+
+    <!-- Screen Large Title Header -->
+    <section class="pt-2 px-1">
+      <h1 class="text-3xl font-bold font-serif tracking-tight text-textMain">我的</h1>
+    </section>
+
+    <!-- Profile Header Card -->
+    <section class="bg-cardDark rounded-2xl p-4 border border-borderDark flex items-center justify-between active:scale-[0.99] transition-transform duration-150 cursor-pointer shadow-sm">
+      <div class="flex items-center gap-3.5 min-w-0">
+        <!-- Monogram Avatar '猫' -->
+        <div class="w-12 h-12 rounded-full bg-amberAccent flex items-center justify-center text-[#1C1917] font-bold font-serif text-lg shadow-inner flex-shrink-0">
+          猫
+        </div>
+        <div class="flex flex-col min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="text-[16px] font-medium text-textMain tracking-tight">自学钢琴 · 第 6 周</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-amberAccent animate-pulse"></span>
+          </div>
+          <span class="text-xs text-textMuted mt-0.5 truncate tracking-tight">路线：拜厄 → 599/849 · 哈农并行</span>
+        </div>
+      </div>
+      <div class="text-textDim pl-2 flex-shrink-0">
+        <span class="material-symbols-outlined text-[20px] text-textMuted/70">chevron_right</span>
+      </div>
+    </section>
+
+    <!-- Group Card: 设备 -->
+    <section class="space-y-1.5">
+      <h2 class="text-xs font-medium text-textMuted/80 px-2 tracking-wide uppercase">设备</h2>
+      <div class="bg-cardDark rounded-2xl border border-borderDark overflow-hidden divide-y divide-borderDark/60 shadow-sm">
+        
+        <!-- Row 1: 电钢琴 -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-amberAccent/10 border border-amberAccent/20 flex items-center justify-center text-amberAccent flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">piano</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">电钢琴</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"></span>
+            <span class="text-xs text-textMuted font-medium">特伦斯 V70 · 已连接</span>
+            <span class="material-symbols-outlined text-[18px] text-textDim ml-0.5">chevron_right</span>
+          </div>
+        </div>
+
+        <!-- Row 2: MIDI 诊断 -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-textMuted flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">cable</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">MIDI 诊断</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-textMuted">事件正常</span>
+            <span class="material-symbols-outlined text-[18px] text-textDim ml-0.5">chevron_right</span>
+          </div>
+        </div>
+
+        <!-- Row 3: 力度校准 -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-textMuted flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">graphic_eq</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">力度校准</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-textMuted font-mono">2026-09-18</span>
+            <span class="material-symbols-outlined text-[18px] text-textDim ml-0.5">chevron_right</span>
+          </div>
+        </div>
+
+        <!-- Row 4: 视频保留 -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-textMuted flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">videocam</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">视频保留</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-textMuted">每曲最近 8 条</span>
+            <span class="material-symbols-outlined text-[18px] text-textDim ml-0.5">chevron_right</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Group Card: 课程与提醒 -->
+    <section class="space-y-1.5">
+      <h2 class="text-xs font-medium text-textMuted/80 px-2 tracking-wide uppercase">课程与提醒</h2>
+      <div class="bg-cardDark rounded-2xl border border-borderDark overflow-hidden divide-y divide-borderDark/60 shadow-sm">
+        
+        <!-- Row 1: 课程路线总览 -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-textMuted flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">alt_route</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">课程路线总览</span>
+          </div>
+          <span class="material-symbols-outlined text-[18px] text-textDim">chevron_right</span>
+        </div>
+
+        <!-- Row 2: 通知时间 -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-textMuted flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">notifications</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">通知时间</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-textMuted">工作日 20:30 · 周末 14:00</span>
+            <span class="material-symbols-outlined text-[18px] text-textDim ml-0.5">chevron_right</span>
+          </div>
+        </div>
+
+        <!-- Row 3: 周目标 -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-textMuted flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">flag</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">周目标</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-textMuted">3 次 × 30 分钟</span>
+            <span class="material-symbols-outlined text-[18px] text-textDim ml-0.5">chevron_right</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Group Card: AI 助教 Neko -->
+    <section class="space-y-1.5">
+      <div class="flex items-center justify-between px-2">
+        <h2 class="text-xs font-medium text-textMuted/80 tracking-wide uppercase flex items-center gap-1.5">
+          <span>AI 助教 Neko</span>
+          <span class="text-[10px] text-amberAccent font-normal bg-amberAccent/10 px-1.5 py-0.2 rounded">Plus</span>
+        </h2>
+      </div>
+      <div class="bg-cardDark rounded-2xl border border-borderDark overflow-hidden divide-y divide-borderDark/60 shadow-sm">
+        
+        <!-- Row 1: 火山方舟 API Key -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-amberAccent/10 border border-amberAccent/20 flex items-center justify-center text-amberAccent flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">key</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">火山方舟 API Key</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"></span>
+            <span class="text-xs text-textMuted">已设置</span>
+            <span class="material-symbols-outlined text-[18px] text-textDim ml-0.5">chevron_right</span>
+          </div>
+        </div>
+
+        <!-- Row 2: 默认模型 -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-textMuted flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">smart_toy</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">默认模型</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-textMuted font-mono">doubao-seed-2.0-pro</span>
+            <span class="material-symbols-outlined text-[18px] text-textDim ml-0.5">chevron_right</span>
+          </div>
+        </div>
+
+        <!-- Row 3: 练琴笔记 -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-textMuted flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">auto_stories</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">练琴笔记</span>
+          </div>
+          <span class="material-symbols-outlined text-[18px] text-textDim">chevron_right</span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Group Card: 数据 -->
+    <section class="space-y-1.5">
+      <h2 class="text-xs font-medium text-textMuted/80 px-2 tracking-wide uppercase">数据</h2>
+      <div class="bg-cardDark rounded-2xl border border-borderDark overflow-hidden divide-y divide-borderDark/60 shadow-sm">
+        
+        <!-- Row 1: 导出我的全部数据 -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-textMuted flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">download</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">导出我的全部数据</span>
+          </div>
+          <span class="material-symbols-outlined text-[18px] text-textDim">chevron_right</span>
+        </div>
+
+        <!-- Row 2: 从备份恢复 -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-textMuted flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">history</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">从备份恢复</span>
+          </div>
+          <span class="material-symbols-outlined text-[18px] text-textDim">chevron_right</span>
+        </div>
+
+        <!-- Row 3: 存储占用 -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-textMuted flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">storage</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">存储占用</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-textMuted">1.2 GB（视频 0.9 GB）</span>
+            <span class="material-symbols-outlined text-[18px] text-textDim ml-0.5">chevron_right</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Group Card: 关于 -->
+    <section class="space-y-1.5 pb-4">
+      <h2 class="text-xs font-medium text-textMuted/80 px-2 tracking-wide uppercase">关于</h2>
+      <div class="bg-cardDark rounded-2xl border border-borderDark overflow-hidden divide-y divide-borderDark/60 shadow-sm">
+        
+        <!-- Row 1: 隐私与红线 -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-textMuted flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">security</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">隐私与红线</span>
+          </div>
+          <span class="material-symbols-outlined text-[18px] text-textDim">chevron_right</span>
+        </div>
+
+        <!-- Row 2: 关于 PianoSempai -->
+        <div class="p-3.5 flex items-center justify-between active:bg-white/[0.03] transition-colors cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-textMuted flex-shrink-0">
+              <span class="material-symbols-outlined text-[17px]">info</span>
+            </div>
+            <span class="text-sm font-medium text-textMain">关于 PianoSempai</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-textMuted font-mono">v0.1.0</span>
+            <span class="material-symbols-outlined text-[18px] text-textDim ml-0.5">chevron_right</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- App Subtle Footer -->
+      <div class="pt-3 pb-2 text-center text-[11px] text-textDim font-serif tracking-widest uppercase opacity-70">
+        PianoSempai · 静夜琴房
+      </div>
+    </section>
+
+  </main>
+
+  <!-- iOS Bottom Navigation Bar (5 tabs: 今日/曲库/练习室/档案/我的 with 我的 Amber Active) -->
+  <nav class="fixed bottom-0 left-0 right-0 w-[390px] mx-auto bg-bgDark/90 backdrop-blur-xl border-t border-borderDark/80 px-3 pt-2 pb-5 z-40">
+    <div class="grid grid-cols-5 items-center">
+      
+      <!-- Tab 1: 今日 -->
+      <a href="#" class="flex flex-col items-center justify-center py-1 text-textMuted hover:text-textMain transition-colors">
+        <span class="material-symbols-outlined text-[22px]">calendar_today</span>
+        <span class="text-[10px] mt-1 font-medium tracking-tight">今日</span>
+      </a>
+
+      <!-- Tab 2: 曲库 -->
+      <a href="#" class="flex flex-col items-center justify-center py-1 text-textMuted hover:text-textMain transition-colors">
+        <span class="material-symbols-outlined text-[22px]">library_music</span>
+        <span class="text-[10px] mt-1 font-medium tracking-tight">曲库</span>
+      </a>
+
+      <!-- Tab 3: 练习室 -->
+      <a href="#" class="flex flex-col items-center justify-center py-1 text-textMuted hover:text-textMain transition-colors">
+        <span class="material-symbols-outlined text-[22px]">piano</span>
+        <span class="text-[10px] mt-1 font-medium tracking-tight">练习室</span>
+      </a>
+
+      <!-- Tab 4: 档案 -->
+      <a href="#" class="flex flex-col items-center justify-center py-1 text-textMuted hover:text-textMain transition-colors">
+        <span class="material-symbols-outlined text-[22px]">insights</span>
+        <span class="text-[10px] mt-1 font-medium tracking-tight">档案</span>
+      </a>
+
+      <!-- Tab 5: 我的 (Active Amber) -->
+      <a href="#" class="flex flex-col items-center justify-center py-1 text-amberAccent">
+        <span class="material-symbols-outlined fill-1 text-[22px]">person</span>
+        <span class="text-[10px] mt-1 font-semibold tracking-tight">我的</span>
+      </a>
+
+    </div>
+
+    <!-- Home Indicator -->
+    <div class="w-32 h-1 bg-textMain/20 rounded-full mx-auto mt-2.5"></div>
+  </nav>
+
+</body>
+</html>

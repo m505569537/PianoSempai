@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>PianoSempai - 问 Neko (S18)</title>
+  <!-- Google Fonts: Noto Serif SC & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Serif+SC:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bgDark: '#1C1917',
+            cardBg: '#262220',
+            cardBorder: '#332D29',
+            amberAccent: '#D4A24E',
+            textMain: '#F5F2ED',
+            textMuted: '#9C948B',
+            userBubbleBg: '#2E261F',
+            userBubbleBorder: '#4A3B2C',
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #1C1917;
+      color: #F5F2ED;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      user-select: none;
+    }
+    /* Custom scrollbar for subtle feel */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #332D29;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-bgDark flex justify-center text-textMain antialiased selection:bg-amberAccent/20">
+
+  <!-- Mobile Container: 390px full-bleed frame -->
+  <main class="w-full max-w-[390px] min-h-screen h-screen flex flex-col justify-between bg-bgDark relative overflow-hidden shadow-2xl border-x border-cardBorder/40">
+
+    <!-- Top Grab Handle Bar & Status Bar Space -->
+    <header class="w-full pt-3 px-4 pb-2.5 bg-bgDark/95 backdrop-blur-md z-30 border-b border-cardBorder/60 flex-shrink-0">
+      <!-- Sheet Grab Handle -->
+      <div class="w-full flex justify-center mb-3">
+        <div class="w-10 h-1 rounded-full bg-[#443E3A]"></div>
+      </div>
+
+      <!-- Header Row: Cat Avatar + Serif Title + Close Button -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <!-- Small Round Amber Cat-Face Avatar -->
+          <div class="w-8 h-8 rounded-full bg-amberAccent/15 border border-amberAccent/40 flex items-center justify-center text-amberAccent shadow-inner">
+            <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58 1.42 3.82.5 5.74A8.8 8.8 0 0 1 22 13.5C22 18.2 17.52 22 12 22S2 18.2 2 13.5a8.8 8.8 0 0 1 1.08-4.76C2.16 6.82 2.18 3.58 3.58 3c1.4-.58 4.65.26 6.42 2.26.65-.17 1.33-.26 2-.26z"/>
+              <!-- Cat Ears & Face Details -->
+              <circle cx="9" cy="13" r="1" fill="currentColor"/>
+              <circle cx="15" cy="13" r="1" fill="currentColor"/>
+              <path d="M10 16.5c1 .8 3 .8 4 0"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="font-serif text-lg font-semibold tracking-wide text-textMain">问 Neko</h1>
+          </div>
+        </div>
+
+        <!-- Right Close X Button -->
+        <button type="button" aria-label="关闭" class="w-8 h-8 rounded-full flex items-center justify-center text-textMuted hover:text-textMain hover:bg-cardBg transition-colors">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Subtle Context Chip Under Header -->
+      <div class="mt-2.5 flex items-center gap-1.5">
+        <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cardBg border border-cardBorder text-[11px] text-textMuted tracking-tight">
+          <span class="w-1.5 h-1.5 rounded-full bg-amberAccent animate-pulse"></span>
+          <span>上下文：拜厄45 · 今天 20:31 的 take</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Chat Sheet Body / Conversation Area -->
+    <div class="flex-1 overflow-y-auto px-4 py-4 space-y-4 text-[13.5px] leading-relaxed">
+
+      <!-- User Bubble 1 (Right, dark amber-tinted card) -->
+      <div class="flex flex-col items-end gap-1">
+        <div class="max-w-[85%] bg-userBubbleBg border border-userBubbleBorder text-textMain px-3.5 py-2.5 rounded-2xl rounded-tr-sm shadow-sm">
+          第21小节我到底哪里有问题？
+        </div>
+        <span class="text-[10px] text-textMuted/60 px-1">20:32</span>
+      </div>
+
+      <!-- Neko Bubble 1 (Left, #262220 card) -->
+      <div class="flex flex-col items-start gap-1.5 max-w-[92%]">
+        <div class="bg-cardBg border border-cardBorder text-textMain px-3.5 py-3 rounded-2xl rounded-tl-sm shadow-sm space-y-3">
+          <p class="text-textMain leading-[1.6]">
+            你在第 21 小节的两次接弹都慢了约 120ms，集中在右手 3指转 1指的位置；音没有弹错。建议先用 ♩=60 单手练这一小节 4 遍，能稳定在 ±40ms 内再合手。
+          </p>
+          
+          <!-- Citation Chips -->
+          <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1C1917] border border-cardBorder text-[11px] font-mono text-amberAccent">
+              <svg class="w-3 h-3 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              take 今天20:31
+            </span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1C1917] border border-cardBorder text-[11px] font-mono text-amberAccent">
+              <svg class="w-3 h-3 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+              小节 21 · +120ms
+            </span>
+          </div>
+        </div>
+        <span class="text-[10px] text-textMuted/60 px-1">20:32 · Neko</span>
+      </div>
+
+      <!-- User Bubble 2 (Right, dark amber-tinted card with video thumbnail) -->
+      <div class="flex flex-col items-end gap-1">
+        <div class="max-w-[85%] bg-userBubbleBg border border-userBubbleBorder text-textMain p-3 rounded-2xl rounded-tr-sm shadow-sm space-y-2">
+          <div>我录了侧拍，帮我看看手型</div>
+          
+          <!-- Video Attachment Thumbnail -->
+          <div class="flex items-center gap-2.5 p-2 rounded-xl bg-[#1C1917]/90 border border-cardBorder group cursor-pointer hover:border-amberAccent/40 transition-colors">
+            <!-- Simulated Piano Keyboard / Hand Camera Frame -->
+            <div class="w-14 h-11 rounded-lg bg-[#2E2822] relative overflow-hidden flex items-center justify-center flex-shrink-0 border border-cardBorder">
+              <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+              <!-- Mini play icon -->
+              <div class="w-5 h-5 rounded-full bg-amberAccent/80 text-bgDark flex items-center justify-center z-10">
+                <svg class="w-2.5 h-2.5 ml-0.5" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              </div>
+            </div>
+            <div class="flex flex-col justify-center min-w-0 pr-1">
+              <span class="text-xs font-medium text-textMain tracking-tight">侧拍 0:32</span>
+              <span class="text-[10px] text-textMuted">视频 · 1080P</span>
+            </div>
+          </div>
+        </div>
+        <span class="text-[10px] text-textMuted/60 px-1">20:33</span>
+      </div>
+
+      <!-- Neko Reply Card 2 (Left, muted card + amber action button) -->
+      <div class="flex flex-col items-start gap-1.5 max-w-[92%]">
+        <div class="bg-cardBg border border-cardBorder text-textMain px-3.5 py-3 rounded-2xl rounded-tl-sm shadow-sm space-y-3">
+          <p class="text-textMuted leading-[1.6]">
+            这段视频里我看不清 1 指的触键角度（机位被琴谱挡住了），这个问题我不能确定。
+          </p>
+
+          <!-- Amber Outlined Action Button -->
+          <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amberAccent text-amberAccent text-xs font-medium hover:bg-amberAccent/10 active:scale-98 transition-all">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+            <span>重新校准机位</span>
+          </button>
+        </div>
+        <span class="text-[10px] text-textMuted/60 px-1">20:33 · Neko</span>
+      </div>
+
+    </div>
+
+    <!-- Bottom Input Area (Fixed Sheet Footer) -->
+    <footer class="w-full bg-bgDark border-t border-cardBorder/70 p-3 pt-2 pb-5 flex-shrink-0">
+      <!-- Input Box Container -->
+      <div class="flex items-center gap-2 bg-cardBg border border-cardBorder rounded-2xl px-2.5 py-1.5 focus-within:border-amberAccent/70 transition-colors shadow-inner">
+        <!-- Media Action Buttons: Paperclip & Video-camera -->
+        <div class="flex items-center gap-1 text-textMuted">
+          <button type="button" aria-label="附件" class="w-7 h-7 rounded-full flex items-center justify-center hover:text-textMain hover:bg-[#332D29]/50 transition-colors">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l7.88-7.88"/>
+            </svg>
+          </button>
+          <button type="button" aria-label="录制视频" class="w-7 h-7 rounded-full flex items-center justify-center hover:text-textMain hover:bg-[#332D29]/50 transition-colors">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="23 7 16 12 23 17 23 7"/>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Text Input Field -->
+        <input 
+          type="text" 
+          placeholder="问问这一段…" 
+          class="flex-1 bg-transparent border-none outline-none text-textMain placeholder:text-textMuted/60 text-[13.5px] px-1 py-1"
+        />
+
+        <!-- Amber Send Button -->
+        <button type="button" aria-label="发送" class="w-8 h-8 rounded-xl bg-amberAccent text-bgDark flex items-center justify-center hover:bg-amberAccent/90 active:scale-95 transition-all shadow-sm">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Footnote Muted Notice -->
+      <div class="text-center mt-2.5">
+        <p class="text-[11px] text-textMuted/75 tracking-tight">
+          Neko 只有建议权，不会替你解锁过关
+        </p>
+      </div>
+    </footer>
+
+  </main>
+</body>
+</html>

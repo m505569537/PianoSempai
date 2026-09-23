@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>PianoSempai - 热身强开确认</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            app: '#1C1917',
+            card: '#262220',
+            'card-border': '#332D29',
+            amber: '#D4A24E',
+            red: '#C97064',
+            'tx-primary': '#F5F2ED',
+            'tx-muted': '#9C948B',
+            'hairline-amber': 'rgba(212, 162, 78, 0.28)'
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+  </style>
+</head>
+<body class="bg-[#100E0D] text-tx-primary font-sans antialiased min-h-screen flex justify-center items-center p-0 m-0">
+  <!-- 390x844 iPhone Portrait Frame (Full Bleed column, no outer device bezel) -->
+  <div class="relative w-[390px] h-[844px] max-h-[844px] overflow-hidden bg-app flex flex-col justify-between select-none shadow-2xl">
+    
+    <!-- BACKGROUND: Dimmed & Blurred Today screen (~40% opacity) -->
+    <div class="absolute inset-0 pointer-events-none opacity-40 filter blur-[2px] z-0 flex flex-col px-5 pt-3 pb-8">
+      <!-- Status bar placeholder -->
+      <div class="flex justify-between items-center text-xs font-semibold text-tx-muted mb-4 pt-2">
+        <span>9:41</span>
+        <div class="flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[14px]">signal_cellular_alt</span>
+          <span class="material-symbols-outlined text-[14px]">wifi</span>
+          <span class="material-symbols-outlined text-[16px]">battery_full</span>
+        </div>
+      </div>
+
+      <!-- Top Greeting & Status Pill -->
+      <div class="flex justify-between items-center mb-5">
+        <h1 class="font-serif text-2xl font-medium tracking-tight text-tx-primary">今日</h1>
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-card border border-card-border text-[11px] text-tx-muted">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber"></span>
+          <span>已连接 · 特伦斯 V70</span>
+        </div>
+      </div>
+
+      <!-- Weekly Progress -->
+      <div class="bg-card border border-card-border rounded-xl p-3.5 mb-4">
+        <div class="flex justify-between text-xs mb-2">
+          <span class="text-tx-primary font-medium">本周 2/3 次</span>
+          <span class="text-tx-muted">连续达标 5 周</span>
+        </div>
+        <div class="flex justify-between items-center pt-1">
+          <div class="w-8 h-8 rounded-full bg-amber/20 border border-amber/40 text-amber flex items-center justify-center text-xs">一</div>
+          <div class="w-8 h-8 rounded-full bg-amber/20 border border-amber/40 text-amber flex items-center justify-center text-xs">二</div>
+          <div class="w-8 h-8 rounded-full border border-card-border text-tx-muted flex items-center justify-center text-xs">三</div>
+          <div class="w-8 h-8 rounded-full border border-card-border text-tx-muted flex items-center justify-center text-xs">四</div>
+          <div class="w-8 h-8 rounded-full border border-card-border text-tx-muted flex items-center justify-center text-xs">五</div>
+          <div class="w-8 h-8 rounded-full border border-card-border text-tx-muted flex items-center justify-center text-xs">六</div>
+          <div class="w-8 h-8 rounded-full border border-card-border text-tx-muted flex items-center justify-center text-xs">日</div>
+        </div>
+      </div>
+
+      <!-- Today Tasks section -->
+      <div class="text-xs text-tx-muted mb-2 font-medium tracking-wider">今日任务</div>
+
+      <!-- Warmup Card (Hard-gate target: showing unfinished ring) -->
+      <div class="bg-card border border-card-border rounded-xl p-4 mb-3 relative overflow-hidden">
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-3">
+            <!-- Progress Ring Unfinished (3/8 min) -->
+            <div class="relative w-10 h-10 flex items-center justify-center">
+              <svg class="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#332D29" stroke-width="3"></circle>
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#D4A24E" stroke-width="3" stroke-dasharray="97.4" stroke-dashoffset="61" stroke-linecap="round"></circle>
+              </svg>
+              <span class="absolute text-[10px] text-amber font-mono font-medium">3/8</span>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber/15 text-amber">热身</span>
+                <span class="font-serif text-sm text-tx-primary font-medium">热身 · 哈农1（8分钟）</span>
+              </div>
+              <p class="text-[11px] text-tx-muted mt-1">高抬指慢练 · 仍需 5 分钟</p>
+            </div>
+          </div>
+          <span class="text-[11px] text-red font-medium">未完成</span>
+        </div>
+      </div>
+
+      <!-- Main Course Card -->
+      <div class="bg-card border border-card-border rounded-xl p-4 mb-3 opacity-60">
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-card-border text-tx-muted">主菜</span>
+          <span class="font-serif text-sm text-tx-primary">拜厄 第45条</span>
+        </div>
+        <p class="text-[11px] text-tx-muted mt-1">17-24 小节 · 18 分钟</p>
+      </div>
+
+      <!-- Bonus Card -->
+      <div class="bg-card border border-card-border rounded-xl p-4 opacity-40">
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-card-border text-tx-muted">奖励曲</span>
+          <span class="font-serif text-sm text-tx-primary">《Summer》久石让</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- OVERLAY SHADOW & MODAL CONTAINER -->
+    <div class="relative z-10 w-full h-full flex flex-col justify-end bg-black/60 backdrop-blur-[4px]">
+      
+      <!-- Top iOS Status bar on overlay -->
+      <div class="absolute top-0 inset-x-0 px-7 pt-3.5 flex justify-between items-center text-xs font-semibold text-tx-primary/80 z-20">
+        <span>9:41</span>
+        <div class="flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[15px]">signal_cellular_alt</span>
+          <span class="material-symbols-outlined text-[15px]">wifi</span>
+          <span class="material-symbols-outlined text-[17px]">battery_full</span>
+        </div>
+      </div>
+
+      <!-- Bottom-sheet Style Modal Card -->
+      <div class="w-full bg-card border-t border-card-border rounded-t-[28px] px-6 pt-5 pb-7 flex flex-col shadow-[0_-12px_40px_rgba(0,0,0,0.65)] animate-in fade-in slide-in-from-bottom-6 duration-300">
+        
+        <!-- Sheet Handle -->
+        <div class="w-9 h-1 rounded-full bg-card-border self-center mb-4"></div>
+
+        <!-- Header: Lock Icon & Title -->
+        <div class="flex items-center gap-2 mb-2">
+          <div class="w-6 h-6 rounded-full bg-red/15 flex items-center justify-center flex-shrink-0">
+            <span class="material-symbols-outlined text-red text-[16px]">lock</span>
+          </div>
+          <h2 class="font-serif text-[19px] font-semibold text-tx-primary tracking-tight">热身还没完成</h2>
+        </div>
+
+        <!-- Body text -->
+        <p class="text-[13px] leading-relaxed text-tx-muted mb-4 font-normal">
+          今天的热身还差 5 分钟。热身是为了保护手，规则上不能直接进入主菜。你仍然可以手动强开，但这会被记录在月报里。
+        </p>
+
+        <!-- Section Label -->
+        <div class="flex items-center justify-between mb-2.5">
+          <span class="text-[12px] font-medium text-tx-muted tracking-wide">强开原因（必选）</span>
+          <span class="text-[10px] text-amber/80 font-normal">记录于个人档案</span>
+        </div>
+
+        <!-- 4 Selectable Reason Rows with Radio -->
+        <div class="space-y-2 mb-4">
+          <!-- Row 1 (Selected amber radio) -->
+          <div class="flex items-center justify-between px-3.5 py-3 rounded-xl bg-app/80 border border-amber/40 cursor-pointer">
+            <span class="text-[13px] text-tx-primary font-medium">时间不够，只弹主菜</span>
+            <div class="w-4 h-4 rounded-full border-2 border-amber flex items-center justify-center flex-shrink-0">
+              <div class="w-2 h-2 rounded-full bg-amber"></div>
+            </div>
+          </div>
+
+          <!-- Row 2 -->
+          <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-app/40 border border-card-border/70 hover:border-card-border cursor-pointer transition-colors">
+            <span class="text-[13px] text-tx-muted">手状态不错，今天跳过</span>
+            <div class="w-4 h-4 rounded-full border border-card-border flex-shrink-0"></div>
+          </div>
+
+          <!-- Row 3 -->
+          <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-app/40 border border-card-border/70 hover:border-card-border cursor-pointer transition-colors">
+            <span class="text-[13px] text-tx-muted">热身曲太无聊</span>
+            <div class="w-4 h-4 rounded-full border border-card-border flex-shrink-0"></div>
+          </div>
+
+          <!-- Row 4 ('其他' not selected, show no extra input) -->
+          <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-app/40 border border-card-border/70 hover:border-card-border cursor-pointer transition-colors">
+            <span class="text-[13px] text-tx-muted">其他（写一句）</span>
+            <div class="w-4 h-4 rounded-full border border-card-border flex-shrink-0"></div>
+          </div>
+        </div>
+
+        <!-- Amber Hairline Warning Box -->
+        <div class="bg-amber/10 border border-hairline-amber rounded-xl p-3 mb-5 flex items-start gap-2.5">
+          <span class="material-symbols-outlined text-amber text-[18px] flex-shrink-0 mt-0.5">info</span>
+          <p class="text-[11.5px] leading-relaxed text-amber/95 font-normal">
+            强开记录：本周第 1 次 · 将出现在周日 Neko 周报，不会影响任何解锁判定。
+          </p>
+        </div>
+
+        <!-- Two Buttons Stacked -->
+        <div class="flex flex-col gap-2.5">
+          <!-- Primary CTA: Solid Amber, Dark Text -->
+          <button class="w-full py-3.5 px-4 rounded-xl bg-amber text-app font-medium text-[14px] tracking-wide flex items-center justify-center shadow-lg shadow-amber/10 active:scale-[0.99] transition-transform">
+            我确认强开，开始主菜
+          </button>
+          
+          <!-- Secondary Ghost CTA -->
+          <button class="w-full py-3 px-4 rounded-xl bg-transparent border border-card-border text-tx-muted hover:text-tx-primary hover:border-tx-muted/40 font-medium text-[13.5px] flex items-center justify-center transition-colors">
+            去补完热身（5 分钟）
+          </button>
+        </div>
+
+        <!-- Home Indicator Bar -->
+        <div class="w-32 h-1 bg-tx-muted/25 rounded-full mx-auto mt-5"></div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
