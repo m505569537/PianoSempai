@@ -34,7 +34,7 @@ struct S13bMarkSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        NocturneBottomDrawer {
             HStack {
                 Text("标记疑似谱面错误")
                     .font(.headlineSm)
@@ -52,6 +52,7 @@ struct S13bMarkSheet: View {
             Text("\(scoreName) · 第\(measure)小节")
                 .font(.bodySm)
                 .foregroundStyle(Color.textMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
                 .padding(.top, 6)
 
@@ -76,17 +77,20 @@ struct S13bMarkSheet: View {
                 .font(.bodySm)
                 .leading(19, fontSize: 12)
                 .foregroundStyle(Color.textBody)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
             Text("这个标记不会扣分，也不会影响过关。")
                 .font(.bodySm)
                 .foregroundStyle(Color.amber)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
                 .padding(.top, 4)
 
             Text("哪里不对？")
                 .font(.bodyMd)
                 .foregroundStyle(Color.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
                 .padding(.top, 14)
             HStack(spacing: 8) {
@@ -117,17 +121,14 @@ struct S13bMarkSheet: View {
                 Text("这一小节你已标记 \(existingCount) 次，再次提交将合并计数。")
                     .font(.labelSm)
                     .foregroundStyle(Color.textMuted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
             }
 
             HStack(spacing: 12) {
                 Button("取消") { dismiss() }
-                    .font(.titleMd)
-                    .foregroundStyle(Color.textBody)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.amber.opacity(0.3), lineWidth: 1))
+                    .buttonStyle(SecondaryButtonStyle(cornerRadius: 8))
                 Button {
                     onSubmit(selected.rawValue, noteText)
                     dismiss()
@@ -140,7 +141,5 @@ struct S13bMarkSheet: View {
             .padding(.top, 16)
             .padding(.bottom, 20)
         }
-        .background(Color.cardElevated)
-        .preferredColorScheme(.dark)
     }
 }

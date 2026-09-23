@@ -44,6 +44,8 @@ final class PracticeSession: ObservableObject {
     @Published var toast: String?
     /// 时间到（自动保存）标志：弹完当前小节由视图收尾
     @Published private(set) var timeUp = false
+    /// 演奏已进行的整秒数（每秒心跳驱动；进度条/计时读它才会刷新，而非现算 Date()）
+    @Published private(set) var elapsedSec = 0
     /// 自由弹奏音符流（S14 卷帘：pitch + 相对秒）
     @Published private(set) var playedNotes: [(pitch: UInt8, sec: Double)] = []
 
@@ -101,6 +103,7 @@ final class PracticeSession: ObservableObject {
         pedalCount = 0
         midiEventCount = 0
         timeUp = false
+        elapsedSec = 0
         interruptionStarts = []
         fileURL = try? TakeStore.makeFileURL()
         passStartWrongCount = 0
@@ -144,13 +147,21 @@ final class PracticeSession: ObservableObject {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                guard let self, self.phase == .performing, !self.timeUp else { return }
-                if let limit = self.timeLimitSec,
-                   let startedAt = self.startedAt,
-                   Int(Date().timeIntervalSince(startedAt)) >= limit {
-                    self.timeUp = true // "时间到，已自动保存"底部条（不截断，视图收尾）
-                }
+                self?.tick(now: Date())
             }
+        }
+    }
+
+    /// 每秒心跳（纯决策，可单测；Timer 只负责喂当前时间）：
+    /// - 仅在 performing 且未到点时推进；
+    /// - 用 startedAt 现算整秒写入 elapsedSec（@Published，驱动进度条/计时重绘）；
+    /// - 达到时长上限则置 timeUp，由视图收尾。
+    /// 关键：elapsedSec 必须在这里每秒发布，否则视图里现算 Date() 没有重绘触发，计时冻在 0:00。
+    func tick(now: Date) {
+        guard phase == .performing, !timeUp, let startedAt else { return }
+        elapsedSec = Int(now.timeIntervalSince(startedAt))
+        if let limit = timeLimitSec, elapsedSec >= limit {
+            timeUp = true
         }
     }
 

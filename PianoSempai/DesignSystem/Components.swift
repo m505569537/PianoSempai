@@ -144,3 +144,57 @@ struct StepIndicator: View {
         return Color.borderInput
     }
 }
+
+// MARK: - 暖色底部抽屉容器（S12/S13b 共用）
+// 设计稿（visual-system §1 + S12「Sheet」）：暖色 scrim rgba(12,10,9,.6) 全屏压暗 +
+// 顶部圆角 12 的 cardElevated 抽屉。系统 .sheet 默认压暗是中性冷材质（实测 rgb≈27,31,25 带绿味），
+// 故用 presentationBackground(.clear) 去掉系统材质，自绘 scrim 与卡片。iOS 17+。
+
+struct NocturneBottomDrawer<Content: View>: View {
+    /// 点 scrim（抽屉外）是否关闭；默认关
+    var dismissOnScrimTap: Bool = true
+    @ViewBuilder var content: Content
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            // 暖色压暗：铺满全屏；点它关闭抽屉（标准抽屉行为，也给用户一个明显的返回区）
+            Color.scrim
+                .ignoresSafeArea()
+                .onTapGesture {
+                    if dismissOnScrimTap { dismiss() }
+                }
+
+            // 抽屉卡：顶部圆角 12，底部贴边
+            VStack(alignment: .leading, spacing: 0) {
+                content
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                Color.cardElevated
+                    .clipShape(UnevenRoundedRectangle(
+                        topLeadingRadius: 12, bottomLeadingRadius: 0,
+                        bottomTrailingRadius: 0, topTrailingRadius: 12,
+                        style: .continuous))
+            )
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .preferredColorScheme(.dark)
+        .presentationDetents([.large])
+        .presentationBackground(Color.clear)
+    }
+}
+
+/// 抽屉顶部抓手条（S12/S13b 顶部 12pt，#3D3531 宽 36）
+struct DrawerGrabHandle: View {
+    var body: some View {
+        HStack {
+            Spacer()
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.borderInput)
+                .frame(width: 36, height: 4)
+            Spacer()
+        }
+        .padding(.top, 12)
+    }
+}

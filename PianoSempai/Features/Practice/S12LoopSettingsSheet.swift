@@ -19,14 +19,8 @@ struct S12LoopSettingsSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // 抓手条
-            HStack {
-                Spacer()
-                RoundedRectangle(cornerRadius: 2).fill(Color.borderInput).frame(width: 36, height: 4)
-                Spacer()
-            }
-            .padding(.top, 12)
+        NocturneBottomDrawer {
+            DrawerGrabHandle()
 
             HStack {
                 Text("段落循环")
@@ -114,11 +108,7 @@ struct S12LoopSettingsSheet: View {
 
             HStack(spacing: 12) {
                 Button("取消") { dismiss() }
-                    .font(.titleMd)
-                    .foregroundStyle(Color.textBody)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.amber.opacity(0.3), lineWidth: 1))
+                    .buttonStyle(SecondaryButtonStyle(cornerRadius: 8))
                 Button {
                     applyAndStart()
                 } label: {
@@ -126,13 +116,10 @@ struct S12LoopSettingsSheet: View {
                 }
                 .buttonStyle(PrimaryButtonStyle(isEnabled: rangeValid, cornerRadius: 8))
                 .disabled(!rangeValid)
-                .frame(maxWidth: .infinity)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 16)
         }
-        .background(Color.cardElevated)
-        .preferredColorScheme(.dark)
         .onAppear {
             guard !initialized else { return }
             initialized = true

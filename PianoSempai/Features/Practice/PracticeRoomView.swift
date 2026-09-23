@@ -35,6 +35,8 @@ struct PracticeRoomView: View {
 
     @State private var loadedScore: Score?
     @State private var loadError: String?
+    /// 每行小节数（0=自动；全局显示偏好，谱面滚动视图据此重排）。
+    @AppStorage(ScoreDisplayPrefs.measuresPerLineKey) private var measuresPerLine = 0
     @State private var metronomeOn = false
     @State private var showLoopSheet = false
     @State private var showTempoPanel = false
@@ -49,7 +51,7 @@ struct PracticeRoomView: View {
     var body: some View {
         ZStack {
             VStack(alignment: .leading, spacing: 0) {
-                header
+                if hub.isConnected { header } else { disconnectedHeader }
                 scoreArea
                 nextMeasureLabel.padding(.top, 6)
                 progressLine.padding(.top, 10)
@@ -59,19 +61,12 @@ struct PracticeRoomView: View {
                 }
                 playButton.padding(.top, 18)
                 finishButton.padding(.top, 14)
-                Spacer(minLength: 0)
             }
             .padding(.horizontal, 20)
             .background(Color.canvas)
 
             if !hub.isConnected {
-                S11bDisconnectedOverlay(
-                    waitingText: MIDIDeviceLabel.waitingText(
-                        for: MIDIDeviceLabel.state(isConnected: hub.isConnected, mode: hub.mode)
-                    ),
-                    onReconnect: reconnect,
-                    onExit: { finishAndSave() }
-                )
+                S11bDisconnectedOverlay(waitingText: waitingText)
             }
 
             // B8：「示范播放中」pill —— MIDI 断连不停示范（S11b 只暂停判分），
@@ -195,22 +190,60 @@ struct PracticeRoomView: View {
         return scoreFile?.title ?? "练习"
     }
 
+    /// 已进入练习室后的「等待重连」文案（覆盖层居中卡用；口径与旧内联一致）。
+    private var waitingText: String {
+        MIDIDeviceLabel.waitingText(
+            for: MIDIDeviceLabel.state(isConnected: hub.isConnected, mode: hub.mode)
+        )
+    }
+
+    /// 断连顶栏（问题1）：断连时用它「替换」正常 header —— 只有一套顶栏，
+    /// 不会再像旧实现那样把半透明横幅压在 header 上造成两套文字穿插。
+    /// 左：返回（走与正常 header 相同的退出确认）；中：MIDI 已断开 · 暂停；右：重新连接。
+    private var disconnectedHeader: some View {
+        HStack(spacing: 8) {
+            Button {
+                exitConfirm = true
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(Color.danger)
+                    .frame(width: 36, height: 36)
+            }
+            HStack(spacing: 5) {
+                Circle().fill(Color.danger).frame(width: 7, height: 7)
+                Text("MIDI 已断开 · 判分已暂停")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color.danger)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Button(action: reconnect) {
+                Text("重新连接")
+                    .font(.bodySm)
+                    .foregroundStyle(Color.danger)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .overlay(Capsule().strokeBorder(Color.danger, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.top, 8)
+    }
+
     // MARK: 谱区（真实引擎渲染）
 
     private var scoreArea: some View {
         Group {
             if let loadedScore {
-                ScrollView {
-                    ScoreView(
-                        score: loadedScore,
-                        options: ScoreViewOptions(wrapToViewWidth: true),
-                        playbackCursor: cursor,
-                        playbackCursorColor: Color.amber.opacity(0.25),
-                        availableWidth: UIScreen.main.bounds.width - 64,
-                    )
-                    .padding(.vertical, 8)
-                }
-                .frame(maxHeight: UIScreen.main.bounds.height * 0.42)
+                PracticeScoreScrollView(
+                    score: loadedScore,
+                    measuresPerLine: measuresPerLine,
+                    cursor: cursor,
+                )
+                // 弹性高度：谱区填满底部控件以上的全部可用空间（问题5），
+                // 不再写死屏高 0.42；外层 VStack 的 Spacer 让位给这里。
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.scorePaper, in: RoundedRectangle(cornerRadius: 8))
             } else if let loadError {
                 Text(loadError)
@@ -225,6 +258,39 @@ struct PracticeRoomView: View {
             }
         }
         .padding(.top, 10)
+        .overlay(alignment: .topTrailing) {
+            if loadedScore != nil {
+                layoutMenu.padding(10)
+            }
+        }
+    }
+
+    /// 每行小节数选择（问题4）。右上角轻量 Menu，不占控制卡名额；当前档显示在文字里。
+    private var layoutMenu: some View {
+        Menu {
+            ForEach(ScoreDisplayPrefs.choices, id: \.self) { choice in
+                Button {
+                    measuresPerLine = choice
+                } label: {
+                    HStack {
+                        Text(ScoreDisplayPrefs.label(for: choice))
+                        if choice == measuresPerLine {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "rectangle.split.3x1")
+                Text(ScoreDisplayPrefs.label(for: measuresPerLine))
+            }
+            .font(.labelSm)
+            .foregroundStyle(Color.textBody)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Color.cardElevated.opacity(0.88), in: Capsule())
+        }
     }
 
     /// 光标仲裁（B5，优先级从高到低）：
@@ -242,8 +308,21 @@ struct PracticeRoomView: View {
         return nil
     }
 
+    /// 示范 HUD 用光标：播放与暂停都保留（暂停时仍显示停在第几小节）；其余态为 nil。
+    /// 注意与 `cursor`（只在 playing 时跟、用于谱面光标/滚动）区分——这里是给文案读的。
+    private var demoHudCursor: ScoreCursor? {
+        (demo.state == .playing || demo.state == .paused) ? demo.currentCursor : nil
+    }
+
     private var nextMeasureLabel: some View {
-        Text(session.isFreePlay
+        if let demoHudCursor {
+            // 示范中：跟随示范光标所在小节（1-based）。
+            return Text("下一小节：\(demoHudCursor.measureIndex + 1)")
+                .font(.labelMd)
+                .foregroundStyle(Color.textMuted)
+                .monospacedDigit()
+        }
+        return Text(session.isFreePlay
             ? "自由跟弹 · 不判分"
             : "下一小节：\(session.followState.measureIndex + 1)")
             .font(.labelMd)
@@ -252,16 +331,26 @@ struct PracticeRoomView: View {
     }
 
     private var progressLine: some View {
-        let elapsed = session.startedAt.map { Int(Date().timeIntervalSince($0)) } ?? 0
+        let elapsed: Int
+        let fraction: Double
+        if demoHudCursor != nil {
+            // 示范中：时间=示范已播放秒；进度条按示范总时长填充。
+            elapsed = max(0, Int(demo.currentTimeSeconds))
+            let total = demo.totalTimeSeconds
+            fraction = total > 0 ? min(1, demo.currentTimeSeconds / total) : 0
+        } else {
+            elapsed = session.elapsedSec
+            let limit = timeLimitSec ?? 0
+            fraction = limit > 0 ? min(1, Double(elapsed) / Double(limit)) : 0
+        }
         let limit = timeLimitSec ?? 0
-        let fraction = limit > 0 ? min(1, Double(elapsed) / Double(limit)) : 0
         return VStack(spacing: 4) {
             HStack {
                 Text("── 当前走句进度 ──")
                     .font(.labelSm)
                     .foregroundStyle(Color.textMuted)
                 Spacer()
-                Text("\(format(elapsed))\(limit > 0 ? " / \(format(limit))" : "")")
+                Text("\(format(elapsed))\(demoHudCursor == nil && limit > 0 ? " / \(format(limit))" : "")")
                     .font(.labelMono(11))
                     .foregroundStyle(Color.textBody)
                     .monospacedDigit()
@@ -565,55 +654,18 @@ struct PracticeRoomView: View {
     }
 }
 
-// MARK: - S11b 断连覆盖态（横幅 + 遮罩卡；控件置灰由父层 playDisabled 控制）
+// MARK: - S11b 断连覆盖态（仅压暗谱面 + 居中等待卡；顶栏由父层 disconnectedHeader 替换）
 
 struct S11bDisconnectedOverlay: View {
     let waitingText: String
-    let onReconnect: () -> Void
-    let onExit: () -> Void
     @State private var showDistanceHint = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            // 顶部全宽 danger 横幅
-            VStack(spacing: 4) {
-                HStack {
-                    Circle().fill(Color.danger).frame(width: 7, height: 7)
-                    Text("MIDI 已断开 · 判分已暂停")
-                        .font(.bodyMd)
-                        .foregroundStyle(Color.danger)
-                    Spacer()
-                    Button(action: onReconnect) {
-                        Text("重新连接")
-                            .font(.bodySm)
-                            .foregroundStyle(Color.danger)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 5)
-                            .overlay(Capsule().strokeBorder(Color.danger, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                }
-                Text("重连后从断点继续，不丢音符")
-                    .font(.labelSm)
-                    .foregroundStyle(Color.textMuted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if showDistanceHint {
-                    Text("也可以检查：琴是否休眠 / 蓝牙距离")
-                        .font(.labelSm)
-                        .foregroundStyle(Color.textMuted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .padding(12)
-            .background(Color.danger.opacity(0.14))
-            .task {
-                try? await Task.sleep(for: .seconds(10))
-                showDistanceHint = true // 10 秒未重连追加提示（不弹 Alert）
-            }
+        ZStack {
+            // 压暗谱面（不销毁已录 MIDI）；不再放任何顶栏，避免与父层顶栏重叠。
+            Color.scrim.opacity(0.3).ignoresSafeArea()
 
-            Spacer()
-
-            // 谱区遮罩卡（谱面隐约可见，不销毁已录 MIDI）
+            // 居中等待卡：谱面隐约可见，重连/退出走父层顶栏。
             VStack(spacing: 10) {
                 Image(systemName: "wifi.slash")
                     .font(.system(size: 32))
@@ -621,19 +673,28 @@ struct S11bDisconnectedOverlay: View {
                 Text(waitingText)
                     .font(.bodyMd)
                     .foregroundStyle(Color.textBody)
+                Text("重连后从断点继续，不丢音符")
+                    .font(.labelSm)
+                    .foregroundStyle(Color.textMuted)
+                if showDistanceHint {
+                    Text("也可以检查：琴是否休眠 / 蓝牙距离")
+                        .font(.labelSm)
+                        .foregroundStyle(Color.textMuted)
+                }
             }
+            .multilineTextAlignment(.center)
             .padding(28)
-            .background(Color.canvas.opacity(0.72), in: RoundedRectangle(cornerRadius: 12))
+            .background(Color.canvas.opacity(0.82), in: RoundedRectangle(cornerRadius: 12))
             .padding(.horizontal, 40)
-
-            Spacer()
-
-            Button("不保存退出", action: onExit)
-                .font(.bodySm)
-                .foregroundStyle(Color.textMuted)
-                .padding(.bottom, 16)
         }
-        .background(Color.scrim.opacity(0.3).ignoresSafeArea())
+        .task {
+            try? await Task.sleep(for: .seconds(10))
+            showDistanceHint = true // 10 秒未重连在卡片内追加提示（不弹 Alert）
+        }
+        // 纯展示层：scrim 与卡片都不接收触摸，否则全屏 scrim 会盖掉父层顶栏
+        // 的「返回 / 重新连接」和底部控件（实测断连后整屏点不动的 P0 回归）。
+        // 底部哪些控件该禁用由父层各按钮的 disabled 状态决定，与本层无关。
+        .allowsHitTesting(false)
     }
 }
 

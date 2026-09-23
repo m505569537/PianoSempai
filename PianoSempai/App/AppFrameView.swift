@@ -56,11 +56,16 @@ struct AppFrameView: View {
             pageContent
 
             // 顶部连接胶囊（visual-system §6：右上线框胶囊）
-            HStack {
-                Spacer()
-                ConnectionPill(state: connectionState)
-                    .padding(.trailing, 20)
-                    .padding(.top, 6)
+            // D5（S07 视觉对齐）：今日页改用标题行内胶囊（TodayView §2.1）
+            // D6（S08 视觉对齐）：曲库页 header 右侧是「导入 + 搜索」两枚圆钮（LibraryView §2），
+            //   不放胶囊以免遮挡圆钮。故全局胶囊仅在今日、曲库两页之外显示。
+            if tab != .today && tab != .library {
+                HStack {
+                    Spacer()
+                    ConnectionPill(state: connectionState)
+                        .padding(.trailing, 20)
+                        .padding(.top, 6)
+                }
             }
         }
         .background(Color.canvas)
