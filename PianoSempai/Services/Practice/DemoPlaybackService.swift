@@ -2,13 +2,13 @@ import Foundation
 import Observation
 import SheetMusicAudioApple
 import SheetMusicAudioCore
-import SheetMusicAudioSwiftySynth
 import SheetMusicCore
 
 // 整曲示范播放服务（CURRENT.md Issue 2 · Stage A：只有核心，无 UI）。
 // 包装 swift-sheet-music 的 PlaybackEngine（SheetMusicAudioApple），
-// 音源走 BundledSoundfontResolver，合成后端注入 SwiftySynthBackend（纯 Swift SF2，App Store 干净，
-// 且修掉 AUMIDISynth 的抢音问题——钢琴这种尾音长的音色最怕抢音）。
+// 音源走 BundledSoundfontResolver，合成后端注入 SamplerSynthBackend（系统 AVAudioUnitSampler：
+// 纯 Swift 的 SwiftySynth 在实时 render block 里算不过来——真机哈农播放全噪音的根因，
+// 详见 SamplerSynthBackend 文件头。采样 DSP 全部由系统高优先级音频线程承担，不占 App CPU）。
 //
 // 三个设计约束（都是包内文档明确写过的，别绕过）：
 // 1. 音源 gate：URL 为 nil 时**绝不调用 engine.prepare**。见 BundledSoundfontResolver 文件头的
@@ -42,7 +42,7 @@ final class DemoPlaybackService {
     /// 注入到 PlaybackEngine 的合成后端。PlaybackEngine 没暴露 public 的节拍器开关，
     /// 但 backend 遵循 SynthBackend、有 public `setMetronomeMuted`（注入后端的 click 由它自己的 synth 产生），
     /// 故持有该引用以控制示范页节拍器。
-    private let backend: SwiftySynthBackend
+    private let backend: SamplerSynthBackend
     private let engine: PlaybackEngine
 
     /// 参考速度（rate=1.0 对应的 BPM 口径，与练习室 tempoState.referenceBpm 一致）。
@@ -69,10 +69,10 @@ final class DemoPlaybackService {
         let ref = max(1, referenceBpm)
         self.referenceBpm = ref
         self.bpm = ref
-        let backend = SwiftySynthBackend()
+        let backend = SamplerSynthBackend()
         self.backend = backend
-        // 后端注入 SwiftySynthBackend：SF2 在后台线程解析（大音源不会卡主线程），
-        // isReady 期间 play 会被引擎自动推迟到音源落地（PlaybackEngine.swift:1436-1442）。
+        // 后端注入 SamplerSynthBackend：同步加载音源（AVAudioUnitSampler 的
+        // loadSoundBankInstrument），isReady 恒 true，play 不会被推迟。
         self.engine = PlaybackEngine(
             soundfontResolver: resolver,
             backend: backend,
