@@ -404,7 +404,7 @@ final class Piece {
     var book: String = ""
     var number: Int = 0
     var totalMeasures: Int = 0
-    /// locked / notStarted / practicing / passed（只由 CourseEngine 写，红线 1/3）
+    /// locked / notStarted / practicing / passed / waived / reviewing（ADR-0003 状态机；只由 CourseEngine 写，红线 1/3）
     var status: String = "notStarted"
     var referenceTempo: Int = 0
     /// 可跟弹谱文件（ScoreFile.entityId）
@@ -412,10 +412,14 @@ final class Piece {
     var suspectedErrorCount: Int = 0
     /// 过关时的规则版本留痕（SPEC L162；nil = 尚未过关）
     var passedRulesVersion: String?
+    /// 下次复习到期时间（ADR-0003 Q6/Q8：过关后按 1/3/7/14 天间隔复习；nil = 不在复习池）
+    var nextReviewAt: Date? = nil
+    /// 复习间隔档位下标（ADR-0003 Q8/Q14：reviewIntervalDays[stage]，到 14 天档后循环不毕业）
+    var intervalStage: Int = 0
     var importedAt: Date = Date()
 
     /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
-    init(entityId: UUID = UUID(), title: String = "", book: String = "", number: Int = 0, totalMeasures: Int = 0, status: String = "notStarted", referenceTempo: Int = 0, sourceScoreId: UUID? = nil, suspectedErrorCount: Int = 0, passedRulesVersion: String? = nil, importedAt: Date = Date()) {
+    init(entityId: UUID = UUID(), title: String = "", book: String = "", number: Int = 0, totalMeasures: Int = 0, status: String = "notStarted", referenceTempo: Int = 0, sourceScoreId: UUID? = nil, suspectedErrorCount: Int = 0, passedRulesVersion: String? = nil, nextReviewAt: Date? = nil, intervalStage: Int = 0, importedAt: Date = Date()) {
         self.entityId = entityId
         self.title = title
         self.book = book
@@ -426,6 +430,8 @@ final class Piece {
         self.sourceScoreId = sourceScoreId
         self.suspectedErrorCount = suspectedErrorCount
         self.passedRulesVersion = passedRulesVersion
+        self.nextReviewAt = nextReviewAt
+        self.intervalStage = intervalStage
         self.importedAt = importedAt
     }
 }
