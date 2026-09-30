@@ -345,10 +345,16 @@ enum ScoringOrchestrator {
         take.analysisId = row.entityId
         take.isPassEligible = outcome.eligibleForPass
 
-        // 过关落库（只有 CourseEngine 写 Piece.status；只有可评 take 参与）
-        if let piece, outcome.canEvaluate {
-            let history = pieceTakeHistory(pieceId: piece.entityId, in: context)
-            CourseEngine.applyPassIfConsecutive(piece: piece, takesOldestFirst: history, in: context)
+        // 课程推进状态机（ADR-0003；只有 CourseEngine 写 Piece.status）。
+        // piece 存在即驱动，不要求 canEvaluate——notStarted→practicing、reviewing 的
+        // 非可评中性都要靠 take 触发；history 由 react 内部按需自取。
+        if let piece {
+            CourseEngine.reactToAnalyzedTake(
+                piece: piece,
+                canEvaluate: outcome.canEvaluate,
+                passedHardMetrics: outcome.passesHardMetrics,
+                hasMidi: take.hasMidi,
+                in: context)
         }
         return outcome
     }

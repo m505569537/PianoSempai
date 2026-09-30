@@ -105,6 +105,8 @@ enum CourseEngine {
         pathState.weekNumber = 1
         pathState.placementResultId = result.entityId
         pathState.updatedAt = Date()
+        // 定级插入点补建条目（ADR-0003 Q5：插入点之前 waived、插入点 notStarted）
+        bootstrapPiecesForPlacement(beyerEntry: result.entryBeyer, hanonEntry: result.entryHanon, in: context)
         return result
     }
 
@@ -204,7 +206,7 @@ enum CourseEngine {
 
     /// 目录条目（内置教材/示例曲）对应的 Piece 建档（M5b：take 关联 pieceId 的前提）。
     /// **只建行、不改状态**：status 恒为默认 notStarted，过关状态仍只由
-    /// applyPassIfConsecutive 写（红线 2）。幂等：同 book+number 只建一次。
+    /// reactToAnalyzedTake 写（红线 2）。幂等：同 book+number 只建一次。
     static func ensurePiece(for entry: CatalogEntry, in context: ModelContext) -> Piece {
         let book = entry.book
         let number = entry.number
@@ -243,7 +245,7 @@ enum CourseEngine {
         let passed: Bool
     }
 
-    /// 单 take 过关判定（纯函数值类型；写 Piece.status 仍由 applyPassIfConsecutive 承担）
+    /// 单 take 过关判定（纯函数值类型；写 Piece.status 仍由 reactToAnalyzedTake 承担）
     struct PassEvaluation: Equatable, Sendable {
         /// 有参考谱 + 非自由弹奏 + confidence ≥ 0.6 + coversFullScope
         let canEvaluate: Bool
@@ -344,10 +346,13 @@ enum CourseEngine {
         return gaps
     }
 
-    /// 连续达标计数（纯函数；§7）：
-    /// - 从最新往回数「可评且达标」的连续 take；
-    /// - 可评但不达标 → 连续计数清零（返回 0）；
+    /// 连续达标计数（纯函数；§7，ADR 转换 3 过关门禁输入）：
+    /// - 从最新往回数「可评且达标」的连续 take（真正的尾部计数）；
+    /// - 可评但不达标 → 尾部达标连计到此为止（保留已累计的尾部计数，break）；
     /// - 不可评（低置信/无谱）→ 不参与计数也不清零（跳过）。
+    /// （Stage A 修正：原实现遇可评不达标即 `return 0`，会连更早历史里已有的
+    /// 尾部达标连计一起抹掉——[F,P,P] 会得 0，导致一旦失误过就永远无法过关。
+    /// ADR 定义的「连续 2 次达标 take」是尾部计数，故改为 break。）
     static func consecutivePassStreak(eligibleTakes: [(eligible: Bool, passed: Bool)]) -> Int {
         var streak = 0
         for take in eligibleTakes.reversed() {
@@ -355,26 +360,255 @@ enum CourseEngine {
             if take.passed {
                 streak += 1
             } else {
-                return 0 // 可评但不达标：清零
+                break // 可评但不达标：尾部达标连计终止
             }
         }
         return streak
     }
 
-    /// 过关落库（唯一写手）：同一 piece 最近连续 2 次可评且达标 → Piece.status = passed，
-    /// 并留痕 scoringRulesVersion（SPEC L162）。返回是否发生过关。
-    /// 判定消费的 take 数据由调用方给（保持引擎纯度，测试注入）。
+    /// 过关落库逻辑已并入 reactToAnalyzedTake（ADR-0003 状态机；原 applyPassIfConsecutive 删除）。
+
+    // MARK: - 课程推进状态机（ADR-0003；条目状态为唯一真相，current* 为物化派生缓存）
+
+    /// status 字符串值域（沿用 String；CatalogService.PieceStatus 为既有展示映射，此处为写入口径）
+    static let statusLocked = "locked"
+    static let statusNotStarted = "notStarted"
+    static let statusPracticing = "practicing"
+    static let statusPassed = "passed"
+    static let statusWaived = "waived"
+    static let statusReviewing = "reviewing"
+
+    /// 复习间隔表（ADR Q8/Q14）：1/3/7/14 天递增；intervalStage 为下标，
+    /// 到 14 档（下标 >= count-1）后每 14 天循环，不毕业。
+    static let reviewIntervalDays = [1, 3, 7, 14]
+
+    /// 复习间隔换算（纯函数）：返回 nextReviewAt 与（封顶后的）档位。
+    /// stage 0→+1天、1→+3、2→+7、3→+14；stage 超界封顶在 14 天档。
+    static func nextReviewDate(currentStage: Int, from date: Date) -> (date: Date, stage: Int) {
+        let stage = min(max(0, currentStage), reviewIntervalDays.count - 1)
+        let next = Calendar.current.date(
+            byAdding: .day, value: reviewIntervalDays[stage], to: date
+        ) ?? date
+        return (date: next, stage: stage)
+    }
+
+    /// 状态机对单次已分析 take 的反应（react 主入口，替代原 applyPassIfConsecutive 职责）。
+    /// piece 存在即调用，不要求 canEvaluate——notStarted→practicing、reviewing 的非可评中性
+    /// 都要靠 take 触发。历史 take 口径 = pieceTakeHistory（时间升序 (eligible, passed)），
+    /// 非可评 take 一律中性：不计 pass 也不计 fail，更不清零。
     @discardableResult
-    static func applyPassIfConsecutive(
+    static func reactToAnalyzedTake(
         piece: Piece,
-        takesOldestFirst: [(eligible: Bool, passed: Bool)],
+        canEvaluate: Bool,
+        passedHardMetrics: Bool,
+        hasMidi: Bool,
         in context: ModelContext
-    ) -> Bool {
-        let streak = consecutivePassStreak(eligibleTakes: takesOldestFirst)
-        guard streak >= 2 else { return false }
-        guard piece.status != "passed" else { return false }
-        piece.status = "passed"
-        piece.passedRulesVersion = Self.scoringRulesVersion
-        return true
+    ) -> ProgressionEvent {
+        switch piece.status {
+        case statusNotStarted:
+            // ADR 转换 2：产生首个有效 take（有 MIDI）→ practicing
+            guard hasMidi else { return .none }
+            piece.status = statusPracticing
+            refreshDerivedCursors(in: context)
+            return .startedPracticing
+
+        case statusPracticing:
+            let history = ScoringOrchestrator.pieceTakeHistory(pieceId: piece.entityId, in: context)
+            // ADR 转换 3：尾部连续 2 次可评且达标 → 过关并立刻解锁下一条（Q2）
+            if consecutivePassStreak(eligibleTakes: history) >= 2 {
+                piece.status = statusPassed
+                piece.passedRulesVersion = scoringRulesVersion
+                piece.intervalStage = 0
+                piece.nextReviewAt = nextReviewDate(currentStage: 0, from: Date()).date
+                unlockNext(after: piece, in: context)
+                refreshDerivedCursors(in: context)
+                return .passedAdvanced
+            }
+            // ADR 转换 7（Q10）：尾部连续 3 次可评但不达标 → 原子回退上一条
+            if consecutiveFailStreak(eligibleTakes: history) >= 3 {
+                regressAfterRepeatedFailure(piece: piece, in: context)
+                refreshDerivedCursors(in: context)
+                return .regressed
+            }
+            return .none
+
+        case statusReviewing:
+            // 复习为单次判定（ADR §5 / Q9）：1 次达标续期进档，1 次不达标退回 practicing
+            guard canEvaluate else { return .none } // 非可评：中性，保持 reviewing
+            if passedHardMetrics {
+                piece.status = statusPassed
+                piece.intervalStage = min(piece.intervalStage + 1, reviewIntervalDays.count - 1)
+                piece.nextReviewAt = nextReviewDate(currentStage: piece.intervalStage, from: Date()).date
+                refreshDerivedCursors(in: context)
+                return .reviewCompleted
+            }
+            piece.status = statusPracticing
+            refreshDerivedCursors(in: context)
+            return .reviewFailed
+
+        default:
+            // passed / waived（waived 终态，永不参与）/ locked（不落库，不主动写入）
+            return .none
+        }
+    }
+
+    /// 状态机结果事件（测试断言 + Stage B 呈现层提示用）
+    enum ProgressionEvent: Equatable, Sendable {
+        case none
+        case passedAdvanced
+        case regressed
+        case reviewCompleted
+        case reviewFailed
+        case startedPracticing
+    }
+
+    /// 尾部连续 fail 计数（纯函数；ADR Q10 回退判定的输入）：
+    /// 从最新往回数「可评且不达标」的连续 take——与 consecutivePassStreak 同为
+    /// 真正的尾部计数：
+    /// - 可评且达标 → 尾部 fail 连计到此为止（保留已累计的尾部计数，break）；
+    /// - 不可评（低置信/无谱）→ 不参与计数也不清零（跳过）。
+    /// 回退判定需要的是「最近 N 次可评 take 全不过」，更早的历史 pass take
+    /// 不应抹掉尾部 fail 连计。
+    static func consecutiveFailStreak(eligibleTakes: [(eligible: Bool, passed: Bool)]) -> Int {
+        var streak = 0
+        for take in eligibleTakes.reversed() {
+            guard take.eligible else { continue } // 不可评：跳过，不清零
+            if !take.passed {
+                streak += 1
+            } else {
+                break // 可评且达标：尾部 fail 连计终止
+            }
+        }
+        return streak
+    }
+
+    /// 过关后解锁下一条目（Q2/顺序解锁铁律：只解锁紧邻下一条，不提前批量解锁）。
+    /// 幂等：下一条已存在则不动（不重置、不改状态）。
+    static func unlockNext(after piece: Piece, in context: ModelContext) {
+        switch piece.book {
+        case "拜厄":
+            if piece.number < 106 {
+                ensureBookPiece(book: "拜厄", number: piece.number + 1, status: statusNotStarted, in: context)
+            } else if piece.number == 106 {
+                // Q12：599 解锁严格绑定拜厄 106 通关；current599 = 1 是 599 开始的唯一信号
+                ensureBookPiece(book: "车尔尼599", number: 1, status: statusNotStarted, in: context)
+                let pathState = fetchOrCreatePathState(in: context)
+                pathState.current599 = 1
+                pathState.updatedAt = Date()
+            }
+        case "哈农":
+            if piece.number < 20 {
+                ensureBookPiece(book: "哈农", number: piece.number + 1, status: statusNotStarted, in: context)
+            }
+            // number == 20 → 无下一条
+        default:
+            break
+        }
+    }
+
+    /// 连续 3 次不过的原子回退（Q13）：当前条目 practicing→notStarted，
+    /// 上一条目 passed→practicing。上一条是 waived（终态）或不存在时不改——
+    /// 当前条目保持 notStarted 重新开始即可。
+    private static func regressAfterRepeatedFailure(piece: Piece, in context: ModelContext) {
+        piece.status = statusNotStarted
+        let book = piece.book
+        let previousNumber = piece.number - 1
+        guard previousNumber >= 1 else { return }
+        let descriptor = FetchDescriptor<Piece>(
+            predicate: #Predicate { $0.book == book && $0.number == previousNumber }
+        )
+        if let previous = (try? context.fetch(descriptor))?.first,
+           previous.status == statusPassed {
+            previous.status = statusPracticing
+        }
+    }
+
+    /// current* 物化缓存重算（唯一计算口径；Q3）：
+    /// 当前 = 该轨存在的 Piece 中 status 为 practicing/notStarted 的最小 number；
+    /// reviewing 不计入主游标（复习走独立卡，Stage B 接），避免复习条目劫持主菜；
+    /// 一条都没有（全 passed/waived，即全通关）→ 通关值（拜厄 107 / 哈农 21）。
+    /// current599 不在此重算（只在拜厄 106 通关解锁时置 1）。
+    static func refreshDerivedCursors(in context: ModelContext) {
+        let pieces = (try? context.fetch(FetchDescriptor<Piece>())) ?? []
+        let pathState = fetchOrCreatePathState(in: context)
+        pathState.currentBeyer = derivedCursor(book: "拜厄", pieces: pieces, completedValue: 107)
+        pathState.currentHanon = derivedCursor(book: "哈农", pieces: pieces, completedValue: 21)
+        pathState.updatedAt = Date()
+    }
+
+    private static func derivedCursor(book: String, pieces: [Piece], completedValue: Int) -> Int {
+        pieces
+            .filter { $0.book == book && ($0.status == statusPracticing || $0.status == statusNotStarted) }
+            .map(\.number)
+            .min() ?? completedValue
+    }
+
+    /// 每日复习 roll（ADR 转换 4：passed → reviewing）。
+    /// 所有 passed 且 nextReviewAt <= 当日零点的条目翻为 reviewing，返回被翻转的条目
+    /// （不重设 nextReviewAt，留作排序/审计）。不限条数——「今日至多 1 条复习卡」
+    /// 是 Stage B 呈现层选择（取 nextReviewAt 最早者），核心层只如实翻状态。
+    static func rollDueReviews(asOf date: Date = Date(), in context: ModelContext) -> [Piece] {
+        let dayStart = Calendar.current.startOfDay(for: date)
+        let pieces = (try? context.fetch(FetchDescriptor<Piece>())) ?? []
+        let due = pieces.filter { piece in
+            guard piece.status == statusPassed, let next = piece.nextReviewAt else { return false }
+            return next <= dayStart
+        }
+        for piece in due {
+            piece.status = statusReviewing
+        }
+        return due
+    }
+
+    // MARK: - 定级补建 / 既有用户对账（存在即已解锁：不预置 136 行，无 Piece 行 = locked）
+
+    /// 幂等建行（幂等键 book+number）：已存在则原样返回（不重置、不改状态）。
+    @discardableResult
+    private static func ensureBookPiece(book: String, number: Int, status: String, in context: ModelContext) -> Piece {
+        let descriptor = FetchDescriptor<Piece>(
+            predicate: #Predicate { $0.book == book && $0.number == number }
+        )
+        if let existing = (try? context.fetch(descriptor))?.first { return existing }
+        let piece = Piece(
+            title: "\(book) 第\(number)条",
+            book: book,
+            number: number,
+            status: status
+        )
+        context.insert(piece)
+        return piece
+    }
+
+    /// 定级 finalize 的条目补建（Q5）：插入点之前批量建 waived（幂等，已存在不动），
+    /// 插入点建 notStarted；拜厄/哈农两轨同口径；末尾 refreshDerivedCursors
+    /// （结果 currentBeyer=beyerEntry、currentHanon=hanonEntry，与 pathState 直写同值）。
+    static func bootstrapPiecesForPlacement(
+        beyerEntry: Int, hanonEntry: Int, in context: ModelContext
+    ) {
+        for number in 1..<max(1, beyerEntry) {
+            ensureBookPiece(book: "拜厄", number: number, status: statusWaived, in: context)
+        }
+        ensureBookPiece(book: "拜厄", number: max(1, beyerEntry), status: statusNotStarted, in: context)
+        for number in 1..<max(1, hanonEntry) {
+            ensureBookPiece(book: "哈农", number: number, status: statusWaived, in: context)
+        }
+        ensureBookPiece(book: "哈农", number: max(1, hanonEntry), status: statusNotStarted, in: context)
+        refreshDerivedCursors(in: context)
+    }
+
+    /// 既有已定级安装的一次性对账：已定级（placementResultId != nil）但库中无任何拜厄
+    /// Piece 行时，以 pathState.currentBeyer/currentHanon 为界按定级同口径补建。
+    /// 幂等：条件不满足直接 return。调用接线属 Stage B（RootView/今日 onAppear）。
+    static func reconcileIfNeeded(in context: ModelContext) {
+        let pathState = fetchOrCreatePathState(in: context)
+        guard pathState.placementResultId != nil else { return }
+        let descriptor = FetchDescriptor<Piece>(predicate: #Predicate { $0.book == "拜厄" })
+        let existing = (try? context.fetch(descriptor)) ?? []
+        guard existing.isEmpty else { return }
+        bootstrapPiecesForPlacement(
+            beyerEntry: pathState.currentBeyer,
+            hanonEntry: pathState.currentHanon,
+            in: context
+        )
     }
 }
