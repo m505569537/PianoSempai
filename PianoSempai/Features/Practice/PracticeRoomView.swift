@@ -376,7 +376,7 @@ struct PracticeRoomView: View {
                 .foregroundStyle(Color.textPrimary)
                 .lineLimit(1)
                 .multilineTextAlignment(.center)
-            Text("Take · 练习进行中")
+            Text(PracticeStatusSubtitle.text(phase: session.phase))
                 .font(.system(size: 10))
                 .foregroundStyle(Color.textMuted)
                 .tracking(0.8) // tracking-wider
@@ -623,8 +623,9 @@ struct PracticeRoomView: View {
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.s11PaperBorder, lineWidth: 1))
         .shadow(color: .black.opacity(0.35), radius: 18, y: 10)
         // S11b：断连时只把遮罩盖在这张纸卡上（真值 §5.3），不动顶栏/控件/诊断卡的热区。
+        // Fix：遮罩是「谱」的 overlay——无谱时（ProgressView / 真实 loadError）绝不盖住。
         .overlay {
-            if !hub.isConnected {
+            if !hub.isConnected, loadedScore != nil {
                 disconnectedScoreMask
             }
         }
@@ -763,10 +764,10 @@ struct PracticeRoomView: View {
             dockCell(
                 icon: "repeat",
                 label: "循环",
-                value: "\(session.loopConfig.startMeasure)–\(session.loopConfig.endMeasure)小节",
+                value: session.loopConfig.cellLabel(totalMeasures: totalMeasures) ?? "",
                 valueColor: loopActive ? Color.amber : Color.textMuted,
                 highlighted: loopActive,
-                action: { showLoopSheet = true } // S12：段落循环设置
+                action: { if loadedScore != nil { showLoopSheet = true } } // S12：段落循环设置（需有谱）
             )
             dockCell(
                 icon: "flag",

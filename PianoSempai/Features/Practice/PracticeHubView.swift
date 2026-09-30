@@ -11,6 +11,8 @@ struct PracticeHubView: View {
     let onBrowseArchive: () -> Void
 
     @State private var showMainPractice = false
+    /// 续练点击时捕获的主菜任务（Fix：book/number 不再在导航处丢失）
+    @State private var mainPracticeTask: PracticeTask?
     @State private var showFreeplay = false
     @State private var showRecentTakes = false
 
@@ -35,6 +37,7 @@ struct PracticeHubView: View {
                         subtitle: "\(mainTask.book) 第\(mainTask.number)条 · 今日还剩约 \(plan.durationChoice) 分钟",
                         accent: .amber
                     ) {
+                        mainPracticeTask = mainTask
                         showMainPractice = true
                     }
                     .padding(.top, 16)
@@ -65,7 +68,15 @@ struct PracticeHubView: View {
         }
         .background(Color.canvas)
         .fullScreenCover(isPresented: $showMainPractice) {
-            PracticeRoomView(taskType: "main", timeLimitSec: (todayPlan?.durationChoice).map { $0 * 60 })
+            let coords = BundledScoreCoordinates.resolve(
+                book: mainPracticeTask?.book, number: mainPracticeTask?.number ?? 0)
+            PracticeRoomView(
+                taskType: "main",
+                pieceTitle: mainPracticeTask.map { "\($0.book) \($0.number)" } ?? "",
+                timeLimitSec: (todayPlan?.durationChoice).map { $0 * 60 },
+                bundledBook: coords?.book,
+                bundledNumber: coords?.number ?? 0
+            )
         }
         .fullScreenCover(isPresented: $showFreeplay) {
             FreePlayView(onSaved: onBrowseArchive) // S14 spec：保存后跳档案

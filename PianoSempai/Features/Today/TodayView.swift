@@ -45,11 +45,27 @@ struct TodayView: View {
             plan = CourseEngine.todayPlan(in: context)
         }
         .fullScreenCover(item: $practiceRoute) { route in
+            let task = task(for: route)
+            let coords = BundledScoreCoordinates.resolve(book: task?.book, number: task?.number ?? 0)
             PracticeRoomView(
                 taskType: route.id,
-                timeLimitSec: (plan?.durationChoice).map { $0 * 60 }
+                pieceTitle: task.map { "\($0.book) \($0.number)" } ?? "",
+                timeLimitSec: (plan?.durationChoice).map { $0 * 60 },
+                bundledBook: coords?.book,
+                bundledNumber: coords?.number ?? 0
             )
         }
+    }
+
+    /// 路由 → 今日任务（Fix：book/number 不再在导航处丢失，谱坐标由此解析）
+    private func task(for route: PracticeTaskRoute) -> PracticeTask? {
+        guard let plan else { return nil }
+        let id: UUID? = switch route.id {
+        case "warmup": plan.warmupTaskId
+        case "main": plan.mainTaskId
+        default: nil
+        }
+        return task(withId: id)
     }
 
     // MARK: 去向
@@ -233,7 +249,7 @@ struct TodayView: View {
             rewardCard(
                 title: durations.rewardLabel,
                 subtitle: "今日未安排曲目，弹喜欢的就好",
-                action: { practiceRoute = .init(id: "reward") } // 奖励曲无门禁、无完成条件（spec）
+                action: onBrowseLibrary // 无奖励曲排期能力：诚实去向是曲库，不开空练习室
             )
         }
     }
