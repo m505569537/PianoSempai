@@ -294,24 +294,70 @@ final class TakeScorerTests: XCTestCase {
 
     // MARK: B4 过关留痕 rulesVersion
 
+    /// 状态机测试容器 + practicing 拜厄条目工厂（reactToAnalyzedTake 需要 Piece/CoursePathState/Take/TakeAnalysis）
     @MainActor
-    func testPassedRulesVersionStampsOnPassAndStaysNilOnFail() throws {
+    static func makeAdvancementContext() throws -> (ModelContext, (_ number: Int) -> Piece) {
         let container = try ModelContainer(
-            for: Piece.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            for: CoursePathState.self, Piece.self, Take.self, TakeAnalysis.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let context = ModelContext(container)
-        let failPiece = Piece(title: "t", book: "拜厄", number: 1, status: "practicing")
-        context.insert(failPiece)
-        XCTAssertFalse(CourseEngine.applyPassIfConsecutive(
-            piece: failPiece, takesOldestFirst: [(true, true), (true, false)], in: context
-        ))
+        return (context, { number in
+            let piece = Piece(title: "拜厄 第\(number)条", book: "拜厄", number: number, status: "practicing")
+            context.insert(piece)
+            return piece
+        })
+    }
+
+    /// 建一条已分析的 take（pieceTakeHistory 的历史输入：canEvaluate/passesHardMetrics 由 TakeAnalysis 行表达）
+    @MainActor
+    @discardableResult
+    static func insertAnalyzedTake(
+        piece: Piece, eligible: Bool, passed: Bool, startedAt: Date, in context: ModelContext
+    ) -> Take {
+        let take = Take()
+        take.pieceId = piece.entityId
+        take.startedAt = startedAt
+        take.hasMidi = true
+        context.insert(take)
+        let analysis = TakeAnalysis()
+        analysis.takeId = take.entityId
+        analysis.canEvaluate = eligible
+        analysis.passesHardMetrics = passed
+        context.insert(analysis)
+        take.analysisId = analysis.entityId
+        return take
+    }
+
+    @MainActor
+    func testPassedRulesVersionStampsOnPassAndStaysNilOnFail() throws {
+        // 原 applyPassIfConsecutive 已并入 reactToAnalyzedTake（ADR-0003），同语义改走状态机
+        let (context, makePiece) = try Self.makeAdvancementContext()
+
+        // 尾部 1 次不达标（可评不达标清零）→ 不过关，rulesVersion 保持 nil
+        let failPiece = makePiece(1)
+        Self.insertAnalyzedTake(piece: failPiece, eligible: true, passed: true,
+                                startedAt: Date(timeIntervalSinceNow: -200), in: context)
+        Self.insertAnalyzedTake(piece: failPiece, eligible: true, passed: false,
+                                startedAt: Date(timeIntervalSinceNow: -100), in: context)
+        XCTAssertEqual(
+            CourseEngine.reactToAnalyzedTake(piece: failPiece, canEvaluate: true,
+                                             passedHardMetrics: false, hasMidi: true, in: context),
+            CourseEngine.ProgressionEvent.none
+        )
         XCTAssertNil(failPiece.passedRulesVersion, "未过关保持 nil")
 
-        let passPiece = Piece(title: "t2", book: "拜厄", number: 2, status: "practicing")
-        context.insert(passPiece)
-        XCTAssertTrue(CourseEngine.applyPassIfConsecutive(
-            piece: passPiece, takesOldestFirst: [(true, true), (true, true)], in: context
-        ))
+        // 连续 2 次达标 → passed，留痕规则版本
+        let passPiece = makePiece(2)
+        Self.insertAnalyzedTake(piece: passPiece, eligible: true, passed: true,
+                                startedAt: Date(timeIntervalSinceNow: -200), in: context)
+        Self.insertAnalyzedTake(piece: passPiece, eligible: true, passed: true,
+                                startedAt: Date(timeIntervalSinceNow: -100), in: context)
+        XCTAssertEqual(
+            CourseEngine.reactToAnalyzedTake(piece: passPiece, canEvaluate: true,
+                                             passedHardMetrics: true, hasMidi: true, in: context),
+            CourseEngine.ProgressionEvent.passedAdvanced
+        )
         XCTAssertEqual(passPiece.passedRulesVersion, "P2-scoring-1.0")
     }
 
@@ -322,10 +368,14 @@ final class TakeScorerTests: XCTestCase {
         XCTAssertEqual(CourseEngine.consecutivePassStreak(eligibleTakes: [
             (true, true), (true, true),
         ]), 2)
-        // 达标+不达标（中间）→ 清零
+        // 不达标后 1 次达标 = 1（尾部计数：更早的不达标终止计数，不抹掉已达标的尾部连计）
         XCTAssertEqual(CourseEngine.consecutivePassStreak(eligibleTakes: [
             (true, true), (true, false), (true, true),
-        ]), 0, "可评但不达标 → 连续计数清零")
+        ]), 1, "可评但不达标 → 尾部达标连计终止，只数其后最新连计")
+        // 最新一次可评不达标 → 尾部连计为 0
+        XCTAssertEqual(CourseEngine.consecutivePassStreak(eligibleTakes: [
+            (true, true), (true, false),
+        ]), 0, "最新一次可评不达标 → 尾部达标连计 0")
         // 低置信/无谱（不可评）跳过不清零
         XCTAssertEqual(CourseEngine.consecutivePassStreak(eligibleTakes: [
             (true, true), (false, false), (true, true),
@@ -334,23 +384,28 @@ final class TakeScorerTests: XCTestCase {
 
     @MainActor
     func testApplyPassWritesPieceStatusOnlyAfterTwoConsecutive() throws {
-        let container = try ModelContainer(
-            for: Piece.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-        )
-        let context = ModelContext(container)
-        let piece = Piece(title: "拜厄 第45条", book: "拜厄", number: 45, status: "practicing")
-        context.insert(piece)
+        // 原 applyPassIfConsecutive 已并入 reactToAnalyzedTake（ADR-0003），同语义改走状态机
+        let (context, makePiece) = try Self.makeAdvancementContext()
+        let piece = makePiece(45)
 
         // 1 次达标 → 不过
-        XCTAssertFalse(CourseEngine.applyPassIfConsecutive(
-            piece: piece, takesOldestFirst: [(true, true)], in: context
-        ))
+        Self.insertAnalyzedTake(piece: piece, eligible: true, passed: true,
+                                startedAt: Date(timeIntervalSinceNow: -100), in: context)
+        XCTAssertEqual(
+            CourseEngine.reactToAnalyzedTake(piece: piece, canEvaluate: true,
+                                             passedHardMetrics: true, hasMidi: true, in: context),
+            CourseEngine.ProgressionEvent.none
+        )
         XCTAssertEqual(piece.status, "practicing")
 
         // 连续 2 次达标 → passed（唯一写手）
-        XCTAssertTrue(CourseEngine.applyPassIfConsecutive(
-            piece: piece, takesOldestFirst: [(true, true), (true, true)], in: context
-        ))
+        Self.insertAnalyzedTake(piece: piece, eligible: true, passed: true,
+                                startedAt: Date(), in: context)
+        XCTAssertEqual(
+            CourseEngine.reactToAnalyzedTake(piece: piece, canEvaluate: true,
+                                             passedHardMetrics: true, hasMidi: true, in: context),
+            CourseEngine.ProgressionEvent.passedAdvanced
+        )
         XCTAssertEqual(piece.status, "passed")
         XCTAssertEqual(piece.passedRulesVersion, CourseEngine.scoringRulesVersion, "过关留痕规则版本")
     }

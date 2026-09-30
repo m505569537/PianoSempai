@@ -46,6 +46,8 @@ final class ScoringOrchestratorTests: XCTestCase {
     private func makeContainer() throws -> ModelContainer {
         try ModelContainer(
             for: Take.self, ScoreFile.self, Piece.self, TakeAnalysis.self, VelocityCalibration.self,
+            // CoursePathState：ADR-0003 状态机接线后，过关/回退会重算 current* 派生缓存
+            CoursePathState.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
     }

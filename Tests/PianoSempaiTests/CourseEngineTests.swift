@@ -10,6 +10,7 @@ final class CourseEngineTests: XCTestCase {
         return try ModelContainer(
             for: AppSettings.self, PlacementSelfReport.self, PlacementResult.self,
             VelocityCalibration.self, CoursePathState.self, DailyPlan.self, PracticeTask.self,
+            Piece.self, // ADR-0003：finalizePlacement 定级后补建 waived/notStarted 条目
             configurations: config
         )
     }
