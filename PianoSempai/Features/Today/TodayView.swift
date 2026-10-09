@@ -5,7 +5,7 @@ import SwiftUI
 
 /// 练习室路由（fullScreenCover(item:) 需要 Identifiable）
 struct PracticeTaskRoute: Identifiable {
-    let id: String // warmup / main / reward
+    let id: String // warmup / main / reward / review
 }
 
 struct TodayView: View {
@@ -16,6 +16,8 @@ struct TodayView: View {
     @Query private var tasks: [PracticeTask]
     @Query private var gateEvents: [GateEvent]
     @Query private var takes: [Take]
+    /// Stage B §3：课程条目（复习卡数据源；真实 reviewing 条目存在才出卡，无假数据）
+    @Query private var pieces: [Piece]
 
     let onBrowseLibrary: () -> Void
 
@@ -23,7 +25,9 @@ struct TodayView: View {
     @State private var now = Date()
     /// S07c 热身强开弹层：改由 AppFrameView 顶层 presenter 呈现（否则盖不住 tab bar / FAB）
     @EnvironmentObject private var overridePresenter: WarmupOverridePresenter
-    @State private var practiceRoute: PracticeTaskRoute? // warmup / main / reward → S11
+    @State private var practiceRoute: PracticeTaskRoute? // warmup / main / reward / review → S11
+    /// Stage B §3c：复习卡选中的条目（进房直接带 reviewing piece 与其 bundled 坐标）
+    @State private var reviewPiece: Piece?
     /// 标题行内 MIDI 胶囊状态点呼吸（真值 animate-pulse）
     @State private var pillPulse = false
     @ObservedObject private var midi = MIDIHub.shared
@@ -45,15 +49,32 @@ struct TodayView: View {
             plan = CourseEngine.todayPlan(in: context)
         }
         .fullScreenCover(item: $practiceRoute) { route in
-            let task = task(for: route)
-            let coords = BundledScoreCoordinates.resolve(book: task?.book, number: task?.number ?? 0)
-            PracticeRoomView(
-                taskType: route.id,
-                pieceTitle: task.map { "\($0.book) \($0.number)" } ?? "",
-                timeLimitSec: (plan?.durationChoice).map { $0 * 60 },
-                bundledBook: coords?.book,
-                bundledNumber: coords?.number ?? 0
-            )
+            if route.id == "review" {
+                // Stage B §3c：复习路由——直接带 reviewing piece（effectivePiece 即它），
+                // 不走 task(for:)（避免落进 warmup/main 分支）；复习为轻量检查，
+                // 不传时长（nil = 不自动到点，用户手动结束）。
+                let coords = BundledScoreCoordinates.resolve(
+                    book: reviewPiece?.book, number: reviewPiece?.number ?? 0
+                )
+                PracticeRoomView(
+                    taskType: "review",
+                    pieceTitle: reviewPiece?.title ?? "",
+                    timeLimitSec: nil,
+                    piece: reviewPiece,
+                    bundledBook: coords?.book,
+                    bundledNumber: coords?.number ?? 0
+                )
+            } else {
+                let task = task(for: route)
+                let coords = BundledScoreCoordinates.resolve(book: task?.book, number: task?.number ?? 0)
+                PracticeRoomView(
+                    taskType: route.id,
+                    pieceTitle: task.map { "\($0.book) \($0.number)" } ?? "",
+                    timeLimitSec: (plan?.durationChoice).map { $0 * 60 },
+                    bundledBook: coords?.book,
+                    bundledNumber: coords?.number ?? 0
+                )
+            }
         }
     }
 
@@ -98,6 +119,13 @@ struct TodayView: View {
                 .padding(.top, 16)
 
                 durationPicker.padding(.top, 16)
+
+                // Stage B §3b：复习卡（热身/主菜之间不插入——插在时长选择与今日任务之间，
+                // 视觉上复用任务卡外壳）。仅当真实存在 reviewing 条目时出现，无假数据。
+                if let reviewPiece = TodayReviewPicker.pick(pieces) {
+                    reviewCard(piece: reviewPiece)
+                        .padding(.top, 16)
+                }
 
                 if let plan {
                     taskSection(plan: plan)
@@ -360,6 +388,48 @@ struct TodayView: View {
         } else {
             card
         }
+    }
+
+    /// Stage B §3b 复习卡：与热身/奖励曲同一任务卡外壳（isPrimary:false），无独立设计体系。
+    /// 名称/副行只用真实 piece 数据；点击带 reviewing piece 进练习室（route id "review"）。
+    @ViewBuilder
+    private func reviewCard(piece: Piece) -> some View {
+        let card = taskCardChrome(isPrimary: false) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(Color.canvas)
+                    Circle().strokeBorder(Color.border, lineWidth: 1)
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Color.textMuted)
+                }
+                .frame(width: 32, height: 32)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 8) {
+                        taskLabel("复习", style: .amberOutline)
+                        Text("复习 · \(piece.title)")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Color.textPrimary)
+                    }
+                    Text("防回生 · 轻弹一遍达标即可")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.textMuted)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color.textMuted)
+            }
+        }
+
+        Button {
+            reviewPiece = piece
+            practiceRoute = PracticeTaskRoute(id: "review")
+        } label: { card }
+            .buttonStyle(.plain)
     }
 
     /// 任务2 主菜：进行中（当前焦点卡）：36pt 播放圆 + 实心标签 + chevron。
@@ -1394,6 +1464,6 @@ private struct S07cSecondaryButtonStyle: ButtonStyle {
 #Preview {
     TodayView(onBrowseLibrary: {})
         .environmentObject(WarmupOverridePresenter())
-        .modelContainer(for: [AppSettings.self, PlacementResult.self, DailyPlan.self, PracticeTask.self, GateEvent.self, Take.self, CoursePathState.self])
+        .modelContainer(for: [AppSettings.self, PlacementResult.self, DailyPlan.self, PracticeTask.self, GateEvent.self, Take.self, CoursePathState.self, Piece.self])
         .preferredColorScheme(.dark)
 }

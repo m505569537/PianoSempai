@@ -62,6 +62,11 @@ struct PracticeRoomView: View {
     /// iPhone 触摸下不触发；仅 iPad/触控板指针环境生效。
     @State private var hoverBack = false
     @State private var hoverNeko = false
+    /// Stage B §2a：今日/聚合入口外部不传 piece 的懒解析结果（load() 里落值）。
+    /// 曲库详情页已传 piece 时不参与，行为不变。
+    @State private var resolvedPiece: Piece?
+    /// take 归属用条目：外部显式传入优先，否则用懒解析结果。
+    private var effectivePiece: Piece? { piece ?? resolvedPiece }
 
     private var totalMeasures: Int { loadedScore.map(ScoreExpectedPitches.measureCount) ?? 0 }
 
@@ -1083,9 +1088,9 @@ struct PracticeRoomView: View {
             isFreePlay: session.isFreePlay,
             startedAt: session.startedAt ?? Date(),
             interruptions: session.interruptionStarts,
-            title: "",
+            title: pieceTitle, // P2 修复：落真实标题（今日/聚合传「教材 第N条」；不再存空串）
             // M5b：take 挂到曲目与谱，才有分析/过关的归属（SPEC §10）
-            pieceId: piece?.entityId,
+            pieceId: effectivePiece?.entityId,
             scoreFileId: scoreFile?.entityId,
             in: context
         )
@@ -1099,16 +1104,16 @@ struct PracticeRoomView: View {
     /// 读盘 + 载谱是同步 IO，丢到 Task 里做，避免卡保存后的 UI；
     /// 失败不吞（ScoringOrchestrator 返回 error outcome），也不影响 take 已落库与连续计数。
     private func triggerAnalysis(for take: Take) {
-        let tempo = referenceTempo > 0 ? referenceTempo : (piece?.referenceTempo ?? 0)
+        let tempo = referenceTempo > 0 ? referenceTempo : (effectivePiece?.referenceTempo ?? 0)
         Task { @MainActor in
             _ = ScoringOrchestrator.run(
                 for: take,
                 scoreFile: scoreFile,
-                piece: piece,
+                piece: effectivePiece,
                 measureFrom: nil,
                 measureTo: nil,
                 referenceTempo: tempo,
-                standards: ScoringStandards.standards(forBook: piece?.book ?? ""),
+                standards: ScoringStandards.standards(forBook: effectivePiece?.book ?? ""),
                 bundledBook: bundledBook,
                 bundledNumber: bundledNumber,
                 in: context
@@ -1130,6 +1135,14 @@ struct PracticeRoomView: View {
 
     private func load() {
         session.timeLimitSec = timeLimitSec
+        // P3 修复：初始连接态同步——PracticeSession 初始 isConnected=true 与 MIDIHub 初始 false
+        // 不同步；进场第一拍就按真实 hub 状态对齐（此后仍由 onChange(hub.isConnected) 跟随）。
+        session.setConnected(hub.isConnected)
+        // Stage B §2a：今日/聚合入口未传 piece → 按 bundled 坐标懒解析归属条目
+        //（解析落 @State，take 落库/分析统一走 effectivePiece）。
+        if piece == nil, let b = bundledBook {
+            resolvedPiece = CourseEngine.resolveRoomPiece(book: b, number: bundledNumber, in: context)
+        }
         // 谱可用性四态决策（ScoreAvailability；bundledScore = 内置公版谱）
         let availability = ScoreAvailability.resolve(
             scoreFile: scoreFile,

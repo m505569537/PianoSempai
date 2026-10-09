@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 // MARK: - Today → 练习室路由（Fix 批次 2026-09-30）
 // 根因：TodayView/PracticeHubView 只传 taskType+timeLimitSec，PracticeTask 的 book/number
@@ -26,6 +27,41 @@ enum PracticeStatusSubtitle {
         case .idle: return "待开始"
         case .finished: return "已结束"
         }
+    }
+}
+
+extension CourseEngine {
+    /// 房间条目懒解析（Stage B §2a）：今日/聚合进房外部未传 piece 时，按 book+number
+    /// 解析出 room piece，take 才有 pieceId（过关判定的归属前提）。
+    /// - 命中已有 Piece 行 → 原样返回（不改状态，红线 1）；
+    /// - 未命中但内置目录有该条 → `ensurePiece` 建档（notStarted）返回；
+    /// - 目录里也没有（异常，如越界号）→ nil（take 不带 pieceId，诚实降级）。
+    static func resolveRoomPiece(book: String, number: Int, in context: ModelContext) -> Piece? {
+        let descriptor = FetchDescriptor<Piece>(
+            predicate: #Predicate { $0.book == book && $0.number == number }
+        )
+        if let existing = (try? context.fetch(descriptor))?.first { return existing }
+        guard let entry = CatalogLoader.loadBuiltin().first(where: { $0.book == book && $0.number == number })
+        else { return nil }
+        return ensurePiece(for: entry, in: context)
+    }
+}
+
+/// 当日复习卡条目选择（Stage B §3a）：status==reviewing 中 nextReviewAt 最早者；无则 nil。
+/// 「今日至多 1 条复习」由该选择落地（ADR-0003 派生规则）；nextReviewAt 为 nil 的
+/// reviewing 排最后（理论上 roll 之后不会出现，防御性处理）。
+enum TodayReviewPicker {
+    static func pick(_ pieces: [Piece]) -> Piece? {
+        pieces
+            .filter { $0.status == CourseEngine.statusReviewing }
+            .min { a, b in
+                switch (a.nextReviewAt, b.nextReviewAt) {
+                case let (l?, r?): return l < r
+                case (.some, .none): return true
+                case (.none, .some): return false
+                default: return false
+                }
+            }
     }
 }
 

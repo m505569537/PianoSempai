@@ -23,6 +23,7 @@
 | P13 | S12 sheet 传入曲目名（卡1 右注「曲目：xx」） | S12 §5 | open | 现仅有 session/totalMeasures，右注只能显示「共 N 小节」；需调用点传真实曲名。 |
 | P14 | S12 全屏 sheet vs 底部抽屉形态裁定 | S12 §1 | needs-decision | 真值为 390×844 整屏、现沿用共享底部抽屉；内部规范已对齐，形态待确认。 |
 | P11 | 速度长按连改、速度自适应 toast、时间到自动保存底部条 | S11 §8 | needs-decision | 真值 DOM 未画，旧稿约定，待产品确认后再做。 |
+| P15 | 练习室 MetronomeService 直接触发 SineBeep（把 Timer 每拍改走 `SineBeepAudioUnit.triggerNote`，与示范 click 统一到同一合成实现） | 2026-10-09 Stage B | open | 当前节拍器仍用原有 `MetronomeService.sineBuffer`（功能正常）；SineBeep 的 sequencer 路径已用于示范 click，直接触发路径 `triggerNote` 暂无调用方。属实现统一、非功能缺口，可后补。 |
 
 已完成（从原 backlog 移除）：暂停语义 pause/继续、识别中状态指示、纸张卡视觉（纸色/圆角/边框/阴影）；S11b 红色重连横幅、谱卡遮罩、诊断卡（接 MidiDiagnosticsView）、坞禁用态、断点 m.xx 文案（P6/P7/P9/P10）。
 
@@ -145,3 +146,4 @@ grep 实证仓库无任何 take 对比代码（无 CompareTake/TakeComparison）
 - 2026-09-23：修复备份丢数据真 bug——take MIDI 落 midi/yyyy/MM/ 嵌套目录，ExportService 旧非递归 contentsOfDirectory 只读顶层、restore 又限 parts.count==2，导致真机 take MIDI 从不进备份、恢复丢练习数据。改递归枚举（enumerator 保留相对路径）+ restore 支持任意深度（带路径穿越防护），新增 ExportServiceNestedMidiTests round-trip 回归 2 例；xcodegen 注册后 550/550 全绿（548→550）。
 - 备注：W1/W4 已在 2026-09-23 条目移入完成（第二节仅余 W2/W3/W5），无残留待清洗项。
 - 2026-09-23 夜：真机验收两处层级 bug。①档案页双「问 Neko」FAB——AppFrameView 全局 FAB 对 5 tab 常驻、ArchiveView 又自带 S20 真值琥珀 FAB；改为全局 FAB 仅今日/练习渲染（曲库/我的真值无 FAB 一并修正），档案保留琥珀款。②S07c 热身强开弹层盖不住 tab bar/FAB——原用 TodayView 内 .overlay（层级低于 AppFrameView 的 safeAreaInset 底栏）；新增 WarmupOverridePresenter（environmentObject），modal 提升到 AppFrameView safeAreaInset 之后的顶层 .overlay 渲染，真实今日页压暗透在 scrim 后，硬拦截点外部不关。两修均 550/550 全绿。
+- 2026-10-09：ADR-0003 课程推进状态机 Stage B 接线 + 播放 click 改走 SineBeep（607/0 全绿）。新增 P15：练习室 MetronomeService 直接触发 SineBeep 的路径未接（当前仍用 sineBuffer，功能正常），属实现统一可后补。

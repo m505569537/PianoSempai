@@ -679,6 +679,12 @@ struct ArchiveView: View {
                 title: "奖励曲",
                 background: Color.amber.opacity(0.20), foreground: Color.amber, border: Color.amber.opacity(0.4)
             )
+        case "review":
+            // Stage B §3d：复习 take 落自己口径，不掉进 default「主菜」
+            return TypeBadgeStyle(
+                title: "复习",
+                background: Color.border, foreground: Color.textMuted, border: Color.clear
+            )
         default:
             return TypeBadgeStyle(
                 title: "主菜",
@@ -706,6 +712,7 @@ struct ArchiveView: View {
         let type = switch take.taskType {
         case "warmup": "热身"
         case "reward": "奖励曲"
+        case "review": "复习" // Stage B §3d：复习标题正确（不落 default 主菜）
         default: "主菜"
         }
         if let from = take.measureFrom, let to = take.measureTo {

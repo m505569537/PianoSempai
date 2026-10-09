@@ -191,6 +191,7 @@ enum ContextBuilder {
         case "warmup": return "warmup（热身）"
         case "main": return "main（主菜）"
         case "reward": return "reward（奖励曲）"
+        case "review": return "review（复习）"
         case "free": return "free（自由弹奏）"
         case "": return "未记录"
         default: return type

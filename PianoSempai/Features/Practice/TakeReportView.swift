@@ -148,6 +148,7 @@ struct TakeReportView: View {
         switch take.taskType {
         case "warmup": "热身"
         case "reward": "奖励曲"
+        case "review": "复习" // Stage B §3d
         default: "主课练习" // main / 空
         }
     }
@@ -1879,6 +1880,7 @@ struct TakesListView: View {
         let type = switch take.taskType {
         case "warmup": "热身"
         case "reward": "奖励曲"
+        case "review": "复习" // Stage B §3d
         default: "主菜"
         }
         if let from = take.measureFrom, let to = take.measureTo {

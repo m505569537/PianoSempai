@@ -44,6 +44,12 @@ struct RootView: View {
         }
         .background(Color.canvas)
         .task {
+            // Stage B §1 启动接线（ADR-0003）：先对账（既有已定级但无 Piece 行 → 一次性补建），
+            // 再翻到期复习（passed → reviewing）——顺序必须 reconcile 在前，roll 才有东西可翻。
+            // 两函数 Stage A 已实现且幂等；只在此单入口 roll（scenePhase onChange 不重复，无必要）。
+            CourseEngine.reconcileIfNeeded(in: context)
+            _ = CourseEngine.rollDueReviews(in: context)
+            try? context.save()
             await ensureCoordinator().refresh()
             await ensureMonthlyCoordinator().refresh()
         }
