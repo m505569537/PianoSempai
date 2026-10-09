@@ -400,24 +400,98 @@ struct PDFLibraryView: View {
     // MARK: 段二：如何获取可练谱（沿用现有诚实指引，不另编）
 
     private var guideTab: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("如何获取可练的谱子")
                 .font(.titleMd)
                 .foregroundStyle(Color.textPrimary)
-            Text("· 用 Mac 端 MuseScore / Audiveris（开源 OMR）把 PDF 转成 MusicXML")
+
+            pathACard
+            pathBCard
+            pathCCard
+            selfCheckCard
+
+            // 温柔不施压：降低「要转整个曲库」的心理负担
+            Text("练熟一首再转下一首就好，不必一次把整个曲库都转完。")
                 .font(.bodySm)
                 .foregroundStyle(Color.textMuted)
-            Text("· 找现成的 MusicXML / .mscz 工程文件")
-                .font(.bodySm)
-                .foregroundStyle(Color.textMuted)
-            Text("· 转好后回到「曲库 → 导入乐谱」")
-                .font(.bodySm)
-                .foregroundStyle(Color.textMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(Color.card, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border, lineWidth: 1))
+        }
+    }
+
+    /// 途径 A（最省事）：找现成 MusicXML / .mscz / .musicxml 工程文件
+    private var pathACard: some View {
+        guideCard {
+            Text("途径 A · 找现成工程文件（最省事）")
+                .font(.titleMd)
+                .foregroundStyle(Color.textPrimary)
+            guideBody("直接找别人已经做好的 MusicXML / .mxl / .mscz 文件，下载后即可导入：")
+            guideBody("· MuseScore 曲库（musescore.com）：大量用户分享的曲谱，可直接下载 .mscz / .musicxml")
+            guideBody("· Mutopia Project（mutopaproject.org）：公版古典曲库，提供 .mid / .ly 等源文件")
+            guideBody("· IMSLP（imslp.org）：以公版扫描谱为主，部分曲目附带 MusicXML / MIDI 附件")
+            guideBody("版权提示：公版古典作曲家的作品可自由使用；久石让、坂本龙一等现代作品请以自己持有、自行导入为限，app 不提供任何下载入口。")
+        }
+    }
+
+    /// 途径 B：Mac 上用 MuseScore 的 PDF 导入（OMR）转谱，免费
+    private var pathBCard: some View {
+        guideCard {
+            Text("途径 B · 把手里的 PDF 转成可练谱（Mac，免费）")
+                .font(.titleMd)
+                .foregroundStyle(Color.textPrimary)
+            guideBody("用 Mac 端 MuseScore 3/4 内置的 PDF 导入（乐谱识别）；开源的 Audiveris 可作备选。步骤：")
+            guideBody("1. 在 Mac 上安装 MuseScore（musescore.org，免费）")
+            guideBody("2. 菜单 File → Import → PDF（或直接把 PDF 拖进窗口），软件会自动识别生成初稿谱")
+            guideBody("3. 逐屏核对音高、节奏、调号、小节线——识别必有错，重点查临时升降号与连音")
+            guideBody("4. 用播放键听一遍，对照原谱")
+            guideBody("5. File → Export → MusicXML（.musicxml / .mxl）")
+            guideBody("6. AirDrop 或「文件」App 传回 iPhone，回到本 app「曲库 → 导入乐谱」")
+            guideBody("现实预期：简单钢琴谱（单声部 / 柱式和弦）10 分钟内能转好；复杂多声部、音符密集的谱识别错误多、改起来不划算，建议直接走途径 A。")
+        }
+    }
+
+    /// 途径 C（兜底）：标准 .mid 也能导入，但不含指法/版式
+    private var pathCCard: some View {
+        guideCard {
+            Text("途径 C · 标准 MIDI 文件（兜底）")
+                .font(.titleMd)
+                .foregroundStyle(Color.textPrimary)
+            guideBody("标准的 .mid 文件也能导入（曲库 → 导入乐谱），但 .mid 不含指法与版式信息，作为前面两条途径都走不通时的兜底。")
+        }
+    }
+
+    /// 转换后自查清单（导回 app 前确认）
+    private var selfCheckCard: some View {
+        guideCard {
+            Text("转换后自查清单（导回 app 前过一遍）")
+                .font(.titleMd)
+                .foregroundStyle(Color.textPrimary)
+            guideBody("□ 调号对不对")
+            guideBody("□ 有没有整小节移位")
+            guideBody("□ 临时升降号是否保留")
+            guideBody("□ 左右手分轨是否正确（影响分手练习）")
+            guideBody("□ 先播放听一遍")
+        }
+    }
+
+    /// 指引卡片外壳（与原 guideTab 同款：card 底 + border 描边）
+    private func guideCard<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            content()
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.card, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border, lineWidth: 1))
+    }
+
+    private func guideBody(_ text: String) -> some View {
+        Text(text)
+            .font(.bodySm)
+            .foregroundStyle(Color.textMuted)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: Footer（真值 §3.6：自下而上 bg → bg/95 → 透明）

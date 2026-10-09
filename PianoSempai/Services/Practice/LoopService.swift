@@ -108,4 +108,32 @@ enum LoopService {
         case .down: "慢一点，回到 ♩=\(change.newBpm)"
         }
     }
+
+    /// 错误热点 → 1-based 循环区间（S12 快捷 chip「错误热点」）。
+    /// 热点小节是 0-based（TakeScorer 口径：beat3 ∈ 小节 0）。取连续跨度 min...max 转 1-based；
+    /// 单热点（min==max）为保 start<end 终点向后扩 1 小节；再经 clamped 钳制，
+    /// 钳制后必须 start ≥ 1 且 start < end，否则 nil（无数据/total 不足也 nil）。
+    /// 保持简单稳健：不做聚类，跨度大先接受，用户可再手动收窄。
+    static func hotspotRange(hotspotMeasures: [Int], totalMeasures: Int) -> (start: Int, end: Int)? {
+        let total = max(1, totalMeasures)
+        guard let minM = hotspotMeasures.min(), let maxM = hotspotMeasures.max(), minM >= 0 else { return nil }
+        let start = minM + 1
+        var end = maxM + 1
+        if minM == maxM { end = minM + 2 }
+        let c = clamped(start: start, end: end, totalMeasures: total)
+        return c.start >= 1 && c.start < c.end ? c : nil
+    }
+
+    /// 该曲目最近一次判分出的错误热点小节（0-based；无数据 → 空数组）。
+    /// 数据口径：TakeAnalysis.takeId == Take.entityId，Take.pieceId == Piece.entityId。
+    /// 只取 hotspotMeasures 非空的分析里 analyzedAt 最新的一条（调用方全量取后内存 join，量小）。
+    static func latestHotspotMeasures(pieceId: UUID?, takes: [Take], analyses: [TakeAnalysis]) -> [Int] {
+        guard let pieceId else { return [] }
+        let takeIds = Set(takes.filter { $0.pieceId == pieceId }.map(\.entityId))
+        guard let latest = analyses
+            .filter({ takeIds.contains($0.takeId) && !$0.hotspotMeasures.isEmpty })
+            .max(by: { $0.analyzedAt < $1.analyzedAt })
+        else { return [] }
+        return latest.hotspotMeasures
+    }
 }

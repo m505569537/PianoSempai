@@ -111,7 +111,17 @@ struct PracticeRoomView: View {
         }
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showLoopSheet) {
-            S12LoopSettingsSheet(session: session, totalMeasures: totalMeasures)
+            S12LoopSettingsSheet(
+                session: session,
+                totalMeasures: totalMeasures,
+                // G2：当前曲目最近一次判分的错误热点（0-based）；sheet 惰性构建，每次打开现取最新。
+                // 无曲目/无判分数据 → 空数组，「错误热点」chip 保持禁用。
+                hotspotMeasures: LoopService.latestHotspotMeasures(
+                    pieceId: effectivePiece?.entityId,
+                    takes: (try? context.fetch(FetchDescriptor<Take>())) ?? [],
+                    analyses: (try? context.fetch(FetchDescriptor<TakeAnalysis>())) ?? []
+                )
+            )
         }
         .sheet(isPresented: $showMidiDiagnostics) {
             // S11b 诊断卡入口（真值 §7）：S24 诊断页本身已存在，断连态同样可用。

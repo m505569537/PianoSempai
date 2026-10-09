@@ -8,6 +8,8 @@ import SwiftUI
 struct S12LoopSettingsSheet: View {
     @ObservedObject var session: PracticeSession
     let totalMeasures: Int
+    /// 当前曲目最近一次判分的错误热点小节（0-based；无数据 = 空数组 → chip 禁用）
+    var hotspotMeasures: [Int] = []
     @Environment(\.dismiss) private var dismiss
 
     @State private var start: Int = 1
@@ -244,7 +246,7 @@ struct S12LoopSettingsSheet: View {
         }
     }
 
-    /// 快捷 chips（真值 §5.3）：单选互斥。错误热点暂无数据来源 → 显式禁用（不造假徽标/圆点）
+    /// 快捷 chips（真值 §5.3）：单选互斥。错误热点仅在能解析出合法区间时可用（数据由外部传入）
     private var quickChips: some View {
         HStack(spacing: 4) {
             ForEach(QuickPick.allCases, id: \.self) { pick in
@@ -255,7 +257,12 @@ struct S12LoopSettingsSheet: View {
 
     private func quickChip(_ pick: QuickPick) -> some View {
         let selected = quick == pick
-        let enabled = pick.hasRealSource
+        // 是否可用由实例数据决定：错误热点看传入的 hotspotMeasures 能否解析出合法区间（G2），
+        // 其余 chips 恒有真实来源。无数据保持 opacity 0.4 + disabled（不造假徽标/圆点）
+        let enabled: Bool = {
+            guard pick == .hotspot else { return true }
+            return LoopService.hotspotRange(hotspotMeasures: hotspotMeasures, totalMeasures: totalMeasures) != nil
+        }()
         return Button {
             quick = pick
             applyQuick(pick)
@@ -287,7 +294,7 @@ struct S12LoopSettingsSheet: View {
         .disabled(!enabled)
     }
 
-    /// 快捷 chips 的真实行为：全曲 / 当前段有据可依；错误热点禁用；手动只标记用户驱动
+    /// 快捷 chips 的真实行为：全曲 / 当前段 / 错误热点（有数据时）有据可依；手动只标记用户驱动
     private func applyQuick(_ pick: QuickPick) {
         let total = max(1, totalMeasures)
         // 总小节不足 2 时不存在合法区间，保持现值（CTA 会诚实禁用）
@@ -298,7 +305,11 @@ struct S12LoopSettingsSheet: View {
             seeded = (1, total)
         case .current:
             seeded = (session.loopConfig.startMeasure, session.loopConfig.endMeasure)
-        case .hotspot, .manual:
+        case .hotspot:
+            // 无数据（解析不出区间）不动现值；chip 本身已被禁用，这里是双保险
+            guard let range = LoopService.hotspotRange(hotspotMeasures: hotspotMeasures, totalMeasures: total) else { return }
+            seeded = (range.start, range.end)
+        case .manual:
             return
         }
         let clamped = LoopService.clamped(start: seeded.start, end: seeded.end, totalMeasures: total)
@@ -539,8 +550,8 @@ private enum QuickPick: String, CaseIterable {
         }
     }
 
-    /// 是否有真实数据来源：逐小节热点暂无（P2），只能诚实禁用，不造假徽标
-    var hasRealSource: Bool { self != .hotspot }
+    // G2：chip 是否可用不再写死在枚举里（原来 hasRealSource 恒 false for .hotspot），
+    // 改由视图层按传入的 hotspotMeasures 计算（见 quickChip）。
 }
 
 // MARK: - 底部双钮样式（真值 §8）

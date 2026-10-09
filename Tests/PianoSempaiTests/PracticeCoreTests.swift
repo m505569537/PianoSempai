@@ -106,6 +106,87 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(state.consecutiveBadPasses, 0, "提示后重置")
     }
 
+    // MARK: LoopService — 错误热点区间与查询（G2）
+
+    func testHotspotRangeEmptyReturnsNil() {
+        XCTAssertNil(LoopService.hotspotRange(hotspotMeasures: [], totalMeasures: 32))
+    }
+
+    func testHotspotRangeSingleMeasureExtendsEnd() {
+        // 0-based [2] → 1-based 起 3；单热点终点 +1 保 start<end → (3, 4)
+        let range = LoopService.hotspotRange(hotspotMeasures: [2], totalMeasures: 32)
+        XCTAssertEqual(range?.start, 3)
+        XCTAssertEqual(range?.end, 4)
+    }
+
+    func testHotspotRangeMultipleMeasuresSpan() {
+        // [2, 5] → 连续跨度 (3, 6)；乱序输入同样按 min...max
+        let range = LoopService.hotspotRange(hotspotMeasures: [2, 5], totalMeasures: 32)
+        XCTAssertEqual(range?.start, 3)
+        XCTAssertEqual(range?.end, 6)
+        let unsorted = LoopService.hotspotRange(hotspotMeasures: [5, 2], totalMeasures: 32)
+        XCTAssertEqual(unsorted?.start, 3)
+        XCTAssertEqual(unsorted?.end, 6)
+    }
+
+    func testHotspotRangeSingleMeasureAtEndClamps() {
+        // 末小节单热点 [31]：起 32、止 33 → 钳制回 (31, 32)
+        let range = LoopService.hotspotRange(hotspotMeasures: [31], totalMeasures: 32)
+        XCTAssertEqual(range?.start, 31)
+        XCTAssertEqual(range?.end, 32)
+    }
+
+    func testHotspotRangeBeyondTotalClampsToLegalOrNil() {
+        // 越界热点 [35]（total 32）：起 36、止 37 → 钳制后仍是合法区间
+        let range = LoopService.hotspotRange(hotspotMeasures: [35], totalMeasures: 32)
+        XCTAssertEqual(range?.start, 31)
+        XCTAssertEqual(range?.end, 32)
+        XCTAssertTrue(LoopService.isValid(start: range!.start, end: range!.end, totalMeasures: 32))
+    }
+
+    func testHotspotRangeTotalTooSmallReturnsNil() {
+        // total=1 时 clamped 会产出 (0, 1)——start<1 不合法，必须 nil
+        XCTAssertNil(LoopService.hotspotRange(hotspotMeasures: [0], totalMeasures: 1))
+    }
+
+    func testLatestHotspotMeasuresEmptyAndNilPiece() {
+        let take = Take(entityId: UUID(), pieceId: UUID())
+        let analysis = TakeAnalysis(takeId: take.entityId, hotspotMeasures: [0, 3])
+        XCTAssertEqual(LoopService.latestHotspotMeasures(pieceId: nil, takes: [take], analyses: [analysis]), [])
+        XCTAssertEqual(LoopService.latestHotspotMeasures(pieceId: UUID(), takes: [take], analyses: [analysis]), [])
+    }
+
+    func testLatestHotspotMeasuresFiltersByPiece() {
+        let myPiece = UUID()
+        let otherPiece = UUID()
+        let myTake = Take(entityId: UUID(), pieceId: myPiece)
+        let otherTake = Take(entityId: UUID(), pieceId: otherPiece)
+        let mine = TakeAnalysis(takeId: myTake.entityId, hotspotMeasures: [2])
+        let other = TakeAnalysis(takeId: otherTake.entityId, hotspotMeasures: [9])
+        XCTAssertEqual(
+            LoopService.latestHotspotMeasures(pieceId: myPiece, takes: [myTake, otherTake], analyses: [mine, other]),
+            [2]
+        )
+    }
+
+    func testLatestHotspotMeasuresPrefersNewerNonEmptyHotspots() {
+        let piece = UUID()
+        let take = Take(entityId: UUID(), pieceId: piece)
+        // 较旧的分析有热点；较新的分析热点为空——取「有热点的分析里最新」，不被空热点抹掉
+        let older = TakeAnalysis(takeId: take.entityId, analyzedAt: Date(timeIntervalSince1970: 100), hotspotMeasures: [1, 4])
+        let newer = TakeAnalysis(takeId: take.entityId, analyzedAt: Date(timeIntervalSince1970: 200), hotspotMeasures: [])
+        XCTAssertEqual(
+            LoopService.latestHotspotMeasures(pieceId: piece, takes: [take], analyses: [older, newer]),
+            [1, 4]
+        )
+        // 两条都有热点时取 analyzedAt 最新
+        let newest = TakeAnalysis(takeId: take.entityId, analyzedAt: Date(timeIntervalSince1970: 300), hotspotMeasures: [7])
+        XCTAssertEqual(
+            LoopService.latestHotspotMeasures(pieceId: piece, takes: [take], analyses: [older, newer, newest]),
+            [7]
+        )
+    }
+
     // MARK: TakeStore — 只追加落盘往返
 
     func testTakeStoreRoundTrip() throws {
