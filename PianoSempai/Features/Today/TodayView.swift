@@ -1,3 +1,7 @@
+import SheetMusicCore
+import SheetMusicLayout
+import SheetMusicLoader
+import SheetMusicUI
 import SwiftData
 import SwiftUI
 
@@ -18,6 +22,8 @@ struct TodayView: View {
     @Query private var takes: [Take]
     /// Stage B §3：课程条目（复习卡数据源；真实 reviewing 条目存在才出卡，无假数据）
     @Query private var pieces: [Piece]
+    // G4 视奏留痕（ADR-0004）：选片去重用 history + 趋势旁观察样本
+    @Query private var drillRecords: [SightReadDrillRecord]
 
     let onBrowseLibrary: () -> Void
 
@@ -26,6 +32,11 @@ struct TodayView: View {
     /// S07c 热身强开弹层：改由 AppFrameView 顶层 presenter 呈现（否则盖不住 tab bar / FAB）
     @EnvironmentObject private var overridePresenter: WarmupOverridePresenter
     @State private var practiceRoute: PracticeTaskRoute? // warmup / main / reward / review → S11
+    // G4 ADR-0004：视奏训练独立路由（独立 item，勿复用 practiceRoute 的 warmup/main 语义）
+    @State private var sightReadRoute: SightReadDrillRoute?
+    @State private var showSightReadTrend = false
+    /// 今日视奏片段：进入今日页时算一次（pick 内含随机源，body 重渲染不得重抽换曲）
+    @State private var drillPick: SightReadDrillPick?
     /// Stage B §3c：复习卡选中的条目（进房直接带 reviewing piece 与其 bundled 坐标）
     @State private var reviewPiece: Piece?
     /// 标题行内 MIDI 胶囊状态点呼吸（真值 animate-pulse）
@@ -47,6 +58,7 @@ struct TodayView: View {
         .task {
             now = Date()
             plan = CourseEngine.todayPlan(in: context)
+            drillPick = SightReadPicker.pick(pieces: pieces, history: drillRecords)
         }
         .fullScreenCover(item: $practiceRoute) { route in
             if route.id == "review" {
@@ -75,6 +87,15 @@ struct TodayView: View {
                     bundledNumber: coords?.number ?? 0
                 )
             }
+        }
+        .fullScreenCover(item: $sightReadRoute) { route in
+            // G4 ADR-0004 §五：全屏视奏训练（独立 fullScreenCover，与练习室路由互不干扰）
+            SightReadDrillView(pick: route.pick) {
+                sightReadRoute = nil
+            }
+        }
+        .sheet(isPresented: $showSightReadTrend) {
+            SightReadTrendView()
         }
     }
 
@@ -133,6 +154,12 @@ struct TodayView: View {
 
                     startPracticeCTA(warmupDone: plan.warmupCompletedAt != nil)
                         .padding(.top, 12)
+                }
+
+                // G4 ADR-0004 §五：今日可选区——视奏卡（与今日主菜并列，非强制；pick == nil 不渲染整区）
+                if let drillPick {
+                    sightReadSection(pick: drillPick)
+                        .padding(.top, 16)
                 }
             }
             .padding(.horizontal, 20)
@@ -605,6 +632,72 @@ struct TodayView: View {
                 }
             ))
         }
+    }
+
+    // MARK: 今日可选 · 视奏（G4 ADR-0004 §五：可选卡 + 趋势入口，不做强制）
+
+    private func sightReadSection(pick: SightReadDrillPick) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("今日可选")
+                    .font(.bodyMd)
+                    .foregroundStyle(Color.textBody)
+                Spacer()
+                Button {
+                    showSightReadTrend = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chart.xyaxis.line")
+                            .font(.system(size: 12))
+                        Text("视奏趋势")
+                            .font(.system(size: 12))
+                    }
+                    .foregroundStyle(Color.textMuted)
+                }
+                .buttonStyle(.plain)
+            }
+            sightReadCard(pick: pick)
+        }
+    }
+
+    private func sightReadCard(pick: SightReadDrillPick) -> some View {
+        let card = taskCardChrome(isPrimary: false) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(Color.canvas)
+                    Circle().strokeBorder(Color.border, lineWidth: 1)
+                    Image(systemName: "music.note")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Color.textMuted)
+                }
+                .frame(width: 32, height: 32)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 8) {
+                        taskLabel("可选 · 视奏", style: .mutedOutline)
+                        Text("\(pick.book) 第\(pick.pieceNumber)条")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Color.textPrimary)
+                    }
+                    Text(pick.isReview
+                         ? "复习性视奏 · 第\(pick.measureStart)–\(pick.measureStart + pick.measureCount - 1)小节 · 看谱即弹"
+                         : "陌生片段 · 第\(pick.measureStart)–\(pick.measureStart + pick.measureCount - 1)小节 · 看谱即弹")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.textMuted)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color.textMuted.opacity(0.6))
+            }
+        }
+
+        return Button {
+            sightReadRoute = SightReadDrillRoute(pick: pick)
+        } label: { card }
+            .buttonStyle(.plain)
     }
 
     // MARK: 周进度
@@ -1461,9 +1554,332 @@ private struct S07cSecondaryButtonStyle: ButtonStyle {
 }
 
 
+// MARK: - G4 视奏训练（ADR-0004：轻判定 命中率/用时/停顿；不走 M5 对齐，不涉过关/streak）
+
+/// 视奏训练路由（fullScreenCover(item:) 需要 Identifiable；独立于 practiceRoute 语义）
+private struct SightReadDrillRoute: Identifiable {
+    let id = "sightread"
+    let pick: SightReadDrillPick
+}
+
+struct SightReadDrillView: View {
+    let pick: SightReadDrillPick
+    let onFinish: () -> Void
+
+    // session 由本视图创建、生命周期归本视图（S04 范式同款 @StateObject）
+    @StateObject private var session = SightReadSession()
+    @ObservedObject private var hub = MIDIHub.shared
+    @Environment(\.modelContext) private var context
+
+    @State private var fullScore: Score?
+    @State private var clippedScore: Score?
+    @State private var result: SightReadSegmentResult?
+    @State private var showNoInputHint = false
+
+    /// pick 片段的小节区间（1-based 闭区间）
+    private var measureRange: ClosedRange<Int> {
+        pick.measureStart...(pick.measureStart + max(0, pick.measureCount - 1))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // 顶部说明
+            HStack(spacing: 12) {
+                Button {
+                    onFinish()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(Color.textBody)
+                        .frame(width: 36, height: 36)
+                }
+                Spacer(minLength: 8)
+                Text("视奏 · \(pick.book) 第\(pick.pieceNumber)条")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color.textPrimary)
+                Spacer(minLength: 8)
+                Color.clear.frame(width: 36, height: 36) // 对称占位
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 4)
+
+            Text(pick.isReview
+                 ? "复习性视奏：这段之前弹过，看看现在读谱顺不顺。看谱即弹，不跟灯、不判节奏。"
+                 : "陌生片段：先看懂谱，再上手弹一遍。看谱即弹，不跟灯、不判节奏。")
+                .font(.bodySm)
+                .leading(18, fontSize: 12)
+                .foregroundStyle(Color.textMuted)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    // 片段谱面（只显示该片段，奶油谱纸面）
+                    Group {
+                        if let clippedScore {
+                            ScoreView(
+                                score: clippedScore,
+                                options: ScoreViewOptions(wrapToViewWidth: true),
+                                availableWidth: UIScreen.main.bounds.width - 56,
+                            )
+                            .frame(maxWidth: .infinity, minHeight: 220, alignment: .top)
+                        } else {
+                            Text("谱面加载失败")
+                                .font(.bodySm)
+                                .foregroundStyle(Color.danger)
+                                .frame(maxWidth: .infinity, minHeight: 220)
+                        }
+                    }
+                    .background(Color.scorePaper, in: RoundedRectangle(cornerRadius: 8))
+                    .padding(.top, 12)
+
+                    if session.isCollecting {
+                        Text("已收 \(session.collectedPitches.count) 音")
+                            .font(.labelMono(12))
+                            .foregroundStyle(Color.textMuted)
+                            .monospacedDigit()
+                            .padding(.top, 12)
+                        if let last = session.lastNoteName {
+                            Text("最近收到：\(last)")
+                                .font(.labelMono(12))
+                                .foregroundStyle(Color.textMuted)
+                                .padding(.top, 4)
+                        }
+                    }
+
+                    controlArea
+                        .padding(.top, 16)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 24)
+            }
+        }
+        .background(Color.canvas)
+        .onAppear {
+            hub.onEvent = { event in
+                session.handle(event)
+            }
+            loadScore()
+        }
+        .onDisappear { hub.onEvent = nil }
+        .alert("当前没有 MIDI 输入", isPresented: $showNoInputHint) {
+            Button("知道了", role: .cancel) {}
+        } message: {
+            Text("连接琴（或用模拟输入）后才能收到你弹的音。没有输入就不会产生命中率，这里不编数字。")
+        }
+    }
+
+    /// 真实解析整条谱 → 裁剪片段（谱缺失诚实留白，不伪造）
+    private func loadScore() {
+        guard fullScore == nil else { return }
+        guard let url = BundledScore.url(book: pick.book, number: pick.pieceNumber),
+              let score = try? ScoreLoader.loadScore(contentsOf: url) else { return }
+        fullScore = score
+        clippedScore = SightReadSession.clippedScore(of: score, measures: measureRange)
+    }
+
+    private var controlArea: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let result {
+                // 轻结果：命中率（expected==0 → 无命中率只说明）+ 用时 + 停顿；已落库
+                VStack(alignment: .leading, spacing: 6) {
+                    if let rate = result.hitRate {
+                        Text(String(format: "命中率 %.0f%%", rate * 100))
+                            .font(.labelMd)
+                            .foregroundStyle(Color.textPrimary)
+                            .monospacedDigit()
+                    } else {
+                        Text("这段没有可判定的期望音，本次不记命中率。")
+                            .font(.bodySm)
+                            .foregroundStyle(Color.textMuted)
+                    }
+                    Text("用时 \(result.elapsedSeconds) 秒 · 停顿 \(result.pauses) 次")
+                        .font(.labelMono(12))
+                        .foregroundStyle(Color.textMuted)
+                        .monospacedDigit()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(Color.card, in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.border, lineWidth: 1))
+
+                Button("完成") { onFinish() }
+                    .buttonStyle(PrimaryButtonStyle(cornerRadius: 8))
+            } else if session.isCollecting {
+                Button("弹完了") { finish() }
+                    .buttonStyle(PrimaryButtonStyle(cornerRadius: 8))
+            } else {
+                Button("开始弹奏") {
+                    // 无输入不编数字（ADR §五）：有模拟源或已连真机才开始采集
+                    if hub.mode == .simulated || hub.isConnected {
+                        session.start()
+                    } else {
+                        showNoInputHint = true
+                    }
+                }
+                .buttonStyle(PrimaryButtonStyle(cornerRadius: 8))
+            }
+
+            // 模拟源：屏幕琴键（同 S04 范式）
+            if hub.mode == .simulated, let simulated = hub.simulated {
+                Text("模拟输入：点按琴键弹奏（真实琴则直接在琴上弹）")
+                    .font(.bodySm)
+                    .foregroundStyle(Color.textMuted)
+                    .padding(.top, 8)
+                HStack(spacing: 4) {
+                    ForEach([UInt8(60), 62, 64, 65, 67, 69, 71, 72], id: \.self) { note in
+                        Button {
+                            simulated.press(note: note)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                simulated.release(note: note)
+                            }
+                        } label: {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.scorePaper)
+                                .frame(height: 56)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.top, 8)
+            }
+        }
+    }
+
+    /// 结束：结算 + 立即落库（不写 Take/TakeAnalysis，不触发过关；isReview 由 pick 透传）
+    private func finish() {
+        let expected = fullScore.map { SightReadSession.expectedPitches(score: $0, measures: measureRange) } ?? []
+        let r = session.stop(expectedPitches: expected)
+        SightReadDrillStore.save(pick: pick, result: r, in: context)
+        result = r
+    }
+}
+
+// MARK: - G4 视奏趋势（ADR-0004 §三：最近约 20 次命中率走势与均值；数据不足诚实留白）
+
+struct SightReadTrendView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Query private var records: [SightReadDrillRecord]
+
+    var body: some View {
+        let summary = SightReadTrend.summarize(records: records)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Text("视奏趋势")
+                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .foregroundStyle(Color.textPrimary)
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Color.textMuted)
+                        .frame(width: 32, height: 32)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    trendChart(summary.firstHitRates)
+                    statRows(summary)
+                    nekoLine(mean: summary.firstMean)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 24)
+            }
+        }
+        .background(Color.canvas)
+    }
+
+    /// 简单柱状走势（首见命中率，时间升序左旧右新）；无样本诚实留白
+    private func trendChart(_ rates: [Double]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("陌生谱命中率走势")
+                .font(.bodyMd)
+                .foregroundStyle(Color.textBody)
+            if rates.isEmpty {
+                Text("还没有首见视奏记录")
+                    .font(.bodySm)
+                    .foregroundStyle(Color.textMuted)
+                    .frame(maxWidth: .infinity, minHeight: 64, alignment: .center)
+                    .background(Color.card, in: RoundedRectangle(cornerRadius: 8))
+            } else {
+                HStack(alignment: .bottom, spacing: 4) {
+                    ForEach(Array(rates.enumerated()), id: \.offset) { _, rate in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.amber)
+                            .frame(height: max(4, CGFloat(rate) * 96))
+                    }
+                }
+                .frame(height: 96, alignment: .bottom)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.card, in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.border, lineWidth: 1))
+            }
+        }
+    }
+
+    private func statRows(_ summary: SightReadTrendSummary) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            statRow("首见均值", summary.firstMean.map { String(format: "%.0f%%", $0 * 100) } ?? "—")
+            statRow("复习均值", summary.reviewMean.map { String(format: "%.0f%%", $0 * 100) } ?? "—")
+            statRow("累计次数", "\(summary.totalCount)")
+        }
+    }
+
+    private func statRow(_ title: String, _ value: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.bodySm)
+                .foregroundStyle(Color.textMuted)
+            Spacer()
+            Text(value)
+                .font(.labelMd)
+                .foregroundStyle(Color.textPrimary)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    /// Neko 温柔一句：区间化解读；样本不足不解读
+    private func nekoLine(mean: Double?) -> some View {
+        let text: String
+        switch mean {
+        case .none:
+            text = "再多练几次就有趋势了。"
+        case .some(let m) where m >= 0.85:
+            text = "最近读陌生谱明显不卡了，继续保持就好。"
+        case .some(let m) where m >= 0.6:
+            text = "陌生谱在稳步上手，慢慢来，这个节奏是对的。"
+        default:
+            text = "陌生谱还需要多见几次，慢一点没关系，看懂了再下键。"
+        }
+        return HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "cat.fill")
+                .font(.system(size: 15))
+                .foregroundStyle(Color.amber)
+            Text(text)
+                .font(.bodySm)
+                .leading(18, fontSize: 12)
+                .foregroundStyle(Color.textBody)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.border, lineWidth: 1))
+    }
+}
+
 #Preview {
     TodayView(onBrowseLibrary: {})
         .environmentObject(WarmupOverridePresenter())
-        .modelContainer(for: [AppSettings.self, PlacementResult.self, DailyPlan.self, PracticeTask.self, GateEvent.self, Take.self, CoursePathState.self, Piece.self])
+        .modelContainer(for: [AppSettings.self, PlacementResult.self, DailyPlan.self, PracticeTask.self, GateEvent.self, Take.self, CoursePathState.self, Piece.self, SightReadDrillRecord.self])
         .preferredColorScheme(.dark)
 }

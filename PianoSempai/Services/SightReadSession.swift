@@ -120,6 +120,120 @@ final class SightReadSession: ObservableObject {
         guard let url = Bundle.main.url(forResource: "SpikeSample32", withExtension: "musicxml") else { return [] }
         return expectedPitches(url: url, measures: measures)
     }
+
+    // MARK: - 谱片段裁剪（G4 Stage B；ADR-0004 §四「呈现该片段五线谱」）
+
+    /// 裁剪 score 到 measures（1-based 闭区间）：
+    /// - 越界按实际可裁范围 clamp；完全越界（无可裁小节）→ 返回同 division 的空壳，不崩。
+    /// - systemMeasures 与每 staff 的 measures 同步保留指定下标，顺序不变。
+    /// - 首小节回填：物理裁剪后第一小节不再带全曲开头声明的调号/拍号/谱号，ScoreView 会按
+    ///   C 大调 4/4 默认渲染导致调号错误。对每个 staff，先从**完整 score** 向裁剪起点之前
+    ///   回溯最近一次 .keySignature/.timeSignature/.clef 声明（全曲开头的声明也计入；clef
+    ///   回溯不到时回退 Staff.defaultClefType），裁剪后首小节缺对应元素则插到其元素序列
+    ///   最前（已有者不重复，勿重复插入）。
+    nonisolated static func clippedScore(of score: Score, measures: ClosedRange<Int>) -> Score {
+        let staffMeasureCounts = score.parts.flatMap { $0.staves.map(\.measures.count) }
+        let totalMeasures = max(score.systemMeasures.count, staffMeasureCounts.max() ?? 0)
+        let lo = max(1, measures.lowerBound)
+        let hi = min(totalMeasures, measures.upperBound)
+        guard lo <= hi, !score.parts.isEmpty else {
+            return Score(division: score.division) // 完全越界 / 范围非法：空壳，不崩
+        }
+        let slice = (lo - 1)...(hi - 1)
+
+        // 裁剪起点之前该 staff「当前生效」的属性声明（回溯全曲开头也算）
+        func effectiveDeclarations(in allMeasures: [Measure], defaultClefType: String?) -> [VoiceElement] {
+            var key: KeySignature?
+            var time: TimeSignature?
+            var clef: Clef?
+            for measure in allMeasures.prefix(max(0, lo - 1)) {
+                for voice in measure.voices {
+                    for element in voice.elements {
+                        switch element {
+                        case .keySignature(let k): key = k
+                        case .timeSignature(let t): time = t
+                        case .clef(let c): clef = c
+                        default: break
+                        }
+                    }
+                }
+            }
+            if clef == nil, let defaultClefType {
+                clef = Clef(concertClefType: defaultClefType)
+            }
+            var declarations: [VoiceElement] = []
+            if let key { declarations.append(.keySignature(key)) }
+            if let time { declarations.append(.timeSignature(time)) }
+            if let clef { declarations.append(.clef(clef)) }
+            return declarations
+        }
+
+        func hasDeclaration(_ measure: Measure, _ isCase: (VoiceElement) -> Bool) -> Bool {
+            measure.voices.contains { voice in voice.elements.contains { isCase($0) } }
+        }
+        let isKey = { (e: VoiceElement) in if case .keySignature = e { return true }; return false }
+        let isTime = { (e: VoiceElement) in if case .timeSignature = e { return true }; return false }
+        let isClef = { (e: VoiceElement) in if case .clef = e { return true }; return false }
+
+        func clipStaff(_ staff: Staff) -> Staff {
+            var clippedMeasures: [Measure] = []
+            let upper = min(hi - 1, staff.measures.count - 1)
+            if lo - 1 <= upper {
+                clippedMeasures = Array(staff.measures[(lo - 1)...upper])
+            }
+            guard !clippedMeasures.isEmpty else {
+                return Staff(staffType: staff.staffType, group: staff.group, lineCount: staff.lineCount,
+                             defaultClefType: staff.defaultClefType, brackets: staff.brackets,
+                             measures: [],
+                             staffTypePreservedMarkup: staff.staffTypePreservedMarkup,
+                             preservedMarkup: staff.preservedMarkup)
+            }
+            // 首小节回填：起点之前生效、且首小节未再声明的属性，插到元素序列最前
+            let declarations = effectiveDeclarations(in: staff.measures, defaultClefType: staff.defaultClefType)
+            var first = clippedMeasures[0]
+            var insertions: [VoiceElement] = []
+            for declaration in declarations {
+                switch declaration {
+                case .keySignature where !hasDeclaration(first, isKey): insertions.append(declaration)
+                case .timeSignature where !hasDeclaration(first, isTime): insertions.append(declaration)
+                case .clef where !hasDeclaration(first, isClef): insertions.append(declaration)
+                default: break
+                }
+            }
+            if !insertions.isEmpty {
+                if first.voices.isEmpty {
+                    first.voices = [Voice(elements: insertions)]
+                } else {
+                    var lead = first.voices[0]
+                    lead.elements = IdentifiedArray(insertions + Array(lead.elements))
+                    first.voices[0] = lead
+                }
+                clippedMeasures[0] = first
+            }
+            return Staff(staffType: staff.staffType, group: staff.group, lineCount: staff.lineCount,
+                         defaultClefType: staff.defaultClefType, brackets: staff.brackets,
+                         measures: clippedMeasures,
+                         staffTypePreservedMarkup: staff.staffTypePreservedMarkup,
+                         preservedMarkup: staff.preservedMarkup)
+        }
+
+        let newParts = score.parts.map { part in
+            Part(id: part.id, trackName: part.trackName, instrument: part.instrument,
+                 staves: IdentifiedArray(part.staves.map(clipStaff)),
+                 isVisibleInScore: part.isVisibleInScore,
+                 preservedMarkup: part.preservedMarkup)
+        }
+        return Score(
+            division: score.division,
+            parts: IdentifiedArray(newParts),
+            systemMeasures: IdentifiedArray(Array(score.systemMeasures[slice])),
+            metaTags: score.metaTags,
+            blocks: score.blocks, // titleFrame 是 blocks 的兼容视图，传 blocks 即可
+            style: score.style,
+            source: score.source,
+            preservedMarkup: score.preservedMarkup,
+        )
+    }
 }
 
 // MARK: - 纯选片逻辑（G4 ADR-0004；不碰 Bundle 与 DB，随机源可注入）

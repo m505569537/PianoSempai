@@ -143,7 +143,7 @@ grep 实证仓库无任何 take 对比代码（无 CompareTake/TakeComparison）
 | G1 | 可练谱获取指引页（在哪找现成 MusicXML / Mac 端 MuseScore 转换 / 导回 app） | D2 | P0 | done | 指引已存在于 PDF 资料库第二 tab，本次从 3 条提纲升级为三途径实战 SOP + 自查清单。2026-10-09 完成。 |
 | G2 | 接通一键「只练错误热点」：最近一次 `TakeAnalysis.hotspotMeasures` 喂给 LoopService | D1 / P12 | P0 | done | 新增 LoopService.hotspotRange/latestHotspotMeasures，S12 chip 按真实数据启用。616/0 全绿。2026-10-09 完成。 |
 | G3 | 错误类型 → 矫正练习处方引擎（映射教材条目/针对性小节，连续不过自动插） | D3 | P1 | open | 需先 Grill 错误分类口径与映射表。 |
-| G4 | 日常视奏训练（复用 SightReadSession，今日可选项 + 命中率趋势，对标 SASR） | D4 | P1 | open | 需先 Grill 日常入口与难度递进。 |
+| G4 | 日常视奏训练（复用 SightReadSession，今日可选项 + 命中率趋势，对标 SASR） | D4 | P1 | done | ADR-0004 已定。素材=拜厄/哈农超前条（number>current 的 locked 谱，窗口 current+3~+8）；口径=命中率+用时+停顿数。Stage A 核心层+Stage B 界面，632/0 全绿。2026-10-09 完成。 |
 | G5 | 奖励曲难点段落自动混入热身 | D5 | P1 | open | 兑现 PRD M3 Q4=A。 |
 | G6 | 轻量练耳/视唱（听音辨音程、节奏型模仿） | — | P2 | needs-decision | 需先 Grill；P1 乐理课未做。 |
 | G7 | 简谱层（五线谱转简谱/简谱视图） | — | P2 | needs-decision | PRD P1 明确不做，属后置反转，需专门议。 |
@@ -164,3 +164,4 @@ grep 实证仓库无任何 take 对比代码（无 CompareTake/TakeComparison）
 - 备注：W1/W4 已在 2026-09-23 条目移入完成（第二节仅余 W2/W3/W5），无残留待清洗项。
 - 2026-09-23 夜：真机验收两处层级 bug。①档案页双「问 Neko」FAB——AppFrameView 全局 FAB 对 5 tab 常驻、ArchiveView 又自带 S20 真值琥珀 FAB；改为全局 FAB 仅今日/练习渲染（曲库/我的真值无 FAB 一并修正），档案保留琥珀款。②S07c 热身强开弹层盖不住 tab bar/FAB——原用 TodayView 内 .overlay（层级低于 AppFrameView 的 safeAreaInset 底栏）；新增 WarmupOverridePresenter（environmentObject），modal 提升到 AppFrameView safeAreaInset 之后的顶层 .overlay 渲染，真实今日页压暗透在 scrim 后，硬拦截点外部不关。两修均 550/550 全绿。
 - 2026-10-09 夜：P0 两项完成并独立验证（616/0，TEST EXECUTE SUCCEEDED）。G1 把 PDF 资料库第二 tab 的可练谱指引升级为三途径实战 SOP（找现成工程文件 / Mac MuseScore OMR 转谱 / .mid 兜底 + 自查清单）；G2 接通一键只练错误热点（LoopService.hotspotRange 0-based→1-based 区间、单热点扩 1、越界钳制；latestHotspotMeasures 按曲目 join Take/TakeAnalysis 取最新非空；S12 chip 按真实数据启用），新增 9 个单测（607→616）。期间两次构建失败均为环境问题（Xcode 更新后本地包模块缓存不兼容→清 DerivedData；模拟器 boot XPC 断连→shutdown/boot 重置），非代码缺陷。
+- 2026-10-09 夜：G4 日常视奏训练完成（P1，ADR-0004）。分两 Stage：Stage A 核心层（SightReadDrillRecord 模型 + SightReadPicker 教材超前条选片/去重/两轨到底兜底 + SightReadDrillStore.save 诚实口径 + SightReadTrend 最近20条升序趋势；expectedPitches/loadExpectedPitches 泛化到全 staff 并标 nonisolated）；Stage B 界面（今日可选卡 + 独立 fullScreenCover 路由，裁剪 4 小节并在首小节回填生效调号/拍号/谱号，MIDIHub 采集落库，无输入诚实提示，命中率+用时+停顿轻量结果与升序柱状趋势，Neko 文案）。新增 16 个单测（616→632：Stage A +10、Stage B +6）。期间三轮构建失败均为真实编译错误并已修：测试缺 import SheetMusicLoader / 纯静态函数 MainActor 隔离（补 import+nonisolated）；TodayView 缺 SheetMusicUI/Layout import + sightReadCard 多语句缺显式 return；测试对元组 (Int,Int) 用 XCTAssertEqual（拆分量断言）。裁剪谱可见模拟器肉眼核对受「全新模拟器无定级→今日页空态不渲染视奏卡」限制，核心回填正确性已由 6 个单测锁定，ScoreView 组合风险低，端到端肉眼项留给用户回家定级后核对。

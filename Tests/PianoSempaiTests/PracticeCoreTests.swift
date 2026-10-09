@@ -1,3 +1,4 @@
+import SheetMusicCore
 import SheetMusicLoader
 import SwiftData
 import XCTest
@@ -588,5 +589,113 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(withZeros.firstHitRates.count, 0, "expected==0 不进命中率序列")
         XCTAssertNil(withZeros.firstMean, "有效样本不足 → 均值 nil，不编趋势")
         XCTAssertNil(withZeros.reviewMean)
+    }
+
+    // MARK: G4 clipping — 谱片段裁剪与首小节回填（Stage B）
+
+    /// 最小 Score fixture：N 小节单 staff 单 voice，第 i 小节（0-based）chord 音 = 60 + i；
+    /// 可选在指定 0-based 小节声明 keySignature / timeSignature / clef。
+    private func makeMiniScore(measureCount: Int,
+                               keyAt: [Int: Int] = [:],
+                               timeAt: [Int: (Int, Int)] = [:],
+                               clefAt: [Int: String] = [:],
+                               defaultClefType: String? = nil) -> Score {
+        var measures: [Measure] = []
+        for i in 0..<measureCount {
+            var elements: [VoiceElement] = []
+            if let k = keyAt[i] { elements.append(.keySignature(KeySignature(concertKey: k))) }
+            if let t = timeAt[i] { elements.append(.timeSignature(TimeSignature(numerator: t.0, denominator: t.1))) }
+            if let c = clefAt[i] { elements.append(.clef(Clef(concertClefType: c))) }
+            elements.append(.chord(Chord(duration: .quarter, notes: ChordNotes([Note(pitch: 60 + i, tpc: 21)]))))
+            measures.append(Measure(voices: [Voice(elements: elements)]))
+        }
+        let staff = Staff(defaultClefType: defaultClefType, measures: measures)
+        let part = Part(id: "P1", instrument: Instrument(id: "piano"), staves: IdentifiedArray([staff]))
+        return Score(division: 480,
+                     parts: IdentifiedArray([part]),
+                     systemMeasures: IdentifiedArray(Array(repeating: SystemMeasure(), count: measureCount)))
+    }
+
+    /// 逐小节取首个 chord 的音高（fixture 内容断言用）
+    private func chordPitches(of score: Score) -> [Int] {
+        (score.parts.first?.staves.first?.measures ?? []).map { measure in
+            measure.voices.first?.elements.compactMap { element -> Int? in
+                if case let .chord(chord) = element { return chord.notes.first?.pitch }
+                return nil
+            }.first ?? -1
+        }
+    }
+
+    func testClippedScoreKeepsOnlyRequestedMeasures() throws {
+        let score = makeMiniScore(measureCount: 6)
+        let clipped = SightReadSession.clippedScore(of: score, measures: 2...4)
+        let staff = try XCTUnwrap(clipped.parts.first?.staves.first)
+        XCTAssertEqual(staff.measures.count, 3, "只保留指定 3 小节")
+        XCTAssertEqual(clipped.systemMeasures.count, 3, "systemMeasures 与 staff 同步")
+        XCTAssertEqual(chordPitches(of: clipped), [61, 62, 63], "内容对应原第 2...4 小节（0-based 61/62/63）")
+        XCTAssertEqual(clipped.division, 480, "division 不变")
+    }
+
+    func testClippedScoreClampsRangeAndNeverCrashes() {
+        let score = makeMiniScore(measureCount: 3)
+        // 部分越界 → clamp 到实际可裁 2...3
+        let partial = SightReadSession.clippedScore(of: score, measures: 2...10)
+        XCTAssertEqual(partial.parts.first?.staves.first?.measures.count, 2)
+        // 完全越界 → 空壳，不崩
+        let empty = SightReadSession.clippedScore(of: score, measures: 5...10)
+        XCTAssertEqual(empty.parts.count, 0)
+        XCTAssertEqual(empty.systemMeasures.count, 0)
+    }
+
+    func testClippedScoreBackfillsKeyTimeClefAtCutStart() throws {
+        // 全曲开头（第 1 小节）声明 1 升号 / 3 拍 / G 谱号；从第 3 小节起裁剪 → 首小节须被回填
+        let score = makeMiniScore(measureCount: 4, keyAt: [0: 1], timeAt: [0: (3, 4)], clefAt: [0: "G"])
+        let clipped = SightReadSession.clippedScore(of: score, measures: 3...4)
+        let elements = try XCTUnwrap(clipped.parts.first?.staves.first?.measures.first?.voices.first?.elements)
+
+        let keys = elements.compactMap { e -> Int? in if case let .keySignature(k) = e { return k.concertKey }; return nil }
+        XCTAssertEqual(keys, [1], "裁剪首小节回填生效调号")
+        if case let .timeSignature(t)? = elements.first(where: { if case .timeSignature = $0 { return true }; return false }) {
+            XCTAssertEqual(t.numerator, 3, "回填生效拍号分子")
+            XCTAssertEqual(t.denominator, 4, "回填生效拍号分母")
+        } else {
+            XCTFail("裁剪首小节应回填 3/4 拍号")
+        }
+        let clefs = elements.compactMap { e -> String? in if case let .clef(c) = e { return c.concertClefType }; return nil }
+        XCTAssertEqual(clefs, ["G"], "回填生效谱号")
+        // 回填属性在最前，原 chord 保留
+        XCTAssertTrue(elements.contains { if case .chord = $0 { return true }; return false },
+                      "回填后 chord 仍在首小节内")
+        XCTAssertEqual(chordPitches(of: clipped), [62, 63], "音符内容不变")
+    }
+
+    func testClippedScoreDoesNotDuplicateExistingDeclarations() throws {
+        // 裁剪起点（第 3 小节）自带 key 声明 → 用它，不重复插入开头声明
+        let score = makeMiniScore(measureCount: 4, keyAt: [0: 1, 2: -1])
+        let clipped = SightReadSession.clippedScore(of: score, measures: 3...4)
+        let elements = try XCTUnwrap(clipped.parts.first?.staves.first?.measures.first?.voices.first?.elements)
+        let keys = elements.compactMap { e -> Int? in if case let .keySignature(k) = e { return k.concertKey }; return nil }
+        XCTAssertEqual(keys, [-1], "起点已声明 → 不重复（只此一份）")
+    }
+
+    func testClippedScoreNoDeclarationsIsReasonable() throws {
+        // 全曲无任何声明（无显式调号）→ 不造属性、不崩、chords 保留
+        let score = makeMiniScore(measureCount: 3)
+        let clipped = SightReadSession.clippedScore(of: score, measures: 2...3)
+        let elements = try XCTUnwrap(clipped.parts.first?.staves.first?.measures.first?.voices.first?.elements)
+        XCTAssertFalse(elements.contains { if case .keySignature = $0 { return true }; return false },
+                       "全曲无声明 → 不回填（默认即 C 大调）")
+        XCTAssertTrue(elements.contains { if case .chord = $0 { return true }; return false })
+    }
+
+    func testExpectedPitchesOnClipMatchesFullScoreRange() {
+        // 渲染片段与判定口径绑定：裁剪片段从头数 == 整条谱同源区间
+        let score = makeMiniScore(measureCount: 6, keyAt: [0: 1])
+        let clipped = SightReadSession.clippedScore(of: score, measures: 2...4)
+        XCTAssertEqual(
+            SightReadSession.expectedPitches(score: clipped, measures: 1...3),
+            SightReadSession.expectedPitches(score: score, measures: 2...4),
+            "同源口径：片段期望音与整条谱对应区间一致"
+        )
     }
 }
