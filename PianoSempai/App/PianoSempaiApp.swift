@@ -30,6 +30,8 @@ struct PianoSempaiApp: App {
                     PracticeNote.self,
                     // M7.2 月报（每月 1 号生成上月；快照冻结，算法升级不重算）
                     MonthlyReport.self,
+                    // G4 日常视奏训练留痕（ADR-0004；旁观察样本，不碰过关链路）
+                    SightReadDrillRecord.self,
                 ])
         }
     }

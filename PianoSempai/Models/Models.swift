@@ -788,3 +788,44 @@ final class MonthlyReport {
     }
 }
 
+/// 日常视奏训练留痕（ADR-0004）：只读谱能力的旁观察样本。
+/// 不写 Take/TakeAnalysis、不触发过关、不推进课程、不计 streak（brief G4 铁律）。
+@Model
+final class SightReadDrillRecord {
+    var entityId: UUID = UUID()
+    /// 拜厄 / 哈农（选片只走内置教材两轨）
+    var book: String = ""
+    var pieceNumber: Int = 0
+    /// 片段起点小节（1-based）
+    var measureStart: Int = 0
+    var measureCount: Int = 0
+    /// 期望音个数（来自真实谱解析；0 = 无期望音）
+    var expected: Int = 0
+    var matched: Int = 0
+    /// 相邻音间隔 > 2s 的次数（现有口径）
+    var pauses: Int = 0
+    /// 音序贪心匹配命中率 0-1；expected==0 时 nil（不编数字，红线 2）
+    var hitRate: Double? = nil
+    /// start→stop 真实用时（秒，四舍五入）
+    var elapsedSeconds: Int = 0
+    /// 复习性视奏（候选带耗尽后复用历史条目）true
+    var isReview: Bool = false
+    var createdAt: Date = Date()
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
+    init(entityId: UUID = UUID(), book: String = "", pieceNumber: Int = 0, measureStart: Int = 0, measureCount: Int = 0, expected: Int = 0, matched: Int = 0, pauses: Int = 0, hitRate: Double? = nil, elapsedSeconds: Int = 0, isReview: Bool = false, createdAt: Date = Date()) {
+        self.entityId = entityId
+        self.book = book
+        self.pieceNumber = pieceNumber
+        self.measureStart = measureStart
+        self.measureCount = measureCount
+        self.expected = expected
+        self.matched = matched
+        self.pauses = pauses
+        self.hitRate = hitRate
+        self.elapsedSeconds = elapsedSeconds
+        self.isReview = isReview
+        self.createdAt = createdAt
+    }
+}
+
