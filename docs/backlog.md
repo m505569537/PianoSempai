@@ -134,6 +134,23 @@ grep 实证仓库无任何 take 对比代码（无 CompareTake/TakeComparison）
 
 ---
 
+## 九、竞品差距分析新增功能（2026-10-09）
+
+来源：`docs/competitive-gap.md`（西式 6 家 + 国内 12 家调研 + 本仓 grep 核查）。编号 G 系列。
+
+| # | 需求 | 对应缺口 | 优先级 | 状态 | 说明 |
+|---|---|---|---|---|---|
+| G1 | 可练谱获取指引页（在哪找现成 MusicXML / Mac 端 MuseScore 转换 / 导回 app） | D2 | P0 | in-progress | PRD:101 承诺；2026-10-09 开做。 |
+| G2 | 接通一键「只练错误热点」：最近一次 `TakeAnalysis.hotspotMeasures` 喂给 LoopService | D1 / P12 | P0 | in-progress | 数据已落库，主要是接线；同时解 P12。 |
+| G3 | 错误类型 → 矫正练习处方引擎（映射教材条目/针对性小节，连续不过自动插） | D3 | P1 | open | 需先 Grill 错误分类口径与映射表。 |
+| G4 | 日常视奏训练（复用 SightReadSession，今日可选项 + 命中率趋势，对标 SASR） | D4 | P1 | open | 需先 Grill 日常入口与难度递进。 |
+| G5 | 奖励曲难点段落自动混入热身 | D5 | P1 | open | 兑现 PRD M3 Q4=A。 |
+| G6 | 轻量练耳/视唱（听音辨音程、节奏型模仿） | — | P2 | needs-decision | 需先 Grill；P1 乐理课未做。 |
+| G7 | 简谱层（五线谱转简谱/简谱视图） | — | P2 | needs-decision | PRD P1 明确不做，属后置反转，需专门议。 |
+| G8 | 连续达标周数等轻激励补全 | — | P2 | open | 现 WeekStreak 诚实留白、无数字。 |
+
+---
+
 ## 变更记录
 - 2026-09-23：建表。清洗原 25 条审计 backlog：移除已完成 5 项（曲库搜索、暂停、识别中、纸张卡、MIDI 胶囊处理），新增 P3 分手能力，重组为练习室/曲库/成绩单/跨页能力四节。
 - 2026-09-23：P0 测试链路 7 屏（S07/S07b/S07c/S08/S11/S11b/S13b）全部对齐。清洗回写：移除 S11b 横幅/遮罩/诊断/禁用、S07b/S07c 视觉等已完成项；新增今日页小节（T1–T5）与 M9（includeWithNeko 导出）。
