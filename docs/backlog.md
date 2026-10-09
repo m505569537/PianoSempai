@@ -23,7 +23,7 @@
 | P13 | S12 sheet 传入曲目名（卡1 右注「曲目：xx」） | S12 §5 | open | 现仅有 session/totalMeasures，右注只能显示「共 N 小节」；需调用点传真实曲名。 |
 | P14 | S12 全屏 sheet vs 底部抽屉形态裁定 | S12 §1 | needs-decision | 真值为 390×844 整屏、现沿用共享底部抽屉；内部规范已对齐，形态待确认。 |
 | P11 | 速度长按连改、速度自适应 toast、时间到自动保存底部条 | S11 §8 | needs-decision | 真值 DOM 未画，旧稿约定，待产品确认后再做。 |
-| P15 | 练习室 MetronomeService 直接触发 SineBeep（把 Timer 每拍改走 `SineBeepAudioUnit.triggerNote`，与示范 click 统一到同一合成实现） | 2026-10-09 Stage B | open | 当前节拍器仍用原有 `MetronomeService.sineBuffer`（功能正常）；SineBeep 的 sequencer 路径已用于示范 click，直接触发路径 `triggerNote` 暂无调用方。属实现统一、非功能缺口，可后补。 |
+| P15 | 练习室 MetronomeService 直接触发 SineBeep（把 Timer 每拍改走 `SineBeepAudioUnit.triggerNote`，与示范 click 统一到同一合成实现） | 2026-10-09 Stage B | blocked | 当前节拍器仍用原有 `MetronomeService.sineBuffer`（功能正常）；SineBeep 的 sequencer 路径已用于示范 click，直接触发路径 `triggerNote` 暂无调用方。阻塞点：①SineBeep 只能 `await Factory.make()` 异步创建，而 MetronomeService 是同步服务、被 3 处同步 `start()`，需改 async 或就绪前 sineBuffer 兜底；②音色/无声只能真机听，开发证书 9/27 过期现无法真机验证。2026-10-09 决策：挂起，等回家重签证书后与真机 V70 端到端一起做。 |
 
 已完成（从原 backlog 移除）：暂停语义 pause/继续、识别中状态指示、纸张卡视觉（纸色/圆角/边框/阴影）；S11b 红色重连横幅、谱卡遮罩、诊断卡（接 MidiDiagnosticsView）、坞禁用态、断点 m.xx 文案（P6/P7/P9/P10）。
 
