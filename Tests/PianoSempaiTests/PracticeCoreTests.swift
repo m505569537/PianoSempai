@@ -2233,4 +2233,76 @@ final class PracticeCoreTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(l.octaveDotsDown, 0, "midi \(midi) 下方点为有限非负")
         }
     }
+
+    // MARK: G7 简谱几何 overlay（ADR-0009 Stage B）—— 文本部件 / 符头取框（纯函数）
+
+    // 自然音标签：core 只有数字、无变音符号，八度点空。
+    func testNumberedGlyphNaturalCoreNoDots() {
+        let g = NumberedGlyphText.from(NumberedLabel(digit: 1, accidental: .none, octaveDotsUp: 0, octaveDotsDown: 0))
+        XCTAssertEqual(g.core, "1")
+        XCTAssertEqual(g.dotsUp, [])
+        XCTAssertEqual(g.dotsDown, [])
+    }
+
+    // 变音符号映射钉死：♯/♭/𝄪/𝄫/♮ → core = 记号 + 数字。
+    func testNumberedGlyphAccidentalSymbolsPinned() {
+        XCTAssertEqual(NumberedGlyphText.from(NumberedLabel(digit: 1, accidental: .sharp, octaveDotsUp: 0, octaveDotsDown: 0)).core, "♯1")
+        XCTAssertEqual(NumberedGlyphText.from(NumberedLabel(digit: 7, accidental: .flat, octaveDotsUp: 0, octaveDotsDown: 0)).core, "♭7")
+        XCTAssertEqual(NumberedGlyphText.from(NumberedLabel(digit: 2, accidental: .doubleSharp, octaveDotsUp: 0, octaveDotsDown: 0)).core, "𝄪2")
+        XCTAssertEqual(NumberedGlyphText.from(NumberedLabel(digit: 3, accidental: .doubleFlat, octaveDotsUp: 0, octaveDotsDown: 0)).core, "𝄫3")
+        XCTAssertEqual(NumberedGlyphText.from(NumberedLabel(digit: 1, accidental: .natural, octaveDotsUp: 0, octaveDotsDown: 0)).core, "♮1")
+    }
+
+    // 八度点数组：up=2 → ["·","·"] 且 down 空；down=1 → down 一条且 up 空。
+    func testNumberedGlyphOctaveDotsArrays() {
+        let up = NumberedGlyphText.from(NumberedLabel(digit: 1, accidental: .none, octaveDotsUp: 2, octaveDotsDown: 0))
+        XCTAssertEqual(up.dotsUp, ["·", "·"])
+        XCTAssertEqual(up.dotsDown, [])
+        let down = NumberedGlyphText.from(NumberedLabel(digit: 1, accidental: .none, octaveDotsUp: 0, octaveDotsDown: 1))
+        XCTAssertEqual(down.dotsUp, [])
+        XCTAssertEqual(down.dotsDown, ["·"])
+    }
+
+    // up 与 down 不会同时非空（NumberedNotation 的八度算法保证）：
+    // 全音域逐半音扫一遍，任一标签至多一侧有点。
+    func testNumberedGlyphUpAndDownNeverBothNonEmpty() {
+        for midi in 0...127 {
+            let g = NumberedGlyphText.from(NumberedNotation.label(midiPitch: midi))
+            XCTAssertTrue(g.dotsUp.isEmpty || g.dotsDown.isEmpty,
+                          "midi \(midi) 上下八度点同时非空（up \(g.dotsUp.count) / down \(g.dotsDown.count)）")
+        }
+    }
+
+    // 真实音高端到端：C6（84）→ core "1" + 上 2 点；B♭3（58，谱面 ♭）→ core "♭7" + 下 1 点。
+    func testNumberedGlyphFromRealPitches() {
+        let c6 = NumberedGlyphText.from(NumberedNotation.label(midiPitch: 84))
+        XCTAssertEqual(c6.core, "1")
+        XCTAssertEqual(c6.dotsUp, ["·", "·"])
+        XCTAssertEqual(c6.dotsDown, [])
+        let bFlat3 = NumberedGlyphText.from(NumberedNotation.label(midiPitch: 58, accidental: .flat))
+        XCTAssertEqual(bFlat3.core, "♭7")
+        XCTAssertEqual(bFlat3.dotsUp, [])
+        XCTAssertEqual(bFlat3.dotsDown, ["·"])
+    }
+
+    // noteFrame 几何：以给定中心为 rect 中点，宽高 = sp*1.1 且为正。
+    func testNoteFrameCentersOnGivenCenter() {
+        let r = NumberedAnnotationBuilder.noteFrame(centerX: 100, centerY: 50, sp: 10)
+        XCTAssertEqual(r.midX, 100, accuracy: 0.01)
+        XCTAssertEqual(r.midY, 50, accuracy: 0.01)
+        XCTAssertEqual(r.width, 11, accuracy: 0.01, "宽 = sp*1.1 = 11")
+        XCTAssertEqual(r.height, 11, accuracy: 0.01, "高 = sp*1.1 = 11")
+        XCTAssertGreaterThan(r.width, 0)
+        XCTAssertGreaterThan(r.height, 0)
+    }
+
+    // noteFrame 随 sp 同比缩放：sp 翻倍 → 宽高翻倍（中心不动）。
+    func testNoteFrameScalesWithSp() {
+        let small = NumberedAnnotationBuilder.noteFrame(centerX: 100, centerY: 50, sp: 10)
+        let big = NumberedAnnotationBuilder.noteFrame(centerX: 100, centerY: 50, sp: 20)
+        XCTAssertEqual(big.width, small.width * 2, accuracy: 0.01)
+        XCTAssertEqual(big.height, small.height * 2, accuracy: 0.01)
+        XCTAssertEqual(big.midX, small.midX, accuracy: 0.01)
+        XCTAssertEqual(big.midY, small.midY, accuracy: 0.01)
+    }
 }

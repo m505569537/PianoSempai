@@ -24,6 +24,8 @@ struct PracticeScoreScrollView: View {
     /// 上一次已居中滚动到的 system 索引；只在光标「跨 system」时才滚，
     /// 避免同一行内每拍都重复触发滚动动画造成抖动。-1 = 尚未定位。
     @State private var lastScrolledSystem: Int = -1
+    /// G7 简谱叠加开关（ADR-0009 Stage B）：不持久化，每次进练习室默认关。
+    @State private var showNumbered = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -37,6 +39,16 @@ struct PracticeScoreScrollView: View {
                 .onAppear { rebuild(width: proxy.size.width) }
                 .onChange(of: proxy.size.width) { _, w in rebuild(width: w) }
                 .onChange(of: measuresPerLine) { _, _ in rebuild(width: proxy.size.width) }
+                // 简谱开关：挂在 ScrollView（滚动容器）上而非内容上，相对
+                // GeometryReader 固定、不随滚动跳动。独立视图，不受 overlay
+                // 的 allowsHitTesting(false) 影响。
+                .overlay(alignment: .topTrailing) {
+                    NocturneChip(title: "简谱", isSelected: showNumbered) {
+                        showNumbered.toggle()
+                    }
+                    .padding(.trailing, 12)
+                    .padding(.top, 4)
+                }
             }
         }
     }
@@ -63,6 +75,14 @@ struct PracticeScoreScrollView: View {
                     playbackCursor: cursor,
                     playbackCursorColor: Color.amber.opacity(0.25),
                 )
+                // G7 简谱叠加：与 ScoreView 同处一个 topLeading ZStack，标注坐标即
+                // 文档坐标（文档 (0,0)=ScoreView 左上），与符头天然对齐；自带
+                // allowsHitTesting(false)，不挡谱面手势。
+                if showNumbered {
+                    NumberedNotationOverlayView(
+                        annotations: NumberedAnnotationBuilder.build(score: displayScore, document: document),
+                        sp: document.metrics.sp)
+                }
             }
             .padding(.vertical, 8)
         } else {
