@@ -1605,4 +1605,61 @@ final class PracticeCoreTests: XCTestCase {
         RewardPavingStore.closeIfGraded(pieceId: pieceId, latestGrade: .play, in: context)
         XCTAssertNotNil(card.closedAt)
     }
+
+    // MARK: - G5 Stage B 展示决策：RewardPavingDisplay（ADR-0006 决策二/八）
+
+    /// 正午基准（2025-06-15 12:00 +0800 = epoch 1749960000）：±86400 仍是当地正午，不跨午夜
+    private let g5Noon = Date(timeIntervalSince1970: 1_749_960_000)
+
+    private func makePavingCard(pieceId: UUID = UUID(), prescribedAt: Date,
+                                completedAt: Date? = nil, closedAt: Date? = nil) -> RewardPavingCard {
+        RewardPavingCard(pieceId: pieceId, book: "导入", number: 1,
+                         hotspotMeasures: [2, 3], prescribedAt: prescribedAt,
+                         completedAt: completedAt, closedAt: closedAt)
+    }
+
+    @MainActor
+    func testTodayCardFiltersByCompletionClosureAndDay() {
+        // 当天未关闭未完成 → 返回
+        let active = makePavingCard(prescribedAt: g5Noon)
+        XCTAssertEqual(RewardPavingDisplay.todayCard([active], now: g5Noon)?.entityId, active.entityId)
+        // 当天已完成（completedAt）→ nil，当天不重复催（决策八）
+        let completed = makePavingCard(prescribedAt: g5Noon, completedAt: g5Noon.addingTimeInterval(3_600))
+        XCTAssertNil(RewardPavingDisplay.todayCard([completed], now: g5Noon))
+        // 当天已关闭（closedAt）→ nil（升档关闭后消失）
+        let closed = makePavingCard(prescribedAt: g5Noon, closedAt: g5Noon.addingTimeInterval(3_600))
+        XCTAssertNil(RewardPavingDisplay.todayCard([closed], now: g5Noon))
+        // prescribedAt 是昨天 → nil（跨天不残留）
+        let yesterday = makePavingCard(prescribedAt: g5Noon.addingTimeInterval(-86_400))
+        XCTAssertNil(RewardPavingDisplay.todayCard([yesterday], now: g5Noon))
+        // 空卡列表 → nil
+        XCTAssertNil(RewardPavingDisplay.todayCard([], now: g5Noon))
+    }
+
+    @MainActor
+    func testTodayCardWithMultipleSameDayCardsReturnsDeterministically() {
+        let first = makePavingCard(prescribedAt: g5Noon)
+        let second = makePavingCard(prescribedAt: g5Noon.addingTimeInterval(3_600))
+        let third = makePavingCard(prescribedAt: g5Noon.addingTimeInterval(7_200))
+        let picked = RewardPavingDisplay.todayCard([first, second, third], now: g5Noon)
+        XCTAssertNotNil(picked, "多张当天卡 → 返回其中一张不崩")
+        // 确定性：同输入两次调用结果一致（todayCard 无随机）
+        XCTAssertEqual(RewardPavingDisplay.todayCard([first, second, third], now: g5Noon)?.entityId,
+                       picked?.entityId)
+        // 实现口径：first 命中（prescribedAt 最晚的当天卡不参与筛选排序）
+        XCTAssertEqual(picked?.entityId, first.entityId)
+    }
+
+    @MainActor
+    func testGradeLabelCoversThreeGrades() {
+        XCTAssertEqual(RewardPavingDisplay.gradeLabel(.play), "现在能弹")
+        XCTAssertEqual(RewardPavingDisplay.gradeLabel(.stretch), "偏难")
+        XCTAssertEqual(RewardPavingDisplay.gradeLabel(.far), "远超当前")
+    }
+
+    @MainActor
+    func testGradeLabelNilIsHonestUnavailable() {
+        XCTAssertEqual(RewardPavingDisplay.gradeLabel(nil), "暂无法分析",
+                       "无评估/无法相对定级 → 诚实展示，不编档位（决策一/四）")
+    }
 }

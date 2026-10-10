@@ -10,6 +10,9 @@ struct LibraryView: View {
     @Query private var pathStates: [CoursePathState]
     @Query private var allPieces: [Piece]
     @Query private var scoreFiles: [ScoreFile]
+    // G5 Stage B（ADR-0006 决策一/四）：导入曲档位标识数据源 + reconcile 触发用的铺路卡
+    @Query private var assessments: [RewardDifficultyAssessment]
+    @Query private var pavingCards: [RewardPavingCard]
 
     enum Segment: String, CaseIterable {
         case training = "训练教材"
@@ -572,9 +575,9 @@ struct LibraryView: View {
                                 Text(piece.title)
                                     .font(.system(size: 14, weight: .semibold, design: .serif))
                                     .foregroundStyle(Color.textPrimary)
-                                Text("手动导入")
+                                Text(gradeSubtitle(piece))
                                     .font(.bodySm)
-                                    .foregroundStyle(Color.textMuted)
+                                    .foregroundStyle(gradeSubtitleColor(piece))
                             }
                             Spacer(minLength: 8)
                             statusPill(status: .notStarted, isUnlockedLocked: false, isFocus: false)
@@ -591,6 +594,27 @@ struct LibraryView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
         }
+    }
+
+    // MARK: G5 Stage B 曲库档位标识（ADR-0006 决策一/四）
+
+    /// 该 piece 最新评估（assessedAt 最晚；无评估 / 评估被删 → nil）
+    private func latestAssessment(for piece: Piece) -> RewardDifficultyAssessment? {
+        assessments
+            .filter { $0.pieceId == piece.entityId }
+            .sorted { $0.assessedAt > $1.assessedAt }
+            .first
+    }
+
+    /// 档位副标题（RewardPavingDisplay.gradeLabel：play/stretch/far 中文文案；nil = 暂无法分析，不编档）
+    private func gradeSubtitle(_ piece: Piece) -> String {
+        RewardPavingDisplay.gradeLabel(latestAssessment(for: piece)?.grade)
+    }
+
+    /// 档位颜色：偏难/远超当前用琥珀提醒，现在能弹/暂无法分析用 muted
+    private func gradeSubtitleColor(_ piece: Piece) -> Color {
+        let grade = latestAssessment(for: piece)?.grade
+        return (grade == .stretch || grade == .far) ? Color.amber : Color.textMuted
     }
 
     // MARK: 全部导入（统一入口：选教材/奖励曲库/PDF 资料库）
@@ -772,6 +796,21 @@ struct LibraryView: View {
             case let .success(imported):
                 CourseEngine.registerImportedScore(imported, in: context)
                 importError = nil
+                // G5 Stage B（ADR-0006 决策八第二个触发点）：导入完成即 reconcile，
+                // 让新曲档位立即可见。@Query 快照可能尚未含刚注册的 piece → 用 context
+                // 现查兜底，保证新导入曲当轮就评估；载谱是同步 IO，丢 Task 做。
+                Task { @MainActor in
+                    let freshPieces = (try? context.fetch(FetchDescriptor<Piece>())) ?? allPieces
+                    let freshScoreFiles = (try? context.fetch(FetchDescriptor<ScoreFile>())) ?? scoreFiles
+                    let freshCards = (try? context.fetch(FetchDescriptor<RewardPavingCard>())) ?? pavingCards
+                    RewardPavingStore.reconcileToday(
+                        pathState: pathStates.first,
+                        pieces: freshPieces,
+                        scoreFiles: freshScoreFiles,
+                        pavingCards: freshCards,
+                        in: context
+                    )
+                }
             case let .failure(error):
                 self.importError = error
             }

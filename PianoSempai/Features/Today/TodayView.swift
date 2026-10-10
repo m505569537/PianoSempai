@@ -26,6 +26,11 @@ struct TodayView: View {
     @Query private var drillRecords: [SightReadDrillRecord]
     // G3 Stage B（ADR-0005）：今日矫正卡数据源（未结未完成的处方）
     @Query private var prescriptions: [CorrectionPrescription]
+    // G5 Stage B（ADR-0006）：今日铺路卡数据源 + 导入曲谱文件（进房 realScore 必须传 scoreFile）
+    @Query private var pavingCards: [RewardPavingCard]
+    @Query private var allScoreFiles: [ScoreFile]
+    /// G5 Stage B：课程进度（reconcileToday 取当前拜厄/哈农条目算基准；TodayView 原无此查询，新增）
+    @Query private var pathStates: [CoursePathState]
 
     let onBrowseLibrary: () -> Void
 
@@ -38,6 +43,8 @@ struct TodayView: View {
     @State private var sightReadRoute: SightReadDrillRoute?
     // G3 Stage B：矫正练习路由（进房锁 hotspot + 最保守初始速度 + 完成回写）
     @State private var correctionRoute: CorrectionPrescription?
+    // G5 Stage B：铺路练习路由（进房锁难点段 + 不强制降速 + 练完一遍完成回写）
+    @State private var pavingRoute: RewardPavingCard?
     @State private var showSightReadTrend = false
     /// 今日视奏片段：进入今日页时算一次（pick 内含随机源，body 重渲染不得重抽换曲）
     @State private var drillPick: SightReadDrillPick?
@@ -56,6 +63,11 @@ struct TodayView: View {
         prescriptions.filter { $0.resolvedAt == nil && $0.completedAt == nil }
     }
 
+    /// G5 Stage B：当天应显示的铺路卡（ADR-0006 决策二/八：当天 prescribedAt、未关闭、未完成）。
+    private var todayPaving: RewardPavingCard? {
+        RewardPavingDisplay.todayCard(pavingCards, now: now)
+    }
+
     var body: some View {
         Group {
             if hasPlacement {
@@ -69,6 +81,19 @@ struct TodayView: View {
             now = Date()
             plan = CourseEngine.todayPlan(in: context)
             drillPick = SightReadPicker.pick(pieces: pieces, history: drillRecords)
+        }
+        .task {
+            // G5 Stage B（ADR-0006 决策八触发点）：进今日页刷新评估/铺路。
+            // reconcileToday 做同步 IO（载谱），包 MainActor.run；写卡后 @Query 自动刷新 UI。
+            await MainActor.run {
+                RewardPavingStore.reconcileToday(
+                    pathState: pathStates.first,
+                    pieces: pieces,
+                    scoreFiles: allScoreFiles,
+                    pavingCards: pavingCards,
+                    in: context
+                )
+            }
         }
         .fullScreenCover(item: $practiceRoute) { route in
             if route.id == "review" {
@@ -120,6 +145,22 @@ struct TodayView: View {
                 initialHotspots: rx.hotspotMeasures,
                 initialTempoRatio: CorrectionEngine.initialTempoRatio(rx.remedies),
                 correction: rx
+            )
+        }
+        .fullScreenCover(item: $pavingRoute) { card in
+            // G5 Stage B：铺路进房（ADR-0006 决策二/六）——进房锁难点区间（复用 G3 initialHotspots），
+            // 不强制降速（不传 initialTempoRatio，走常规 72/参考速），完成回写 = 练完一遍。
+            // 导入曲是 realScore：必须把 scoreFile 传进去，否则进房判 .unavailable。
+            let piece = pieces.first { $0.entityId == card.pieceId }
+            let sf = allScoreFiles.first { $0.entityId == piece?.sourceScoreId }
+            PracticeRoomView(
+                taskType: "paving",
+                scoreFile: sf,
+                pieceTitle: piece?.title ?? "奖励曲",
+                piece: piece,
+                referenceTempo: piece?.referenceTempo ?? 0,
+                initialHotspots: card.hotspotMeasures,
+                paving: card
             )
         }
         .sheet(isPresented: $showSightReadTrend) {
@@ -329,6 +370,11 @@ struct TodayView: View {
                 footnote: overriddenToday ? "今日已强开" : nil,
                 action: warmupDone ? nil : { practiceRoute = .init(id: "warmup") }
             )
+
+            // G5 Stage B（ADR-0006 决策二）：铺路卡插在热身卡之后、主菜之前；非门禁，无卡不渲染。
+            if let paving = todayPaving {
+                rewardPavingCard(paving)
+            }
 
             mainCard(
                 name: mainName,
@@ -606,6 +652,82 @@ struct TodayView: View {
                 .foregroundStyle(Color.textPrimary)
             Spacer(minLength: 0)
         }
+    }
+
+    // MARK: G5 Stage B 铺路卡（ADR-0006 决策二：热身之后的可选卡，非门禁不锁过关）
+
+    /// 复用矫正卡外壳语言（taskCardChrome + 琥珀描边按钮）：标题 + 难点小节 + 定级/练法明细 +
+    /// 「开始铺路练习」按钮（点按整卡同效，进房走 pavingRoute）。内容只用真实数据：
+    /// piece 找不到只显示「奖励曲」，难点空显示「整曲」，不编小节号。
+    @ViewBuilder
+    private func rewardPavingCard(_ card: RewardPavingCard) -> some View {
+        let piece = pieces.first { $0.entityId == card.pieceId }
+        let cardBody = taskCardChrome(isPrimary: false) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle().fill(Color.canvas)
+                        Circle().strokeBorder(Color.border, lineWidth: 1)
+                        Image(systemName: "star.leadinghalf.filled")
+                            .font(.system(size: 18))
+                            .foregroundStyle(Color.textMuted)
+                    }
+                    .frame(width: 32, height: 32)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 8) {
+                            taskLabel("铺路", style: .amberOutline)
+                            Text(piece.map { "奖励曲铺路 · \($0.title)" } ?? "奖励曲铺路")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(Color.textPrimary)
+                        }
+                        Text(pavingHotspotLine(card))
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.textMuted)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Color.textMuted)
+                }
+
+                // 明细只展示真实字段：定级（卡只出自 stretch 档，决策七）+ 练法（决策六口径）
+                VStack(alignment: .leading, spacing: 6) {
+                    detailRow(label: "定级", value: "偏难")
+                    detailRow(label: "练法", value: "进房锁定难点段循环，练完一遍即可（不设达标门槛）")
+                }
+
+                Button {
+                    pavingRoute = card
+                } label: {
+                    Text("开始铺路练习")
+                        .font(.system(size: 13, weight: .medium))
+                        .tracking(0.3)
+                        .foregroundStyle(Color.amber)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.amber.opacity(0.12))
+                        )
+                        .overlay(RoundedRectangle(cornerRadius: 10)
+                            .strokeBorder(Color.amber.opacity(0.4), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+
+        Button { pavingRoute = card } label: { cardBody }
+            .buttonStyle(.plain)
+    }
+
+    /// 铺路难点副行：取快照排序后的首/尾（1-based）；空 = 整曲（不编小节号）
+    private func pavingHotspotLine(_ card: RewardPavingCard) -> String {
+        let measures = card.hotspotMeasures.sorted()
+        guard let first = measures.first, let last = measures.last else { return "整曲" }
+        return "难点 · 第\(first + 1)–第\(last + 1)小节"
     }
 
     /// 任务2 主菜：进行中（当前焦点卡）：36pt 播放圆 + 实心标签 + chevron。
@@ -2029,6 +2151,7 @@ struct SightReadTrendView: View {
 #Preview {
     TodayView(onBrowseLibrary: {})
         .environmentObject(WarmupOverridePresenter())
-        .modelContainer(for: [AppSettings.self, PlacementResult.self, DailyPlan.self, PracticeTask.self, GateEvent.self, Take.self, CoursePathState.self, Piece.self, SightReadDrillRecord.self, CorrectionPrescription.self])
+        // G5 Stage B：@Query 新增 ScoreFile / RewardDifficultyAssessment / RewardPavingCard → 预览容器同步注册
+        .modelContainer(for: [AppSettings.self, PlacementResult.self, DailyPlan.self, PracticeTask.self, GateEvent.self, Take.self, CoursePathState.self, Piece.self, SightReadDrillRecord.self, CorrectionPrescription.self, ScoreFile.self, RewardDifficultyAssessment.self, RewardPavingCard.self])
         .preferredColorScheme(.dark)
 }

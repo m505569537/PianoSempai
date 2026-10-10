@@ -65,6 +65,29 @@ enum TodayReviewPicker {
     }
 }
 
+// MARK: - G5 Stage B 铺路展示决策（ADR-0006 决策二/八；纯决策，可单测，不碰视图）
+
+/// 今日铺路卡展示决策
+enum RewardPavingDisplay {
+    /// 取当天 prescribedAt、未关闭、未完成的那张；无则 nil。
+    static func todayCard(_ cards: [RewardPavingCard], now: Date) -> RewardPavingCard? {
+        cards.first {
+            $0.closedAt == nil && $0.completedAt == nil
+                && Calendar.current.isDate($0.prescribedAt, inSameDayAs: now)
+        }
+    }
+
+    /// 曲库档位文案：nil（无评估/无法相对定级）→ 暂无法分析（诚实，决策一/四）。
+    static func gradeLabel(_ grade: RewardDifficulty.Grade?) -> String {
+        switch grade {
+        case .play: return "现在能弹"
+        case .stretch: return "偏难"
+        case .far: return "远超当前"
+        case nil: return "暂无法分析"
+        }
+    }
+}
+
 extension LoopConfig {
     /// Dock label for the loop cell. Nil = no honest range to show
     /// (no score loaded, or range invalid for the score).

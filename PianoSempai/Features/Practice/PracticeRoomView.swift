@@ -38,6 +38,8 @@ struct PracticeRoomView: View {
     var initialTempoRatio: Double? = nil
     /// G3 Stage B 矫正进房：对应处方（练完一遍即完成回写用；非矫正进房 nil）。
     var correction: CorrectionPrescription? = nil
+    /// G5 Stage B 铺路进房：对应铺路卡（练完一遍回写完成用；非铺路进房 nil）。
+    var paving: RewardPavingCard? = nil
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -1117,6 +1119,11 @@ struct PracticeRoomView: View {
         // 矫正进房照常 triggerAnalysis，其 analyzeAndStore 会走处方接线（通过→resolve，不过→未结去重不重建）。
         if let correction {
             CorrectionPrescriptionStore.markCompleted(correction, in: context)
+        }
+        // G5 Stage B：铺路进房练完一遍即标记完成（ADR-0006 决策六，不看达标；markPavingCompleted 幂等）。
+        // 铺路非门禁：只写卡完成态，不碰 Piece.status / 过关 / streak；锁区间由 initialHotspots 机制承担。
+        if let paving {
+            RewardPavingStore.markPavingCompleted(paving, in: context)
         }
         finishedSummary = summary
         triggerAnalysis(for: take)

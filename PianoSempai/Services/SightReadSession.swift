@@ -591,6 +591,80 @@ enum RewardPavingStore {
         try? context.save()
     }
 
+    // MARK: G5 Stage B 编排（ADR-0006 决策八触发点）：进入今日页 / 导入完成后调用。
+    /// 刷新所有导入曲评估档（谱加载不到的保留旧评估，诚实不新写），并在"今天还没有任何
+    /// 铺路卡"时按 pickDailyPaving 建当天唯一一张铺路卡。做同步 IO（载谱），调用方放
+    /// `Task { @MainActor in ... }`。所有纯计算（定级/窗口/选择）复用 Stage A，不重写。
+    static func reconcileToday(
+        pathState: CoursePathState?,
+        pieces: [Piece],
+        scoreFiles: [ScoreFile],
+        pavingCards: [RewardPavingCard],
+        in context: ModelContext,
+        now: Date = Date()
+    ) {
+        // 1) 当前在练拜厄/哈农条目谱（内置公版谱；加载失败 = nil，不拿别的谱冒充）
+        func bundled(_ book: String, _ number: Int) -> Score? {
+            guard let url = BundledScore.url(book: book, number: number) else { return nil }
+            return try? ScoreLoader.loadScore(contentsOf: url)
+        }
+        let beyerScore = pathState.map { bundled("拜厄", $0.currentBeyer) } ?? nil
+        let hanonScore = pathState.map { bundled("哈农", $0.currentHanon) } ?? nil
+
+        // 2) 逐首导入曲：载真实谱 → assessAndUpsert；升 play → 关旧铺路卡
+        let imported = pieces.filter { $0.book == "导入" && $0.sourceScoreId != nil }
+        var stretchAssessments: [(piece: Piece, assessment: RewardDifficultyAssessment)] = []
+        for piece in imported {
+            guard let sf = scoreFiles.first(where: { $0.entityId == piece.sourceScoreId && $0.canFollow }),
+                  let url = SandboxPaths.resolve(sf.fileURL),
+                  let score = try? ScoreLoader.loadScore(contentsOf: url)
+            else { continue } // 谱加载不到：保留旧评估，诚实不新写
+            guard let assessment = assessAndUpsert(
+                piece: piece, score: score,
+                currentBeyerScore: beyerScore, currentHanonScore: hanonScore,
+                in: context) else { continue }
+            if assessment.grade == .play {
+                closeIfGraded(pieceId: piece.entityId, latestGrade: .play, in: context)
+            } else if assessment.grade == .stretch {
+                stretchAssessments.append((piece, assessment))
+            }
+        }
+
+        // 3) 每天最多 1 张铺路卡：今天已有任意未关闭卡（含已完成）→ 不再选、不再建
+        let hasTodayCard = pavingCards.contains {
+            $0.closedAt == nil && Calendar.current.isDate($0.prescribedAt, inSameDayAs: now)
+        }
+        guard !hasTodayCard else { return }
+
+        // 每首导入曲最近一次铺路时间（含历史卡，取 prescribedAt 最晚）
+        var lastPaved: [UUID: Date] = [:]
+        for card in pavingCards {
+            if let prev = lastPaved[card.pieceId] {
+                lastPaved[card.pieceId] = max(prev, card.prescribedAt)
+            } else {
+                lastPaved[card.pieceId] = card.prescribedAt
+            }
+        }
+        let candidates = stretchAssessments.map { tuple in
+            RewardDifficulty.PavingCandidate(
+                pieceId: tuple.assessment.pieceId,
+                title: tuple.piece.title,
+                difficulty: tuple.assessment.difficultyScore,
+                baseline: tuple.assessment.baselineScore,
+                lastPavedAt: lastPaved[tuple.assessment.pieceId]
+            )
+        }
+        guard let pick = RewardDifficulty.pickDailyPaving(candidates),
+              let pickedPiece = imported.first(where: { $0.entityId == pick.pieceId }),
+              let sf = scoreFiles.first(where: { $0.entityId == pickedPiece.sourceScoreId && $0.canFollow }),
+              let url = SandboxPaths.resolve(sf.fileURL),
+              let score = try? ScoreLoader.loadScore(contentsOf: url)
+        else { return }
+        let measures = RewardDifficulty.extractChords(score: score).map { RewardDifficulty.measureDifficulty($0) }
+        let hotspots = RewardDifficulty.hardestWindow(measures)
+        upsertDailyPaving(for: pick, piece: pickedPiece, hotspots: hotspots, in: context, now: now)
+    }
+
     /// 技术点简述（真实统计值，来自谱面静态分量；无可陈述项 → nil，不编）
     private static func difficultyReasons(_ measures: [RewardDifficulty.MeasureDifficulty]) -> String? {
         guard !measures.isEmpty else { return nil }
