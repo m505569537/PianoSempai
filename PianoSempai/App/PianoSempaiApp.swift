@@ -34,6 +34,9 @@ struct PianoSempaiApp: App {
                     SightReadDrillRecord.self,
                     // G3 矫正处方（ADR-0005；诊断→处方→复查，不锁过关红线 4）
                     CorrectionPrescription.self,
+                    // G5 奖励曲难度评估与铺路卡（ADR-0006；非门禁，不碰 Piece.status）
+                    RewardDifficultyAssessment.self,
+                    RewardPavingCard.self,
                 ])
         }
     }

@@ -502,3 +502,107 @@ enum CorrectionPrescriptionStore {
         return text
     }
 }
+
+// MARK: - G5 奖励曲难度评估与铺路存储薄层（ADR-0006；纯计算在 ScoringModels.RewardDifficulty）
+
+/// 不碰 Piece.status（只由 CourseEngine 写）、不写 Take/TakeAnalysis、
+/// 不触发过关/推进/streak（ADR-0006 红线：铺路非门禁，不阻止弹任何曲目）。
+/// 所有写库失败 try? 不崩、不假成功。
+@MainActor
+enum RewardPavingStore {
+
+    /// 评估并 upsert 最新 RewardDifficultyAssessment（同 piece 旧评估更新而非新增，幂等）。
+    /// 谱与当前条目谱由调用方加载后传入（本函数不做 IO）；baseline 由当前拜厄/哈农条目谱算
+    /// （取较高者，RewardDifficulty.baselineScore）。baseline <= 0（无法相对定级，如当前条目
+    /// 谱加载不到/解析为空）→ 不落库、返回 nil，调用方按「暂无法分析」诚实处理（ADR-0006 决策一/四）。
+    @discardableResult
+    static func assessAndUpsert(piece: Piece, score: Score,
+                                currentBeyerScore: Score?, currentHanonScore: Score?,
+                                in context: ModelContext) -> RewardDifficultyAssessment? {
+        let measures = RewardDifficulty.extractChords(score: score).map { RewardDifficulty.measureDifficulty($0) }
+        let difficulty = RewardDifficulty.overallDifficulty(measures)
+        let baseline = RewardDifficulty.baselineScore(currentBeyerScore: currentBeyerScore,
+                                                      currentHanonScore: currentHanonScore)
+        guard let grade = RewardDifficulty.grade(difficulty: difficulty, baseline: baseline) else { return nil }
+
+        let pieceId = piece.entityId
+        let descriptor = FetchDescriptor<RewardDifficultyAssessment>(
+            predicate: #Predicate { $0.pieceId == pieceId })
+        let existing = (try? context.fetch(descriptor))?.first
+        let reasons = difficultyReasons(measures)
+        if let existing {
+            existing.scoreFileId = piece.sourceScoreId
+            existing.gradeRaw = grade.rawValue
+            existing.difficultyScore = difficulty
+            existing.baselineScore = baseline
+            existing.reasons = reasons
+            existing.engineVersion = RewardDifficulty.engineVersion
+            existing.assessedAt = Date()
+            try? context.save()
+            return existing
+        }
+        let assessment = RewardDifficultyAssessment(
+            pieceId: pieceId, scoreFileId: piece.sourceScoreId,
+            gradeRaw: grade.rawValue, difficultyScore: difficulty, baselineScore: baseline,
+            reasons: reasons, engineVersion: RewardDifficulty.engineVersion)
+        context.insert(assessment)
+        try? context.save()
+        return assessment
+    }
+
+    /// 当日铺路卡落库（ADR-0006 决策三/八）：当天该 piece 已有未关闭卡（含当日已完成但
+    /// 尚未升档关闭的）→ 返回既有（当天去重，不重复催促）；否则建卡落库。
+    /// hotspots 来自 RewardDifficulty.hardestWindow（0-based 2-4 小节快照，进房锁定用）。
+    @discardableResult
+    static func upsertDailyPaving(for candidate: RewardDifficulty.PavingCandidate,
+                                  piece: Piece, hotspots: [Int],
+                                  in context: ModelContext, now: Date = Date()) -> RewardPavingCard? {
+        let pieceId = candidate.pieceId
+        let descriptor = FetchDescriptor<RewardPavingCard>(
+            predicate: #Predicate { $0.pieceId == pieceId && $0.closedAt == nil })
+        let unclosed = (try? context.fetch(descriptor)) ?? []
+        if let todayCard = unclosed.first(where: { Calendar.current.isDate($0.prescribedAt, inSameDayAs: now) }) {
+            return todayCard
+        }
+        let card = RewardPavingCard(
+            pieceId: pieceId, book: piece.book, number: piece.number,
+            hotspotMeasures: hotspots, prescribedAt: now)
+        context.insert(card)
+        try? context.save()
+        return card
+    }
+
+    /// 完成口径 = 进房对难点小节练完一遍（决策六，不看达标率）。幂等：已有 completedAt 不改写
+    ///（同 CorrectionPrescriptionStore.markCompleted 口径）。
+    static func markPavingCompleted(_ card: RewardPavingCard, in context: ModelContext) {
+        guard card.completedAt == nil else { return }
+        card.completedAt = Date()
+        try? context.save()
+    }
+
+    /// 升档即关闭（决策八）：该曲最新评估 = play → 未关闭卡 closedAt 落值（不再铺路）。
+    /// stretch / far / nil（暂无法分析）都不动卡状态。
+    static func closeIfGraded(pieceId: UUID, latestGrade: RewardDifficulty.Grade?, in context: ModelContext) {
+        guard latestGrade == .play else { return }
+        let descriptor = FetchDescriptor<RewardPavingCard>(
+            predicate: #Predicate { $0.pieceId == pieceId && $0.closedAt == nil })
+        guard let unclosed = try? context.fetch(descriptor), !unclosed.isEmpty else { return }
+        for card in unclosed { card.closedAt = Date() }
+        try? context.save()
+    }
+
+    /// 技术点简述（真实统计值，来自谱面静态分量；无可陈述项 → nil，不编）
+    private static func difficultyReasons(_ measures: [RewardDifficulty.MeasureDifficulty]) -> String? {
+        guard !measures.isEmpty else { return nil }
+        let meanBlack = measures.map(\.blackKeyRatio).reduce(0, +) / Double(measures.count)
+        let maxDensity = measures.map(\.density).max() ?? 0
+        let maxJump = measures.map(\.maxIntervalJump).max() ?? 0
+        let maxThickness = measures.map(\.maxChordThickness).max() ?? 0
+        var parts: [String] = []
+        if meanBlack > 0 { parts.append(String(format: "黑键占比 %.0f%%", meanBlack * 100)) }
+        if maxDensity >= 1 { parts.append("最高密度 \(Int(maxDensity)) 音/小节") }
+        if maxJump > 0 { parts.append("最大音程跳 \(maxJump) 半音") }
+        if maxThickness > 1 { parts.append("最大和弦 \(maxThickness) 键") }
+        return parts.isEmpty ? nil : parts.joined(separator: "；")
+    }
+}

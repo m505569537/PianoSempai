@@ -1,8 +1,10 @@
 import Foundation
+import SheetMusicCore
 
 // P2 判分引擎核心值类型（SPEC §2）+ 容差/课程数据（§9）。
 // 纯值类型，持久层（TakeAnalysis @Model）在 Models.swift，二者分开。
-// 本文件不触库、不发网络请求（红线 6）。
+// 本文件不触库、不发网络请求（红线 6）；SheetMusicCore 仅谱面值类型（Score/Chord），
+// 供 G5 静态难度提取（同 ScoreExpectedPitches 的只读取音范式），仍不触 ModelContext。
 
 // MARK: - §2 领域模型
 
@@ -352,5 +354,226 @@ extension CorrectionErrorType {
         case .continuity: "连续性中断"
         case .hands: "双手配合"
         }
+    }
+}
+
+// MARK: - G5 奖励曲静态难度（ADR-0006 Stage A 纯核心；三档定级 / 难点窗口 / 每日铺路选择）
+// 全部纯函数：不碰 ModelContext、不碰 Piece.status、不写 Take/TakeAnalysis，不做 IO——
+// 谱由调用方加载后传入（当前拜厄/哈农条目谱的定位与加载在 store/调用侧，ADR-0006 决策一）。
+
+/// 奖励曲（导入曲）静态难度评估（ADR-0006 决策一/三/五/七）
+enum RewardDifficulty {
+
+    // MARK: 常量（集中公开、非黑箱；调参只改这里，ADR-0006 决策一）
+
+    /// 分量归一化上限：原始分量 / 上限后 clamp 到 0...1（量纲不同，合成前必须归一）
+    /// density：单小节音符数上限（4/4 双手八分音符常见 ~16，24 留足余量）
+    static let densityCap: Double = 24
+    /// maxIntervalJump：旋律相邻音最大半音跳度上限（两个八度）
+    static let intervalCap: Double = 24
+    /// maxChordThickness：单 chord 同时键数上限（一只手最多 5 键，6 留余量）
+    static let chordThicknessCap: Double = 6
+
+    /// 小节难度分量合成权重（和为 1，单测固定；黑键是 beginner 物理难点，密度/跳度代表读谱与手位负担）
+    static let wBlackKeyRatio: Double = 0.2
+    static let wDensity: Double = 0.3
+    static let wIntervalJump: Double = 0.3
+    static let wChordThickness: Double = 0.2
+
+    /// 整体分 = 均值 + 峰值加权（既看平均负担也看最难句；和为 1，单测固定）
+    static let wMean: Double = 0.7
+    static let wMax: Double = 0.3
+
+    /// 三档阈值（相对基准；ADR-0006 决策一。边界等值归属用 ≤）
+    static let kPlay: Double = 1.15
+    static let kFar: Double = 1.8
+
+    /// 边界判定的相对浮点容差：抵消 1.15 等二进制近似造成的边界误判（ADR-0006 边界等值归属）。
+    static let boundaryTolerance: Double = 1e-9
+
+    /// 难点窗口长度（连续小节数；ADR-0006 决策五）
+    static let windowMinSize = 2
+    static let windowMaxSize = 4
+
+    /// 引擎版本（评估留痕；改口径必须升版本，upsert 时写入）
+    static let engineVersion = "G5-difficulty-1.0"
+
+    /// 三档定级（ADR-0006 决策一：相对当前课程进度，非绝对标尺）
+    enum Grade: String, CaseIterable, Sendable {
+        case play // 现在能弹
+        case stretch // 偏难（可铺路）
+        case far // 远超当前（只标档，不铺路）
+    }
+
+    /// 黑键判定（纯基于 MIDI pitch class，确定性）。beginner 产品口径——黑键物理上更难
+    ///（手位收窄+变音记号读谱负担），因此**调号里"实为黑键"的音同样计入**：本函数只看
+    /// pitch class，不查谱面记谱写法，天然满足该口径。
+    static func isBlackKey(_ midiPitch: Int) -> Bool {
+        [1, 3, 6, 8, 10].contains(midiPitch % 12) // C#/D#/F#/G#/A#
+    }
+
+    /// 谱 → 每小节 chord 分组音高：[measure][chord][pitch]（0-based 小节，不去重、保留出现序）。
+    /// 遍历范式同 ScoreExpectedPitches.extract（parts.first 的首个 staff，voices → elements → chord.notes）；
+    /// 保留 chord 分组是为了区分「同 chord 同时音」（和弦厚度）与「跨 chord 旋律跳度」。
+    static func extractChords(score: Score) -> [[[Int]]] {
+        guard let staff = score.parts.first?.staves.first else { return [] }
+        var result: [[[Int]]] = []
+        for measure in staff.measures {
+            var chords: [[Int]] = []
+            for voice in measure.voices {
+                for element in voice.elements {
+                    if case let .chord(chord) = element {
+                        chords.append(chord.notes.map(\.pitch))
+                    }
+                }
+            }
+            result.append(chords)
+        }
+        return result
+    }
+
+    /// 一个小节的静态难度分量 + 合成分（各分量先归一化再加权，见常量注释）
+    struct MeasureDifficulty: Equatable, Sendable {
+        /// 黑键音符数 / 总音符数（空小节 0）
+        var blackKeyRatio: Double
+        /// 该小节音符数（同 chord 的同时音也计）
+        var density: Double
+        /// 相邻旋律音最大半音差：旋律线 = 每 chord 取代表音（出现序首音），只在跨 chord 的
+        /// 进行上算，同 chord 内不算跳；不足 2 个 chord 为 0
+        var maxIntervalJump: Int
+        /// 单个 chord 同时键数最大值（空小节 0）
+        var maxChordThickness: Int
+        /// 加权合成分 0...1（分量归一后按 w* 权重合成）
+        var score: Double
+    }
+
+    /// 小节难度（输入 = 该小节的 chord 序列，来自 extractChords 的一行）。
+    /// 空 chord 序列 / 全空 chord → 各分量 0、score 0（不编，红线 1）。
+    static func measureDifficulty(_ chords: [[Int]]) -> MeasureDifficulty {
+        let totalPitches = chords.reduce(0) { $0 + $1.count }
+        guard totalPitches > 0 else {
+            return MeasureDifficulty(blackKeyRatio: 0, density: 0,
+                                     maxIntervalJump: 0, maxChordThickness: 0, score: 0)
+        }
+        let blackCount = chords.reduce(0) { $0 + $1.filter { isBlackKey($0) }.count }
+        let blackKeyRatio = Double(blackCount) / Double(totalPitches)
+        let density = Double(totalPitches)
+        let maxChordThickness = chords.map(\.count).max() ?? 0
+        let melody = chords.compactMap(\.first)
+        var maxIntervalJump = 0
+        if melody.count >= 2 {
+            for i in 1..<melody.count {
+                maxIntervalJump = max(maxIntervalJump, abs(melody[i] - melody[i - 1]))
+            }
+        }
+        let score = wBlackKeyRatio * clamp01(blackKeyRatio)
+            + wDensity * clamp01(density / densityCap)
+            + wIntervalJump * clamp01(Double(maxIntervalJump) / intervalCap)
+            + wChordThickness * clamp01(Double(maxChordThickness) / chordThicknessCap)
+        return MeasureDifficulty(blackKeyRatio: blackKeyRatio, density: density,
+                                 maxIntervalJump: maxIntervalJump, maxChordThickness: maxChordThickness,
+                                 score: score)
+    }
+
+    /// 整体难度分 = 小节分均值 × wMean + 峰值 × wMax（均值看平均负担、峰值看最难句）。
+    /// 空曲 → 0。
+    static func overallDifficulty(_ measures: [MeasureDifficulty]) -> Double {
+        guard !measures.isEmpty else { return 0 }
+        let mean = measures.map(\.score).reduce(0, +) / Double(measures.count)
+        let peak = measures.map(\.score).max() ?? 0
+        return mean * wMean + peak * wMax
+    }
+
+    /// 难点连续窗口（ADR-0006 决策五：2-4 小节，累计难度最高的连续窗口）。
+    /// 返回 0-based 小节下标（同 TakeAnalysis.hotspotMeasures 口径）。确定性规则：
+    /// 同分取更短窗、再同分取起点更靠前，禁随机。小节总数 < minSize → 返回全部小节；
+    /// 空曲 → []；窗口长度钳制到实际小节数。
+    static func hardestWindow(_ measures: [MeasureDifficulty],
+                              minSize: Int = 2, maxSize: Int = 4) -> [Int] {
+        let count = measures.count
+        guard count > 0 else { return [] }
+        let lower = max(1, minSize)
+        guard count >= lower else { return Array(0..<count) }
+        let upper = min(maxSize, count)
+        guard lower <= upper else { return Array(0..<count) } // 调用方误传 maxSize < minSize：不崩，退全曲
+        // 前缀和：sum(start..<start+size) = prefix[start+size] - prefix[start]
+        var prefix = [0.0]
+        for measure in measures { prefix.append(prefix.last! + measure.score) }
+        var best: (start: Int, size: Int, sum: Double)? = nil
+        // size 升序（同分取更短）、start 升序（再同分取更靠前）→ 严格大于才替换即为确定性
+        for size in lower...upper {
+            for start in 0...(count - size) {
+                let sum = prefix[start + size] - prefix[start]
+                if best == nil || sum > best!.sum {
+                    best = (start, size, sum)
+                }
+            }
+        }
+        guard let best else { return Array(0..<count) }
+        return Array(best.start..<(best.start + best.size))
+    }
+
+    /// 当前水平基准分：对当前在练的拜厄/哈农条目谱（调用方加载后传入，本函数不做 IO）
+    /// 用同一套 overallDifficulty 计算，取较高者（代表当下能处理的上限）。两者都 nil / 都算不出 → 0。
+    static func baselineScore(currentBeyerScore: Score?, currentHanonScore: Score?) -> Double {
+        func overall(of score: Score?) -> Double {
+            guard let score else { return 0 }
+            return overallDifficulty(extractChords(score: score).map { measureDifficulty($0) })
+        }
+        return max(overall(of: currentBeyerScore), overall(of: currentHanonScore))
+    }
+
+    /// 相对基准定级（ADR-0006 决策一）。baseline <= 0（当前条目谱算不出）→ 无法相对定级，
+    /// 返回 nil，调用方按「暂无法分析」诚实处理（红线 1：禁止编档位）。
+    static func grade(difficulty: Double, baseline: Double) -> Grade? {
+        guard baseline > 0 else { return nil }
+        if difficulty <= baseline * kPlay * (1 + boundaryTolerance) { return .play }
+        if difficulty <= baseline * kFar  * (1 + boundaryTolerance) { return .stretch }
+        return .far
+    }
+
+    /// 每日 1 条铺路选择的候选（ADR-0006 决策三；值类型，Equatable）
+    struct PavingCandidate: Equatable, Sendable {
+        let pieceId: UUID
+        let title: String
+        let difficulty: Double
+        let baseline: Double
+        /// 该曲最近一次铺路卡 prescribedAt；nil = 从未铺路
+        let lastPavedAt: Date?
+    }
+
+    /// 每日至多 1 条铺路选择（ADR-0006 决策三/七，确定性）：
+    /// 仅 stretch 档进入候选（play 无需铺、far 铺了也跟不上）；
+    /// excludedPieceIds = 当天已有未完成铺路卡的 piece（调用方查库得出），排除；
+    /// 按「超出基准比例 difficulty/baseline」降序 → lastPavedAt 最早（从未铺路排最前）→
+    /// title 升序 → entityId 升序 tie-break。空 → nil。
+    static func pickDailyPaving(_ candidates: [PavingCandidate],
+                                excludedPieceIds: Set<UUID> = []) -> PavingCandidate? {
+        let eligible = candidates.filter { candidate in
+            !excludedPieceIds.contains(candidate.pieceId)
+                && grade(difficulty: candidate.difficulty, baseline: candidate.baseline) == .stretch
+        }
+        return eligible.min(by: pavingOrder)
+    }
+
+    /// 候选排序（严格弱序：a 应排在 b 前则 true）
+    private static func pavingOrder(_ a: PavingCandidate, _ b: PavingCandidate) -> Bool {
+        let ratioA = a.difficulty / a.baseline
+        let ratioB = b.difficulty / b.baseline
+        if ratioA != ratioB { return ratioA > ratioB }
+        switch (a.lastPavedAt, b.lastPavedAt) {
+        case (nil, nil): break
+        case (nil, _): return true // 从未铺路排最前
+        case (_, nil): return false
+        case (let x?, let y?):
+            if x != y { return x < y }
+        }
+        if a.title != b.title { return a.title < b.title }
+        return a.pieceId < b.pieceId
+    }
+
+    /// 归一到 0...1（上限做除法后钳制；负值输入视作 0）
+    private static func clamp01(_ value: Double) -> Double {
+        min(max(value, 0), 1)
     }
 }

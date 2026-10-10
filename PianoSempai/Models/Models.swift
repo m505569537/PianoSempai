@@ -880,3 +880,74 @@ final class CorrectionPrescription {
     }
 }
 
+// MARK: - G5 奖励曲难度评估与铺路卡（ADR-0006；纯计算在 ScoringModels.RewardDifficulty）
+
+/// 导入曲静态难度评估留痕（ADR-0006 持久化）：同一 piece 保留最新评估（upsert，幂等）。
+/// 铺路非门禁（红线）：不碰 Piece.status、不写 Take/TakeAnalysis、不触发过关/推进/streak。
+@Model
+final class RewardDifficultyAssessment {
+    var entityId: UUID = UUID()
+    /// 所属导入曲（Piece.entityId）
+    var pieceId: UUID = UUID()
+    /// 评估时挂的可跟弹谱（ScoreFile.entityId）
+    var scoreFileId: UUID?
+    /// 三档 rawValue（RewardDifficulty.Grade：play / stretch / far）
+    var gradeRaw: String = ""
+    var difficultyScore: Double = 0
+    var baselineScore: Double = 0
+    /// 技术点简述（黑键占比/密度/跳度/和弦厚度，真实统计值；可为空）
+    var reasons: String?
+    /// = RewardDifficulty.engineVersion（改口径必须升版本）
+    var engineVersion: String = ""
+    var assessedAt: Date = Date()
+
+    /// 三档还原（坏 rawValue / 历史数据 → nil，不崩）
+    var grade: RewardDifficulty.Grade? { RewardDifficulty.Grade(rawValue: gradeRaw) }
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供；写法参考同文件 CorrectionPrescription）
+    init(entityId: UUID = UUID(), pieceId: UUID = UUID(), scoreFileId: UUID? = nil, gradeRaw: String = "", difficultyScore: Double = 0, baselineScore: Double = 0, reasons: String? = nil, engineVersion: String = "", assessedAt: Date = Date()) {
+        self.entityId = entityId
+        self.pieceId = pieceId
+        self.scoreFileId = scoreFileId
+        self.gradeRaw = gradeRaw
+        self.difficultyScore = difficultyScore
+        self.baselineScore = baselineScore
+        self.reasons = reasons
+        self.engineVersion = engineVersion
+        self.assessedAt = assessedAt
+    }
+}
+
+/// 奖励曲铺路卡（ADR-0006 决策二/三/六/八）：偏难导入曲的 2-4 小节难点段，热身后可选卡。
+/// 非门禁：不改 Piece.status、不写 Take/TakeAnalysis、不阻止弹任何曲目。
+/// 卡只负责小节快照与当天去重；完成口径 = 练完一遍（不看达标，决策六）；
+/// 升到 play 档 / 曲目删除 → closedAt 落值（决策八），nil = 未结。
+@Model
+final class RewardPavingCard {
+    var entityId: UUID = UUID()
+    /// 所属导入曲（Piece.entityId）
+    var pieceId: UUID = UUID()
+    /// 导入曲标识（导入曲 book = "导入"）
+    var book: String = ""
+    var number: Int = 0
+    /// 难点小节（0-based 连续 2-4 小节，同 TakeAnalysis.hotspotMeasures 口径）
+    var hotspotMeasures: [Int] = []
+    var prescribedAt: Date = Date()
+    /// 进房对难点小节练完一遍的时间（决策六；nil = 未完成）
+    var completedAt: Date?
+    /// 升档/删除时关闭（决策八）；nil = 未结
+    var closedAt: Date?
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
+    init(entityId: UUID = UUID(), pieceId: UUID = UUID(), book: String = "", number: Int = 0, hotspotMeasures: [Int] = [], prescribedAt: Date = Date(), completedAt: Date? = nil, closedAt: Date? = nil) {
+        self.entityId = entityId
+        self.pieceId = pieceId
+        self.book = book
+        self.number = number
+        self.hotspotMeasures = hotspotMeasures
+        self.prescribedAt = prescribedAt
+        self.completedAt = completedAt
+        self.closedAt = closedAt
+    }
+}
+

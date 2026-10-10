@@ -1215,4 +1215,394 @@ final class PracticeCoreTests: XCTestCase {
             XCTAssertFalse(type.displayName.isEmpty, "\(type.rawValue) 展示名非空")
         }
     }
+
+    // MARK: - G5 Stage A：奖励曲静态难度 / 三档定级 / 难点窗口 / 铺路选择（ADR-0006）
+
+    /// 多 chord fixture：每小节给一组 chord（每 chord 一组 MIDI pitch），单 staff 单 voice
+    private func makeChordScore(chordsPerMeasure: [[[Int]]]) -> Score {
+        var measures: [Measure] = []
+        for chords in chordsPerMeasure {
+            var elements: [VoiceElement] = []
+            for pitches in chords {
+                let notes = pitches.map { Note(pitch: $0, tpc: 21) }
+                elements.append(.chord(Chord(duration: .quarter, notes: ChordNotes(notes))))
+            }
+            measures.append(Measure(voices: [Voice(elements: elements)]))
+        }
+        let staff = Staff(defaultClefType: nil, measures: measures)
+        let part = Part(id: "P1", instrument: Instrument(id: "piano"), staves: IdentifiedArray([staff]))
+        return Score(division: 480,
+                     parts: IdentifiedArray([part]),
+                     systemMeasures: IdentifiedArray(Array(repeating: SystemMeasure(), count: chordsPerMeasure.count)))
+    }
+
+    /// 指定难度的 MeasureDifficulty（难点窗口测试用，绕开分量计算）
+    private func makeMeasure(score: Double) -> RewardDifficulty.MeasureDifficulty {
+        RewardDifficulty.MeasureDifficulty(blackKeyRatio: 0, density: 0,
+                                           maxIntervalJump: 0, maxChordThickness: 0, score: score)
+    }
+
+    private func makePavingCandidate(title: String, difficulty: Double, baseline: Double,
+                                     lastPavedAt: Date?) -> RewardDifficulty.PavingCandidate {
+        RewardDifficulty.PavingCandidate(pieceId: UUID(), title: title, difficulty: difficulty,
+                                         baseline: baseline, lastPavedAt: lastPavedAt)
+    }
+
+    private func makeRewardContainer() throws -> ModelContainer {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try ModelContainer(
+            for: Schema([Piece.self, ScoreFile.self, RewardDifficultyAssessment.self, RewardPavingCard.self]),
+            configurations: config
+        )
+    }
+
+    private func makeImportedPiece(title: String = "导入曲", number: Int = 1) -> Piece {
+        Piece(entityId: UUID(), title: title, book: "导入", number: number, totalMeasures: 8)
+    }
+
+    // isBlackKey：黑键集合 [1,3,6,8,10]（pitch class 口径，跨八度一致）
+
+    func testIsBlackKeyBeginnerPitchClassRule() {
+        XCTAssertFalse(RewardDifficulty.isBlackKey(60), "C4 白键")
+        XCTAssertTrue(RewardDifficulty.isBlackKey(61), "C#4 黑键")
+        XCTAssertFalse(RewardDifficulty.isBlackKey(62), "D4 白键")
+        XCTAssertTrue(RewardDifficulty.isBlackKey(66), "F#4 黑键")
+        XCTAssertTrue(RewardDifficulty.isBlackKey(70), "A#4 黑键")
+        XCTAssertFalse(RewardDifficulty.isBlackKey(71), "B4 白键")
+        XCTAssertTrue(RewardDifficulty.isBlackKey(73), "高八度 C#5 仍是黑键（pitch class 口径）")
+        XCTAssertFalse(RewardDifficulty.isBlackKey(72), "C5 白键")
+    }
+
+    // extractChords：[measure][chord][pitch]，保留分组与出现序
+
+    func testExtractChordsKeepsChordGroupingAndOrder() {
+        let score = makeChordScore(chordsPerMeasure: [
+            [[60], [64, 67, 71]],
+            [[72]],
+            [],
+        ])
+        let extracted = RewardDifficulty.extractChords(score: score)
+        XCTAssertEqual(extracted.count, 3, "逐小节一层")
+        XCTAssertEqual(extracted[0], [[60], [64, 67, 71]], "chord 分组与出现序保留（不去重）")
+        XCTAssertEqual(extracted[1], [[72]])
+        XCTAssertEqual(extracted[2], [], "空小节 = 空 chord 序列")
+        for measure in extracted {
+            for chord in measure {
+                XCTAssertFalse(chord.isEmpty)
+                for pitch in chord {
+                    XCTAssertGreaterThanOrEqual(pitch, 0)
+                    XCTAssertLessThanOrEqual(pitch, 127, "MIDI 0...127")
+                }
+            }
+        }
+        // 空谱（无 parts）→ 空，不崩
+        XCTAssertTrue(RewardDifficulty.extractChords(score: Score(division: 480)).isEmpty)
+    }
+
+    // measureDifficulty：空/单音/跳度/厚度/黑键比例
+
+    func testMeasureDifficultyEmptyIsAllZero() {
+        let empty = RewardDifficulty.measureDifficulty([])
+        XCTAssertEqual(empty.blackKeyRatio, 0)
+        XCTAssertEqual(empty.density, 0)
+        XCTAssertEqual(empty.maxIntervalJump, 0)
+        XCTAssertEqual(empty.maxChordThickness, 0)
+        XCTAssertEqual(empty.score, 0, "空小节全 0，不编")
+        let allEmptyChords = RewardDifficulty.measureDifficulty([[], []])
+        XCTAssertEqual(allEmptyChords.score, 0)
+    }
+
+    func testMeasureDifficultySingleNote() {
+        let m = RewardDifficulty.measureDifficulty([[60]])
+        XCTAssertEqual(m.density, 1)
+        XCTAssertEqual(m.maxChordThickness, 1)
+        XCTAssertEqual(m.maxIntervalJump, 0, "单音无跳")
+        XCTAssertEqual(m.blackKeyRatio, 0)
+        XCTAssertGreaterThan(m.score, 0)
+    }
+
+    func testMeasureDifficultyMelodyJumpAcrossChords() {
+        let m = RewardDifficulty.measureDifficulty([[60], [72]])
+        XCTAssertEqual(m.maxIntervalJump, 12, "相邻旋律音（chord 代表音）差 = 跳度")
+        XCTAssertEqual(m.maxChordThickness, 1)
+        XCTAssertEqual(m.density, 2)
+    }
+
+    func testMeasureDifficultyChordThicknessAndBlackKeyRatio() {
+        let chord = RewardDifficulty.measureDifficulty([[60, 64, 67]])
+        XCTAssertEqual(chord.maxChordThickness, 3, "同 chord 三音 = 厚度 3")
+        XCTAssertEqual(chord.density, 3, "同时音计入密度")
+        XCTAssertEqual(chord.maxIntervalJump, 0, "同一 chord 内不算跳")
+        let black = RewardDifficulty.measureDifficulty([[61]])
+        XCTAssertEqual(black.blackKeyRatio, 1, accuracy: 0.0001, "C# 单音 → 黑键占比 1")
+        let mixed = RewardDifficulty.measureDifficulty([[60, 61]])
+        XCTAssertEqual(mixed.blackKeyRatio, 0.5, accuracy: 0.0001)
+    }
+
+    // overallDifficulty：均值 + 峰值加权
+
+    func testOverallDifficultyEmptyIsZero() {
+        XCTAssertEqual(RewardDifficulty.overallDifficulty([]), 0, "空曲 → 0")
+    }
+
+    func testOverallDifficultyUniformMeasuresEqualsSingleMeasureScore() {
+        let measures = Array(repeating: RewardDifficulty.measureDifficulty([[60], [67]]), count: 5)
+        XCTAssertEqual(RewardDifficulty.overallDifficulty(measures), measures[0].score,
+                       accuracy: 0.0001, "全相等小节 mean=max → 整体分 = 小节分（权重和为 1）")
+    }
+
+    func testOverallDifficultyWithPeakLiesBetweenMeanAndMax() {
+        let low = RewardDifficulty.measureDifficulty([[60]])
+        let high = RewardDifficulty.measureDifficulty([[55, 58, 62, 65, 69], [72], [84]])
+        let measures = [low, low, low, high]
+        let mean = measures.map(\.score).reduce(0, +) / Double(measures.count)
+        let peak = measures.map(\.score).max() ?? 0
+        let overall = RewardDifficulty.overallDifficulty(measures)
+        XCTAssertGreaterThan(overall, mean, "峰值项使其高于纯均值")
+        XCTAssertLessThan(overall, peak, "均值项使其低于纯峰值")
+    }
+
+    func testRewardDifficultyWeightsAndCapsAreSane() {
+        // 分量权重和为 1（合成分仍是 0-1 口径）
+        XCTAssertEqual(RewardDifficulty.wBlackKeyRatio + RewardDifficulty.wDensity
+            + RewardDifficulty.wIntervalJump + RewardDifficulty.wChordThickness, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(RewardDifficulty.wMean + RewardDifficulty.wMax, 1.0, accuracy: 0.0001)
+        XCTAssertLessThan(RewardDifficulty.kPlay, RewardDifficulty.kFar, "三档阈值有序")
+        XCTAssertGreaterThan(RewardDifficulty.densityCap, 0)
+        XCTAssertGreaterThan(RewardDifficulty.intervalCap, 0)
+        XCTAssertGreaterThan(RewardDifficulty.chordThicknessCap, 0)
+    }
+
+    // hardestWindow：难点连续窗口（确定性）
+
+    func testHardestWindowEmptyAndTooFewMeasures() {
+        XCTAssertEqual(RewardDifficulty.hardestWindow([]), [], "空曲 → []")
+        XCTAssertEqual(RewardDifficulty.hardestWindow([makeMeasure(score: 0.5)]), [0], "仅 1 小节 → 全部小节")
+        // 2 小节：唯一合法窗口 [0,1]（长度钳制到实际小节数）
+        let two = [makeMeasure(score: 0.1), makeMeasure(score: 0.9)]
+        XCTAssertEqual(RewardDifficulty.hardestWindow(two), [0, 1])
+    }
+
+    func testHardestWindowPicksHighestContiguousSegment() {
+        // 0.9+0.8 段：所有含它们的更大窗口分数都不更高 → [2,3]；同分取更短
+        let scores: [Double] = [0.0, 0.0, 0.9, 0.8, 0.0, 0.0]
+        let measures = scores.map { makeMeasure(score: $0) }
+        XCTAssertEqual(RewardDifficulty.hardestWindow(measures), [2, 3])
+        XCTAssertEqual(RewardDifficulty.hardestWindow(measures), RewardDifficulty.hardestWindow(measures),
+                       "确定性：重复运行结果一致")
+    }
+
+    func testHardestWindowPrefersLongerWindowWhenSumWins() {
+        // [1..4] 和 2.9 唯一最高（>任何 2/3 窗）→ 长度 4；index4=0.2 消除与 [0..3] 的对称平局
+        let scores: [Double] = [0.1, 0.9, 0.9, 0.9, 0.2, 0.1]
+        XCTAssertEqual(RewardDifficulty.hardestWindow(scores.map { makeMeasure(score: $0) }), [1, 2, 3, 4])
+    }
+
+    func testHardestWindowTieBreaksShorterThenEarlier() {
+        // 所有窗口和同为 1.0 → 严格 > 才替换 → 首个发现者（最短、起点最靠前）[0,1]
+        let scores: [Double] = [0.5, 0.5, 0.0, 0.0, 0.5, 0.5]
+        XCTAssertEqual(RewardDifficulty.hardestWindow(scores.map { makeMeasure(score: $0) }), [0, 1])
+        // 固定窗长 2：同和取起点更靠前
+        let two = [0.0, 0.4, 0.4, 0.0, 0.4, 0.4]
+        XCTAssertEqual(RewardDifficulty.hardestWindow(two.map { makeMeasure(score: $0) },
+                                                      minSize: 2, maxSize: 2), [1, 2])
+    }
+
+    // grade：三档边界（≤）
+
+    func testGradeBoundariesRelativeToBaseline() {
+        XCTAssertEqual(RewardDifficulty.grade(difficulty: 100, baseline: 100), .play)
+        XCTAssertEqual(RewardDifficulty.grade(difficulty: 115, baseline: 100), .play, "边界等值归属用 ≤ kPlay")
+        XCTAssertEqual(RewardDifficulty.grade(difficulty: 116, baseline: 100), .stretch)
+        XCTAssertEqual(RewardDifficulty.grade(difficulty: 180, baseline: 100), .stretch, "边界等值归属用 ≤ kFar")
+        XCTAssertEqual(RewardDifficulty.grade(difficulty: 181, baseline: 100), .far)
+        XCTAssertNil(RewardDifficulty.grade(difficulty: 50, baseline: 0), "baseline=0 无法相对定级 → nil")
+        XCTAssertNil(RewardDifficulty.grade(difficulty: 50, baseline: -1), "负基准同样无法定级")
+    }
+
+    // baselineScore：当前条目谱取较高者
+
+    func testBaselineScoreBothNilIsZero() {
+        XCTAssertEqual(RewardDifficulty.baselineScore(currentBeyerScore: nil, currentHanonScore: nil), 0)
+    }
+
+    func testBaselineScoreTakesHigherOfCurrentEntries() {
+        let easy = makeChordScore(chordsPerMeasure: [[[60]], [[61]]])
+        let hard = makeChordScore(chordsPerMeasure: [[[60, 64, 67]], [[72, 76, 79]], [[55, 59, 62, 66]]])
+        func overall(of score: Score) -> Double {
+            RewardDifficulty.overallDifficulty(
+                RewardDifficulty.extractChords(score: score).map { RewardDifficulty.measureDifficulty($0) })
+        }
+        XCTAssertEqual(RewardDifficulty.baselineScore(currentBeyerScore: easy, currentHanonScore: nil),
+                       overall(of: easy), accuracy: 0.0001, "单边 → 该条目分")
+        XCTAssertEqual(RewardDifficulty.baselineScore(currentBeyerScore: easy, currentHanonScore: hard),
+                       overall(of: hard), accuracy: 0.0001, "取较高者（当下上限）")
+        XCTAssertEqual(RewardDifficulty.baselineScore(currentBeyerScore: hard, currentHanonScore: easy),
+                       overall(of: hard), accuracy: 0.0001, "与传入顺序无关")
+    }
+
+    // pickDailyPaving：每日 1 条铺路选择（确定性）
+
+    func testPickDailyPavingEmptyOrNoStretchReturnsNil() {
+        XCTAssertNil(RewardDifficulty.pickDailyPaving([]), "空 → nil")
+        let far = makePavingCandidate(title: "远超", difficulty: 500, baseline: 100, lastPavedAt: nil)
+        let play = makePavingCandidate(title: "能弹", difficulty: 90, baseline: 100, lastPavedAt: nil)
+        XCTAssertNil(RewardDifficulty.pickDailyPaving([far, play]), "仅 stretch 档进入候选（决策七）")
+    }
+
+    func testPickDailyPavingRanksByExceedRatioThenLastPavedThenTitle() {
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        // 超出基准比例降序：1.6 > 1.4 > 1.25（均在 stretch 带内）
+        let lowRatio = makePavingCandidate(title: "甲", difficulty: 125, baseline: 100, lastPavedAt: nil)
+        let highRatio = makePavingCandidate(title: "乙", difficulty: 160, baseline: 100, lastPavedAt: base)
+        let mid = makePavingCandidate(title: "丙", difficulty: 140, baseline: 100, lastPavedAt: base)
+        XCTAssertEqual(RewardDifficulty.pickDailyPaving([lowRatio, highRatio, mid])?.pieceId,
+                       highRatio.pieceId, "超出基准比例最高者优先")
+        // 同比例：从未铺路（nil）排最前；同为 nil → title 升序（确定性，禁随机）。
+        // 用 ASCII 标题：原生 String 比较是 Unicode 码位序，ASCII 才能跨 locale 确定地表达升序。
+        let neverA = makePavingCandidate(title: "A", difficulty: 150, baseline: 100, lastPavedAt: nil)
+        let neverB = makePavingCandidate(title: "B", difficulty: 150, baseline: 100, lastPavedAt: nil)
+        let paved = makePavingCandidate(title: "C", difficulty: 150, baseline: 100, lastPavedAt: base)
+        let pick = RewardDifficulty.pickDailyPaving([paved, neverB, neverA])
+        XCTAssertEqual(pick?.title, "A", "从未铺路优先，再按 title 升序 tie-break")
+        XCTAssertEqual(RewardDifficulty.pickDailyPaving([paved, neverB, neverA])?.title, pick?.title,
+                       "确定性：重复运行结果一致")
+        // 同比例、都有铺路时间 → lastPavedAt 更早者优先
+        let older = makePavingCandidate(title: "A", difficulty: 150, baseline: 100,
+                                        lastPavedAt: base.addingTimeInterval(-100))
+        let newer = makePavingCandidate(title: "B", difficulty: 150, baseline: 100, lastPavedAt: base)
+        XCTAssertEqual(RewardDifficulty.pickDailyPaving([newer, older])?.title, "A", "最久未铺路优先")
+        // 当天已有未完成卡（调用方传入排除集）的 piece 不选
+        XCTAssertEqual(
+            RewardDifficulty.pickDailyPaving([highRatio, lowRatio],
+                                             excludedPieceIds: [highRatio.pieceId])?.pieceId,
+            lowRatio.pieceId, "被排除的 piece 跳过，取次优")
+        // 全部被排除 → nil
+        XCTAssertNil(RewardDifficulty.pickDailyPaving([highRatio], excludedPieceIds: [highRatio.pieceId]))
+    }
+
+    // @MainActor 涉库：assessAndUpsert 幂等 upsert / 当天去重 / 完成幂等 / 升档关闭
+
+    @MainActor
+    func testAssessAndUpsertUpsertsOncePerPieceAndSkipsWhenBaselineMissing() throws {
+        let context = ModelContext(try makeRewardContainer())
+        let piece = makeImportedPiece()
+        piece.sourceScoreId = UUID()
+        context.insert(piece)
+        let beyer = makeChordScore(chordsPerMeasure: [[[60]], [[61]]])
+        // 导入曲明显难于基准（5 键厚和弦 + 十二度大跳）→ stretch
+        let importHard = makeChordScore(chordsPerMeasure: [
+            [[55, 58, 62, 65, 69]],
+            [[72], [84]],
+        ])
+        let first = try XCTUnwrap(RewardPavingStore.assessAndUpsert(
+            piece: piece, score: importHard, currentBeyerScore: beyer, currentHanonScore: nil, in: context))
+        XCTAssertEqual(first.pieceId, piece.entityId)
+        XCTAssertEqual(first.grade, .stretch, "厚和弦+大跳导入曲相对单音基准 → 偏难")
+        XCTAssertEqual(first.scoreFileId, piece.sourceScoreId)
+        XCTAssertEqual(first.engineVersion, RewardDifficulty.engineVersion)
+        XCTAssertEqual(first.difficultyScore,
+                       RewardDifficulty.overallDifficulty(
+                           RewardDifficulty.extractChords(score: importHard).map { RewardDifficulty.measureDifficulty($0) }),
+                       accuracy: 0.0001, "difficultyScore 与纯函数同源")
+        XCTAssertEqual(first.baselineScore,
+                       RewardDifficulty.baselineScore(currentBeyerScore: beyer, currentHanonScore: nil),
+                       accuracy: 0.0001)
+        XCTAssertNotNil(first.reasons, "有可陈述技术点 → 简述非空")
+
+        // 重新评估（谱变简单 → play）→ 更新同一条，不新增（幂等 upsert）
+        let importEasy = makeChordScore(chordsPerMeasure: [[[60]]])
+        let second = try XCTUnwrap(RewardPavingStore.assessAndUpsert(
+            piece: piece, score: importEasy, currentBeyerScore: beyer, currentHanonScore: nil, in: context))
+        XCTAssertEqual(second.entityId, first.entityId, "同 piece upsert 更新而非新增")
+        XCTAssertEqual(second.grade, .play)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<RewardDifficultyAssessment>()).count, 1)
+
+        // baseline 缺失（当前条目谱都拿不到）→ nil 且不落库（诚实，不编档位）
+        let other = makeImportedPiece(title: "无基准")
+        context.insert(other)
+        XCTAssertNil(RewardPavingStore.assessAndUpsert(
+            piece: other, score: importEasy, currentBeyerScore: nil, currentHanonScore: nil, in: context))
+        XCTAssertEqual(try context.fetch(FetchDescriptor<RewardDifficultyAssessment>()).count, 1,
+                       "无法定级不落库")
+    }
+
+    @MainActor
+    func testRewardAssessmentGradeRawDecodesAndCorruptIsNil() throws {
+        let context = ModelContext(try makeRewardContainer())
+        let assessment = RewardDifficultyAssessment(pieceId: UUID(), gradeRaw: "stretch",
+                                                    difficultyScore: 1.2, baselineScore: 1.0)
+        context.insert(assessment)
+        try context.save()
+        let fetched = try context.fetch(FetchDescriptor<RewardDifficultyAssessment>())
+        XCTAssertEqual(fetched.count, 1)
+        XCTAssertEqual(fetched.first?.grade, .stretch, "rawValue 还原三档")
+        let fetchedScore = try XCTUnwrap(fetched.first?.difficultyScore)
+        XCTAssertEqual(fetchedScore, 1.2, accuracy: 0.0001)
+        XCTAssertNil(RewardDifficultyAssessment(pieceId: UUID(), gradeRaw: "nonsense").grade,
+                     "坏 rawValue → nil，不崩")
+    }
+
+    @MainActor
+    func testUpsertDailyPavingDeduplicatesWithinDay() throws {
+        let context = ModelContext(try makeRewardContainer())
+        let piece = makeImportedPiece()
+        context.insert(piece)
+        // candidate.pieceId 必须绑定 piece.entityId（实现据此关联卡与曲目）
+        let candidate = RewardDifficulty.PavingCandidate(
+            pieceId: piece.entityId, title: piece.title, difficulty: 150, baseline: 100, lastPavedAt: nil)
+        // 正午时刻（2025-06-15 12:00 +0800）：+3600 不跨当地午夜，+86400 确定是次日
+        let now = Date(timeIntervalSince1970: 1_749_960_000)
+        let first = try XCTUnwrap(RewardPavingStore.upsertDailyPaving(
+            for: candidate, piece: piece, hotspots: [2, 3], in: context, now: now))
+        XCTAssertEqual(first.pieceId, piece.entityId)
+        XCTAssertEqual(first.book, "导入")
+        XCTAssertEqual(first.number, 1)
+        XCTAssertEqual(first.hotspotMeasures, [2, 3], "难点小节快照落卡（0-based）")
+        XCTAssertEqual(first.prescribedAt, now)
+        XCTAssertNil(first.completedAt, "默认未完成")
+        XCTAssertNil(first.closedAt, "默认未结")
+        // 当天再来 → 返回既有（当天去重；含已完成但未关闭的情形）
+        let second = RewardPavingStore.upsertDailyPaving(
+            for: candidate, piece: piece, hotspots: [2, 3], in: context, now: now.addingTimeInterval(3_600))
+        XCTAssertEqual(second?.entityId, first.entityId)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<RewardPavingCard>()).count, 1)
+        // 次日（昨日卡未结不阻断新一天）→ 新卡
+        let nextDay = RewardPavingStore.upsertDailyPaving(
+            for: candidate, piece: piece, hotspots: [2, 3], in: context, now: now.addingTimeInterval(86_400))
+        XCTAssertNotEqual(nextDay?.entityId, first.entityId)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<RewardPavingCard>()).count, 2)
+    }
+
+    @MainActor
+    func testMarkPavingCompletedIsIdempotent() throws {
+        let context = ModelContext(try makeRewardContainer())
+        let card = RewardPavingCard(pieceId: UUID(), book: "导入", number: 1,
+                                    hotspotMeasures: [0, 1], prescribedAt: Date())
+        context.insert(card)
+        try context.save()
+        RewardPavingStore.markPavingCompleted(card, in: context)
+        let first = try XCTUnwrap(card.completedAt, "首次标记 → completedAt 落值")
+        RewardPavingStore.markPavingCompleted(card, in: context)
+        XCTAssertEqual(card.completedAt, first, "幂等：已有 completedAt 不改写")
+    }
+
+    @MainActor
+    func testCloseIfGradedClosesOnlyOnPlay() throws {
+        let context = ModelContext(try makeRewardContainer())
+        let pieceId = UUID()
+        let card = RewardPavingCard(pieceId: pieceId, book: "导入", number: 1, hotspotMeasures: [2, 3])
+        context.insert(card)
+        try context.save()
+        // stretch / far / nil（暂无法分析）都不动卡状态
+        RewardPavingStore.closeIfGraded(pieceId: pieceId, latestGrade: .stretch, in: context)
+        XCTAssertNil(card.closedAt)
+        RewardPavingStore.closeIfGraded(pieceId: pieceId, latestGrade: .far, in: context)
+        XCTAssertNil(card.closedAt)
+        RewardPavingStore.closeIfGraded(pieceId: pieceId, latestGrade: nil, in: context)
+        XCTAssertNil(card.closedAt)
+        // 升到 play → 关闭（决策八）
+        RewardPavingStore.closeIfGraded(pieceId: pieceId, latestGrade: .play, in: context)
+        XCTAssertNotNil(card.closedAt)
+    }
 }
