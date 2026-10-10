@@ -61,6 +61,60 @@ enum TodayPlanService {
         )
     }
 
+    // MARK: - 连续达标周（G8 轻激励；ADR-0007）
+
+    struct WeeklyGoalStreak: Equatable {
+        /// 截至「上一个已结束完整周」的连续达标周数（本周不计入；最后完整周未达标=0）
+        let currentConsecutiveWeeks: Int
+        /// 历史最长连续达标周数
+        let longestWeeks: Int
+    }
+
+    /// 连续/最长达标周：达标周 = 周一→周日内「有效练习日」数 ≥ weeklyGoal。
+    /// 有效练习日 = 当天 hasMidi 的 take 累计 durationSec/60 ≥ 10（与 weekStreak 同口径）。
+    /// 只统计严格早于 today 所在周的完整周；本周即使达标也不计入（数字不随后半周回退）。
+    static func weeklyGoalStreak(
+        takes: [Take], weeklyGoal: Int, today: Date,
+        calendar: Calendar = .current
+    ) -> WeeklyGoalStreak {
+        var cal = calendar
+        cal.firstWeekday = 2
+        let currentWeekStart = cal.dateInterval(of: .weekOfYear, for: today)?.start ?? today
+        guard let lastCompletedWeekStart = cal.date(byAdding: .day, value: -7, to: currentWeekStart) else {
+            return WeeklyGoalStreak(currentConsecutiveWeeks: 0, longestWeeks: 0)
+        }
+
+        // 只看有 MIDI 且所在周严格早于本周的 take（本周不计入）
+        let midiTakes = takes.filter { $0.hasMidi && $0.startedAt < currentWeekStart }
+        guard let firstWeekStart = midiTakes.compactMap({ cal.dateInterval(of: .weekOfYear, for: $0.startedAt)?.start }).min() else {
+            return WeeklyGoalStreak(currentConsecutiveWeeks: 0, longestWeeks: 0)
+        }
+
+        // 从最早有效 take 所在周逐周枚举到上一个完整周；无 take 的周也是槽位（=未达标，正确归零）
+        var run = 0
+        var longest = 0
+        var weekStart = firstWeekStart
+        while weekStart <= lastCompletedWeekStart {
+            var minutes = [Int](repeating: 0, count: 7)
+            for take in midiTakes {
+                guard let dayInterval = cal.dateInterval(of: .day, for: take.startedAt) else { continue }
+                let dayOffset = cal.dateComponents([.day], from: weekStart, to: dayInterval.start).day ?? -1
+                guard (0..<7).contains(dayOffset) else { continue }
+                minutes[dayOffset] += take.durationSec / 60
+            }
+            let validDayCount = minutes.filter { $0 >= 10 }.count
+            if validDayCount >= weeklyGoal {
+                run += 1
+                longest = max(longest, run)
+            } else {
+                run = 0
+            }
+            guard let next = cal.date(byAdding: .day, value: 7, to: weekStart) else { break }
+            weekStart = next
+        }
+        return WeeklyGoalStreak(currentConsecutiveWeeks: run, longestWeeks: longest)
+    }
+
     // MARK: - 周进度（真实 Take 聚合）
 
     /// 本周有效练习总分钟；目标 = weeklyGoal 次 × 每次时长选择（分钟）。

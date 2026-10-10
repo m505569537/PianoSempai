@@ -82,6 +82,12 @@ struct ArchiveView: View {
         TodayPlanService.weekStreak(takes: takes, today: weekAnchor)
     }
 
+    /// 历史最长连续达标周（G8；全局统计，today 用真实 now，不随 weekAnchor 翻页变化；ADR-0007）
+    private var goalStreak: TodayPlanService.WeeklyGoalStreak {
+        TodayPlanService.weeklyGoalStreak(
+            takes: takes, weeklyGoal: settings?.weeklyGoal ?? 3, today: now)
+    }
+
     var body: some View {
         let lookup = ArchiveAnalysisLookup(analyses: analyses)
         let trend = trendPoints(lookup: lookup)
@@ -96,6 +102,9 @@ struct ArchiveView: View {
                 weekStatBar.padding(.top, 12)
 
                 weekStreakRow.padding(.top, 12)
+
+                // G8：历史最长连续达标小字（全局历史最长，用真实 now；7 灯随翻页、此行不随——口径不同是有意的）
+                goalStreakRow.padding(.top, 6)
 
                 monthlyEntryCard.padding(.top, 12)
 
@@ -332,6 +341,15 @@ struct ArchiveView: View {
         .padding(.vertical, 10)
         .background(Color.card, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border, lineWidth: 1))
+    }
+
+    /// 历史最长连续达标小字（G8；与今日页同一纯函数，不另写算法）
+    private var goalStreakRow: some View {
+        Text("历史最长连续达标 \(goalStreak.longestWeeks) 周")
+            .font(.labelSm)
+            .foregroundStyle(Color.textMuted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
     }
 
     // MARK: 月报入口卡（真值日历钮已承载入口；本卡保留最新月报的真实信息，能力不丢）

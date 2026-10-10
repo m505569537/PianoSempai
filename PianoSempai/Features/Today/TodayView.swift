@@ -203,6 +203,8 @@ struct TodayView: View {
 
                 StreakRow(
                     streak: TodayPlanService.weekStreak(takes: takes, today: now),
+                    weeklyStreak: TodayPlanService.weeklyGoalStreak(
+                        takes: takes, weeklyGoal: settings?.weeklyGoal ?? 3, today: now),
                     weeklyGoal: settings?.weeklyGoal ?? 3,
                     today: now
                 )
@@ -1042,6 +1044,8 @@ fileprivate extension Color {
 
 private struct StreakRow: View {
     let streak: TodayPlanService.WeekStreak
+    /// 连续达标周（ADR-0007；调用方用 weeklyGoalStreak 现算，不在行内重算）
+    let weeklyStreak: TodayPlanService.WeeklyGoalStreak
     /// 周目标次数（AppSettings.weeklyGoal 真实值）
     let weeklyGoal: Int
     /// 今天（圆内显示真实日号）
@@ -1051,11 +1055,16 @@ private struct StreakRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // 真值标题行右侧为「连续达标 N 周」：WeekStreak 无可信字段 → 不渲染（禁止编造 5 周）
-            Text("本周 \(doneCount)/\(weeklyGoal) 次")
-                .font(.system(size: 19, weight: .semibold, design: .serif))
-                .tracking(-0.3)
-                .foregroundStyle(Color.textPrimary)
+            HStack {
+                Text("本周 \(doneCount)/\(weeklyGoal) 次")
+                    .font(.system(size: 19, weight: .semibold, design: .serif))
+                    .tracking(-0.3)
+                    .foregroundStyle(Color.textPrimary)
+                Spacer(minLength: 8)
+                Text("连续达标 \(weeklyStreak.currentConsecutiveWeeks) 周")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.textMuted)
+            }
             .padding(.bottom, 16)
 
             HStack(spacing: 4) {

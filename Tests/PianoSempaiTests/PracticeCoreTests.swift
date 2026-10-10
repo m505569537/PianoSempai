@@ -1662,4 +1662,130 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(RewardPavingDisplay.gradeLabel(nil), "暂无法分析",
                        "无评估/无法相对定级 → 诚实展示，不编档位（决策一/四）")
     }
+
+    // MARK: G8 连续达标周（weeklyGoalStreak；ADR-0007）
+
+    /// GMT+8、周一起始的固定日历（跨时区/无 DST，确定性）
+    private var g8Calendar: Calendar {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        c.firstWeekday = 2
+        return c
+    }
+
+    /// 固定 today = 某周六 12:00（Asia/Shanghai）；上一个完整周 = weekOffset -1
+    private var g8Today: Date {
+        let c = g8Calendar
+        let weekStart = c.dateInterval(of: .weekOfYear,
+                                       for: Date(timeIntervalSince1970: 1_760_000_000))!.start
+        return c.date(byAdding: .hour, value: 5 * 24 + 12, to: weekStart)!
+    }
+
+    /// 相对固定 today 所在周起点的第 weekOffset 周、第 dayIndex（周一=0）天 hour 点
+    private func g8Date(weekOffset: Int, dayIndex: Int, hour: Int = 10) -> Date {
+        let c = g8Calendar
+        let weekStart = c.dateInterval(of: .weekOfYear, for: g8Today)!.start
+        let day = c.date(byAdding: .day, value: weekOffset * 7 + dayIndex, to: weekStart)!
+        return c.date(byAdding: .hour, value: hour, to: day)!
+    }
+
+    /// 指定周/日的 midi take（分钟数）
+    private func g8Take(weekOffset: Int, dayIndex: Int, minutes: Int, hasMidi: Bool = true) -> Take {
+        Take(startedAt: g8Date(weekOffset: weekOffset, dayIndex: dayIndex),
+             durationSec: minutes * 60, hasMidi: hasMidi)
+    }
+
+    /// 某完整周内 weeklyGoal 个不同有效日（每天一个 minutes 分钟的 midi take，周一/二/三）
+    private func g8QualifyingWeek(_ weekOffset: Int, goal: Int = 3, minutes: Int = 20) -> [Take] {
+        (0..<goal).map { g8Take(weekOffset: weekOffset, dayIndex: $0, minutes: minutes) }
+    }
+
+    private func g8Streak(_ takes: [Take], goal: Int = 3) -> TodayPlanService.WeeklyGoalStreak {
+        TodayPlanService.weeklyGoalStreak(takes: takes, weeklyGoal: goal, today: g8Today,
+                                          calendar: g8Calendar)
+    }
+
+    func testWeeklyGoalStreakNoTakesOrNoCompletedWeekReturnsZero() {
+        XCTAssertEqual(g8Streak([]).currentConsecutiveWeeks, 0)
+        XCTAssertEqual(g8Streak([]).longestWeeks, 0)
+        // 只有本周（未结束完整周）的 take → 不计入，(0,0)
+        let onlyThisWeek = g8QualifyingWeek(0)
+        XCTAssertEqual(g8Streak(onlyThisWeek).currentConsecutiveWeeks, 0)
+        XCTAssertEqual(g8Streak(onlyThisWeek).longestWeeks, 0)
+    }
+
+    func testWeeklyGoalStreakSingleQualifyingWeek() {
+        // 仅上一个完整周达标（3 个不同有效日，各 20 分钟 midi take）
+        let result = g8Streak(g8QualifyingWeek(-1))
+        XCTAssertEqual(result.currentConsecutiveWeeks, 1)
+        XCTAssertEqual(result.longestWeeks, 1)
+    }
+
+    func testWeeklyGoalStreakThreeConsecutiveWeeks() {
+        let takes = g8QualifyingWeek(-3) + g8QualifyingWeek(-2) + g8QualifyingWeek(-1)
+        let result = g8Streak(takes)
+        XCTAssertEqual(result.currentConsecutiveWeeks, 3)
+        XCTAssertEqual(result.longestWeeks, 3)
+    }
+
+    func testWeeklyGoalStreakGapResetsCurrentButKeepsLongest() {
+        // 缺口前连续 3 个达标周（体现 longest=3 保留）→ 一个完全无 take 的缺口周 → 再达标 1 周
+        // （brief 原文「达标 2 周→缺口→再达标 1 周」在该布局下 longest 只能是 2；
+        //   (current 1, longest 3) 只有缺口前连续 3 周才能成立，与 ADR「longest 保留 3」一致）
+        let takes = g8QualifyingWeek(-5) + g8QualifyingWeek(-4) + g8QualifyingWeek(-3)
+            + g8QualifyingWeek(-1)
+        let result = g8Streak(takes)
+        XCTAssertEqual(result.currentConsecutiveWeeks, 1, "缺口周归零，只保留缺口后 1 周")
+        XCTAssertEqual(result.longestWeeks, 3, "归零不抹除历史最长")
+    }
+
+    func testWeeklyGoalStreakLastCompletedWeekFailedGivesCurrentZero() {
+        // 上一个完整周未达标（只有无 midi / 不足 10 分钟的 take），再往前连续达标 3 周
+        let takes = g8QualifyingWeek(-4) + g8QualifyingWeek(-3) + g8QualifyingWeek(-2) + [
+            g8Take(weekOffset: -1, dayIndex: 0, minutes: 60, hasMidi: false),
+            g8Take(weekOffset: -1, dayIndex: 1, minutes: 9),
+        ]
+        let result = g8Streak(takes)
+        XCTAssertEqual(result.currentConsecutiveWeeks, 0, "最后完整周未达标 → 连续数归零")
+        XCTAssertEqual(result.longestWeeks, 3)
+    }
+
+    func testWeeklyGoalStreakCurrentWeekNotCounted() {
+        // 本周已达标（3 个有效日）但无更早 take → 本周不计入，(0,0)
+        let takes = g8QualifyingWeek(0)
+        let result = g8Streak(takes)
+        XCTAssertEqual(result.currentConsecutiveWeeks, 0)
+        XCTAssertEqual(result.longestWeeks, 0)
+    }
+
+    func testWeeklyGoalStreakExactBoundariesCount() {
+        // 每天累计恰好 600 秒（=10 分钟）算有效日；有效日恰好等于 weeklyGoal 算达标
+        let takes = (0..<3).map { g8Take(weekOffset: -1, dayIndex: $0, minutes: 10) }
+        let result = g8Streak(takes)
+        XCTAssertEqual(result.currentConsecutiveWeeks, 1, "600 秒/天 × 3 天 = 恰好达标")
+        XCTAssertEqual(result.longestWeeks, 1)
+    }
+
+    func testWeeklyGoalStreakAggregatesByDayNotByTake() {
+        // 同一天多个 take 各 <600 秒、累计 ≥600 → 当天有效（按天聚合而非按 take）
+        let takes = (0..<3).flatMap { day in
+            [g8Take(weekOffset: -1, dayIndex: day, minutes: 5),
+             g8Take(weekOffset: -1, dayIndex: day, minutes: 5)]
+        }
+        let result = g8Streak(takes)
+        XCTAssertEqual(result.currentConsecutiveWeeks, 1, "3 天各 5+5 分钟聚合达标；按 take 算则全无效")
+        XCTAssertEqual(result.longestWeeks, 1)
+    }
+
+    func testWeeklyGoalStreakIgnoresNoMidiAndShortTakes() {
+        // hasMidi=false 的 60 分钟长 take 不计入；hasMidi 但 <600 秒不点亮该天
+        let qualifyingBefore = g8QualifyingWeek(-2)
+        let invalidLast = [
+            g8Take(weekOffset: -1, dayIndex: 0, minutes: 60, hasMidi: false),
+            g8Take(weekOffset: -1, dayIndex: 2, minutes: 9),
+        ]
+        let result = g8Streak(qualifyingBefore + invalidLast)
+        XCTAssertEqual(result.currentConsecutiveWeeks, 0, "无效 take 不延续连续")
+        XCTAssertEqual(result.longestWeeks, 1, "有效只来自 -2 周")
+    }
 }
