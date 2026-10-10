@@ -2305,4 +2305,85 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(big.midX, small.midX, accuracy: 0.01)
         XCTAssertEqual(big.midY, small.midY, accuracy: 0.01)
     }
+
+    // MARK: M9 导出 DTO — includeWithNeko 全链路 + 旧包向后兼容
+    // collectMetadata/restore 共用的最小内存库（两函数触到的全部 @Model，缺表会静默空 fetch）
+
+    @MainActor
+    private func makeExportContainer() throws -> ModelContainer {
+        try ModelContainer(
+            for: AppSettings.self, Take.self, GateEvent.self, Piece.self, ScoreFile.self,
+            ScoreErrorMark.self, DailyPlan.self, PracticeTask.self, PlacementResult.self,
+            VelocityCalibration.self, CoursePathState.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+    }
+
+    @MainActor
+    func testCollectMetadataCarriesIncludeWithNeko() throws {
+        let context = ModelContext(try makeExportContainer())
+        context.insert(ScoreErrorMark(scoreName: "拜厄 12", measure: 5, type: "note",
+                                      note: "升4", occurrenceCount: 3, includeWithNeko: true))
+        context.insert(ScoreErrorMark(scoreName: "拜厄 12", measure: 9, type: "rhythm",
+                                      note: "切分", occurrenceCount: 1, includeWithNeko: false))
+
+        let metadata = ExportService.collectMetadata(context: context)
+
+        let withNeko = try XCTUnwrap(metadata.errorMarks.first { $0.measure == 5 })
+        XCTAssertTrue(withNeko.includeWithNeko, "true 的标记必须原样进包")
+        let withoutNeko = try XCTUnwrap(metadata.errorMarks.first { $0.measure == 9 })
+        XCTAssertFalse(withoutNeko.includeWithNeko, "false 的标记不冒充 true")
+    }
+
+    @MainActor
+    func testLegacyErrorMarkDTOJSONWithoutNekoKeyDecodesFalse() throws {
+        // 旧导出包的 errorMarks 条目没有 includeWithNeko 键（其它键齐全）→ 解码不失败、补 false
+        let legacy = """
+        [{"scoreName":"哈农 1","measure":3,"type":"note","note":"降7","occurrenceCount":2}]
+        """
+        let decoded = try JSONDecoder.iso.decode([ExportService.ErrorMarkDTO].self, from: Data(legacy.utf8))
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertFalse(decoded[0].includeWithNeko, "缺键 → 默认 false")
+
+        // 新包带键：true 正常解出（decodeIfPresent 不吞显式值）
+        let current = """
+        [{"scoreName":"哈农 1","measure":3,"type":"note","note":"降7","occurrenceCount":2,"includeWithNeko":true}]
+        """
+        let withKey = try JSONDecoder.iso.decode([ExportService.ErrorMarkDTO].self, from: Data(current.utf8))
+        XCTAssertTrue(withKey[0].includeWithNeko)
+    }
+
+    @MainActor
+    func testRestoreRoundTripKeepsIncludeWithNeko() throws {
+        let sourceContext = ModelContext(try makeExportContainer())
+        sourceContext.insert(ScoreErrorMark(scoreName: "拜厄 8", measure: 12, type: "fingering",
+                                            note: "3 指改 4", occurrenceCount: 2, includeWithNeko: true))
+
+        let baseDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("m9-export-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: baseDir) }
+        let zipURL = try ExportService.buildExport(baseDir: baseDir, includeVideos: false, context: sourceContext)
+
+        let restoreContext = ModelContext(try makeExportContainer())
+        _ = try ExportService.restore(from: zipURL, into: baseDir, in: restoreContext)
+
+        let restored = try restoreContext.fetch(FetchDescriptor<ScoreErrorMark>())
+        XCTAssertEqual(restored.count, 1)
+        XCTAssertEqual(restored.first?.scoreName, "拜厄 8")
+        XCTAssertEqual(restored.first?.includeWithNeko, true, "恢复后 includeWithNeko 保持 true")
+    }
+
+    // MARK: P13 S12 循环设置卡 1 右注（真实曲名 / 空串诚实回退）
+
+    func testS12RightCaptionWithPieceTitle() {
+        let caption = S12LoopSettingsSheet.rightCaption(pieceTitle: "小星星", totalMeasures: 16)
+        XCTAssertTrue(caption.contains("曲目：小星星"), "有真实曲名时带「曲目：」")
+        XCTAssertTrue(caption.contains("共 16 小节"), "同时保留总小节数")
+    }
+
+    func testS12RightCaptionEmptyTitleShowsMeasuresOnly() {
+        let caption = S12LoopSettingsSheet.rightCaption(pieceTitle: "", totalMeasures: 16)
+        XCTAssertEqual(caption, "共 16 小节", "空曲名只显小节数，不补「练习」之类占位")
+        XCTAssertFalse(caption.contains("曲目："))
+    }
 }

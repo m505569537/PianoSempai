@@ -314,7 +314,10 @@ struct LibraryView: View {
             HStack(spacing: 8) {
                 ForEach([nil, "拜厄", "哈农", "车尔尼599"], id: \.self) { book in
                     filterChip(title: book ?? "全部", isSelected: bookFilter == book) {
-                        bookFilter = (bookFilter == book) ? nil : book
+                        // 仅教材筛选加 120ms 淡入：搜索/segment 切换的瞬切行为不变
+                        withAnimation(.easeIn(duration: 0.12)) {
+                            bookFilter = (bookFilter == book) ? nil : book
+                        }
                     }
                 }
             }

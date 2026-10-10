@@ -133,6 +133,8 @@ enum ExportService {
         let type: String
         let note: String
         let occurrenceCount: Int
+        /// S13b「随 Neko 带上」标记（M9）。纯增量可选字段：旧包无此键 → false，不升 formatVersion。
+        let includeWithNeko: Bool
     }
 
     enum ExportError: Error, Equatable {
@@ -201,7 +203,8 @@ enum ExportService {
             },
             errorMarks: fetch(ScoreErrorMark.self).map {
                 ErrorMarkDTO(scoreName: $0.scoreName, measure: $0.measure, type: $0.type,
-                             note: $0.note, occurrenceCount: $0.occurrenceCount)
+                             note: $0.note, occurrenceCount: $0.occurrenceCount,
+                             includeWithNeko: $0.includeWithNeko)
             }
         )
     }
@@ -417,7 +420,8 @@ enum ExportService {
         }
         for dto in metadata.errorMarks {
             context.insert(ScoreErrorMark(scoreName: dto.scoreName, measure: dto.measure,
-                                          type: dto.type, note: dto.note, occurrenceCount: dto.occurrenceCount))
+                                          type: dto.type, note: dto.note, occurrenceCount: dto.occurrenceCount,
+                                          includeWithNeko: dto.includeWithNeko))
         }
         if let settings = (try? context.fetch(FetchDescriptor<AppSettings>()))?.first {
             settings.weeklyGoal = metadata.settings.weeklyGoal
@@ -439,6 +443,26 @@ enum ExportService {
             restoredPieces: metadata.pieces.count,
             restoredMarks: metadata.errorMarks.count
         )
+    }
+}
+
+// MARK: - M9 向后兼容解码
+
+/// 旧导出包的 metadata.json 无 includeWithNeko 键，decodeIfPresent 补 false，
+/// 其余键照常 decode（缺任一仍报错，不放宽旧字段）。放在扩展里保留 memberwise init。
+extension ExportService.ErrorMarkDTO {
+    private enum CodingKeys: String, CodingKey {
+        case scoreName, measure, type, note, occurrenceCount, includeWithNeko
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        scoreName = try c.decode(String.self, forKey: .scoreName)
+        measure = try c.decode(Int.self, forKey: .measure)
+        type = try c.decode(String.self, forKey: .type)
+        note = try c.decode(String.self, forKey: .note)
+        occurrenceCount = try c.decode(Int.self, forKey: .occurrenceCount)
+        includeWithNeko = try c.decodeIfPresent(Bool.self, forKey: .includeWithNeko) ?? false
     }
 }
 

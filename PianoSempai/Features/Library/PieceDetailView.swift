@@ -78,6 +78,8 @@ struct PieceDetailView: View {
     @State private var practiceRoute: PracticeRoute?
     /// 点「开始练习」时建档/取到的 Piece（传给练习室，落 take 的 pieceId）
     @State private var resolvedPiece: Piece?
+    /// 最近 take 行点开的 S13 报告（与 ArchiveView/NotesView 同一 sheet(item:) 口径）
+    @State private var selectedTake: Take?
 
     private var title: String {
         if let entry { return entry.title }
@@ -283,6 +285,9 @@ struct PieceDetailView: View {
                     // S14 自由弹奏（不打分沙盒）：599 无谱条目的唯一入口。保存后只关掉详情页。
                     FreePlayView(onSaved: { dismiss() })
                 }
+            }
+            .sheet(item: $selectedTake) { take in
+                TakeReportView(take: take)
             }
         }
     }
@@ -549,10 +554,15 @@ struct PieceDetailView: View {
                         .foregroundStyle(Color.textMuted)
                         .padding(.top, 4)
                 } else {
-                    // 行路由：S13 Take 报告在 S08/S20/S19 已存在，但本页尚未接路由
-                    // （单一路由收口，避免同一视图叠多个 sheet）。先只读展示，不放假目的地。
+                    // 行路由：点行开 S13 Take 报告（.sheet(item:)，与 ArchiveView/NotesView/TakeReportView 一致）；
+                    // 本视图唯一 sheet（fullScreenCover 走 practiceRoute，不叠加第二个 sheet 路由）
                     ForEach(recentTakeList, id: \.entityId) { take in
-                        recentTakeRow(take, isFirst: take.entityId == recentTakeList.first?.entityId)
+                        Button {
+                            selectedTake = take
+                        } label: {
+                            recentTakeRow(take, isFirst: take.entityId == recentTakeList.first?.entityId)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -586,6 +596,11 @@ struct PieceDetailView: View {
                         .foregroundStyle(Color.textMuted)
                         .padding(.top, 1)
                 }
+                // 可点暗示（L8）：整行已可点开 Take 报告，chevron 与行内 muted 标注同风格
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.textMuted)
+                    .padding(.leading, 4)
             }
             .frame(minHeight: 44)
             .padding(.vertical, 10)

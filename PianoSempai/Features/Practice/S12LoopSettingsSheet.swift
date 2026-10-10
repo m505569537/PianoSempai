@@ -8,6 +8,8 @@ import SwiftUI
 struct S12LoopSettingsSheet: View {
     @ObservedObject var session: PracticeSession
     let totalMeasures: Int
+    /// 真实曲名（PracticeRoomView.displayTitle）；空 = 无真实来源，右注只显小节数（不补占位）
+    var pieceTitle: String = ""
     /// 当前曲目最近一次判分的错误热点小节（0-based；无数据 = 空数组 → chip 禁用）
     var hotspotMeasures: [Int] = []
     @Environment(\.dismiss) private var dismiss
@@ -145,6 +147,13 @@ struct S12LoopSettingsSheet: View {
 
     // MARK: 卡1 选择小节
 
+    /// 卡 1 右注文案（纯函数，可单测）：有真实曲名带「曲目：」，空串只显小节数（诚实，不补占位）
+    static func rightCaption(pieceTitle: String, totalMeasures: Int) -> String {
+        let total = max(1, totalMeasures)
+        if pieceTitle.isEmpty { return "共 \(total) 小节" }
+        return "曲目：\(pieceTitle) · 共 \(total) 小节"
+    }
+
     private var measureCard: some View {
         s12Card {
             HStack(alignment: .firstTextBaseline) {
@@ -152,8 +161,8 @@ struct S12LoopSettingsSheet: View {
                     .font(.titleMd)
                     .foregroundStyle(Color.s12OnSurface)
                 Spacer(minLength: 8)
-                // 右侧标注只用真实数据：总小节数（不写死曲名/条数）
-                Text("共 \(max(1, totalMeasures)) 小节")
+                // 右侧标注只用真实数据：真实曲名（有则带）+ 总小节数（不写死条数）
+                Text(Self.rightCaption(pieceTitle: pieceTitle, totalMeasures: totalMeasures))
                     .font(.labelSm)
                     .foregroundStyle(Color.s12OnSurfaceVariant)
             }

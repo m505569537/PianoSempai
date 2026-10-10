@@ -20,7 +20,7 @@
 | P5 | 预备拍控件格（hourglass，档显 1 小节） | S11b §6.1 | open | count-in 逻辑已存在，但坞里的「预备拍」控件未建（当前坞为贴 S11 的 5 格，未含预备拍）。 |
 | P8 | S11b 断点坐标细节（「21▾」下拉、「断点已缓存」字样） | S11b §5 | needs-decision | 断点 measureIndex 已用于谱卡遮罩文案；真值的坐标下拉/缓存字样无对应交互，待产品确认。 |
 | P12 | S12 错误热点数据源（解锁「错误热点」chip + 小节条热点标记） | S12 §5.2/5.3 | blocked | 现无逐小节常错统计，chip 禁用、小节条无热点点；需真实 per-measure 错误聚合。 |
-| P13 | S12 sheet 传入曲目名（卡1 右注「曲目：xx」） | S12 §5 | open | 现仅有 session/totalMeasures，右注只能显示「共 N 小节」；需调用点传真实曲名。 |
+| P13 | S12 sheet 传入曲目名（卡1 右注「曲目：xx」） | S12 §5 | done | sheet 加 pieceTitle，右注「曲目：xx · 共 N 小节」，抽出可测 rightCaption；空曲名只显小节，占位「练习」映射回空串。+2 测试，744/0。 |
 | P14 | S12 全屏 sheet vs 底部抽屉形态裁定 | S12 §1 | needs-decision | 真值为 390×844 整屏、现沿用共享底部抽屉；内部规范已对齐，形态待确认。 |
 | P11 | 速度长按连改、速度自适应 toast、时间到自动保存底部条 | S11 §8 | needs-decision | 真值 DOM 未画，旧稿约定，待产品确认后再做。 |
 | P15 | 练习室 MetronomeService 直接触发 SineBeep（把 Timer 每拍改走 `SineBeepAudioUnit.triggerNote`，与示范 click 统一到同一合成实现） | 2026-10-09 Stage B | blocked | 当前节拍器仍用原有 `MetronomeService.sineBuffer`（功能正常）；SineBeep 的 sequencer 路径已用于示范 click，直接触发路径 `triggerNote` 暂无调用方。阻塞点：①SineBeep 只能 `await Factory.make()` 异步创建，而 MetronomeService 是同步服务、被 3 处同步 `start()`，需改 async 或就绪前 sineBuffer 兜底；②音色/无声只能真机听，开发证书 9/27 过期现无法真机验证。2026-10-09 决策：挂起，等回家重签证书后与真机 V70 端到端一起做。 |
@@ -48,13 +48,13 @@
 | # | 需求 | 来源 | 状态 | 说明 / 阻塞 |
 |---|---|---|---|---|
 | L1 | 按状态筛选曲目（「已拿下 / 练习中 / 未开始」chips 的过滤行为） | S08 | blocked | CourseEngine.catalogStatus 只产出 练习中/未开始/未解锁，「已拿下」不可达；依赖过关判定。绿 pill 代码保留但不可达。 |
-| L2 | 教材 chip 切换的 120ms 淡入 | S08 | open | chip 取消筛选已实现，仅过渡动画未做。 |
+| L2 | 教材 chip 切换的 120ms 淡入 | S08 | done | chip 取消筛选已实现，补 `withAnimation(.easeIn(0.12))`；搜索/segment 行为不动。744/0。 |
 | L3 | 「全部导入」段文件类型图标与导入时间列表 | S08 | needs-decision | 真值 html 未呈现，待产品确认布局。 |
 | L4 | 行 1「拜厄 第44条 / 第45条」命名口径 | S08 | needs-decision | 以 html「第45条」为准，待产品确认。 |
 | L5 | 技术目标元数据（音阶跑动/右手转指/均匀力度 chips） | S09 §3.5 | blocked | Piece/CatalogEntry 无该字段，不编造 chips；需曲目技术标签建模。 |
 | L6 | OP 编号标签（「OP.101」） | S09 §3.5 | blocked | 模型无 opus/opusTag 字段；需曲目元数据。 |
 | L7 | 八格已练小节 / 热点小节进度网格 | S09 §3.6 | blocked | 无逐小节「已练/在练」聚合（measureHeat 仅按 take 存，未按曲目汇总成格）；需 per-piece 小节进度汇总。 |
-| L8 | S09 曲目详情 → Take 报告的跳转 | S09 §4 | open | Take 行现仅展示；报告目的页存在但未在本屏接线（沿用单 ActiveSheet 路由约定，未加第二 sheet）。 |
+| L8 | S09 曲目详情 → Take 报告的跳转 | S09 §4 | done | take 行改 Button + chevron，sheet(item:) 开 TakeReportView，与 Archive/Notes/报告内全 app 统一（非 NavigationLink）；仍单 sheet 路由。744/0。 |
 
 已完成（移除）：header 搜索钮 + 按曲名本地搜索（S08 v2）。
 已解决（移除）：MIDI 连接胶囊——曲库/今日页按各屏真值隐藏全局胶囊，连接态在其余页查看。
@@ -69,7 +69,7 @@
 | M1 | 纸质谱面谱条真实渲染（替换示意/占位） | S13b | blocked | 无来源不画假谱条；接真实谱渲染能力。当前为红虚线圈诚实占位。 |
 | M4 | 副标 take 时间数据 | S13b | blocked | S13bMarkSheet 已支持可选 takeTime，但现有调用点（练习室/报告页）都未传；接真实 take 时间后显示，禁止写死。 |
 | M8 | 提交成功态 / 提交后规则 | S13b | needs-decision | 提交后去向待产品确认；当前提交后关闭抽屉。 |
-| M9 | includeWithNeko 纳入导出 DTO | S13b | open | 勾选字段已落库（ScoreErrorMark.includeWithNeko），ExportService DTO 未含；要随导出包再补。 |
+| M9 | includeWithNeko 纳入导出 DTO | S13b | done | ErrorMarkDTO 加 includeWithNeko，collect/restore 全链路补齐；自定义 init(from:) decodeIfPresent ?? false，旧包向后兼容不升 formatVersion。+3 测试含 round-trip，744/0。 |
 
 已完成（移除）：M2「反馈给 Neko」chip、M3 勾选行真实落库（新增 includeWithNeko 字段）、M5 备注聚焦态、M6 chip 选中圆点、M7 抽屉参数对齐（顶圆角 28、black/60 scrim、#262220、40×4 #463F3A 抓手）。
 

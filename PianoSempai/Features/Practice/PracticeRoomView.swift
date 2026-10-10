@@ -123,6 +123,9 @@ struct PracticeRoomView: View {
             S12LoopSettingsSheet(
                 session: session,
                 totalMeasures: totalMeasures,
+                // P13：卡 1 右注带真实曲名；「练习」是无名时的占位回退，映射回空串
+                // （sheet 侧空串只显小节数，不冒充具体曲名）
+                pieceTitle: displayTitle == "练习" ? "" : displayTitle,
                 // G2：当前曲目最近一次判分的错误热点（0-based）；sheet 惰性构建，每次打开现取最新。
                 // 无曲目/无判分数据 → 空数组，「错误热点」chip 保持禁用。
                 hotspotMeasures: LoopService.latestHotspotMeasures(
