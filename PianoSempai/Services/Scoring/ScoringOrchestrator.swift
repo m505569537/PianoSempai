@@ -356,6 +356,22 @@ enum ScoringOrchestrator {
                 hasMidi: take.hasMidi,
                 in: context)
         }
+
+        // G3 Stage B：处方自动生成/解除接线（ADR-0005 决策三/四；仅限真实曲目条目）。
+        // 分析范围按该 piece 的 takes 圈定（take.pieceId → takeId 集合 → analysis.takeId ∈ 集合），
+        // 避免把别的曲目分析算进连续计数。顺序 resolve 在前、prescribe 在后：
+        // 通过 → resolveIfPassed 清零未结卡，prescribeIfNeeded 因最近可评=通过不新建；
+        // 不过 → resolve 不动，连续 2 次可评不过才建（未结去重）。
+        // 不改 Piece.status（红线：只由 CourseEngine 写）。
+        if let piece {
+            let pieceTakeIds = Set(((try? context.fetch(FetchDescriptor<Take>())) ?? [])
+                .filter { $0.pieceId == piece.entityId }
+                .map(\.entityId))
+            let scoped = ((try? context.fetch(FetchDescriptor<TakeAnalysis>())) ?? [])
+                .filter { pieceTakeIds.contains($0.takeId) }
+            CorrectionPrescriptionStore.resolveIfPassed(piece: piece, latestAnalysis: row, in: context)
+            CorrectionPrescriptionStore.prescribeIfNeeded(piece: piece, analyses: scoped, in: context)
+        }
         return outcome
     }
 

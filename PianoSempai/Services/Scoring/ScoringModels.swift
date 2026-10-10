@@ -304,4 +304,53 @@ enum CorrectionEngine {
     static func prescriptionHotspots(_ hotspotMeasures: [Int]) -> [Int] {
         hotspotMeasures
     }
+
+    /// hotspot（0-based，同 TakeAnalysis.hotspotMeasures 口径）→ 进房初始循环区间（1-based）。
+    /// 空 hotspot = 整曲级 → (1, totalMeasures)；非空 → 包围盒 min/max +1（0-based 转 1-based），
+    /// 不连续热点也按包围盒收（用户可再手动收窄，同 LoopService.hotspotRange 口径）。
+    /// 再经钳制保证 1 ≤ start < end ≤ total；单热点终点自然顶到相邻下一小节。
+    /// totalMeasures <= 0（谱未加载/无小节）无法构成合法区间 → (1,1) 诚实兜底，不编。
+    /// 钳制逻辑内联自 LoopService.clamped（ScoringModels 不 import 业务模块，避免跨层依赖）。
+    static func initialLoopRange(hotspots: [Int], totalMeasures: Int) -> (start: Int, end: Int) {
+        let total = max(1, totalMeasures)
+        guard total >= 2 else { return (1, 1) }
+        let s0: Int
+        let e0: Int
+        if let minM = hotspots.min(), let maxM = hotspots.max(), minM >= 0 {
+            s0 = minM + 1
+            e0 = maxM + 1
+        } else {
+            s0 = 1
+            e0 = total
+        }
+        // 内联 LoopService.clamped：1 ≤ start < end ≤ total（负/越界 hotspot 一并钳回合法）
+        let s = min(max(1, s0), total - 1)
+        let e = min(max(s + 1, e0), total)
+        return (s, e)
+    }
+
+    /// 命中类练习法 → 进房初始速度比（取最保守、最慢的那个，避免一开始就快；ADR-0005 决策四）。
+    /// 空 → 1.0（不降速）；非空 → min(tempoRatio)，夹在 0.3...1.0（0.3 防病态极慢值）。
+    static func initialTempoRatio(_ remedies: [CorrectionErrorType: Remedy]) -> Double {
+        guard let minRatio = remedies.values.map(\.tempoRatio).min() else { return 1.0 }
+        return min(max(minRatio, 0.3), 1.0)
+    }
+}
+
+// MARK: - G3 Stage B：错误类型展示名（只做展示映射，不改 rawValue/判定口径）
+
+extension CorrectionErrorType {
+    /// 展示中文名（ADR-0005 决策一 8 类依次；卡面/练习法行用）
+    var displayName: String {
+        switch self {
+        case .wrongPitch: "错音"
+        case .missing: "漏音"
+        case .extra: "多弹"
+        case .rhythm: "节奏偏差"
+        case .tempo: "速度不足"
+        case .dynamics: "力度"
+        case .continuity: "连续性中断"
+        case .hands: "双手配合"
+        }
+    }
 }

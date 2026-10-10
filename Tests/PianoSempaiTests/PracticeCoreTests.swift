@@ -1131,4 +1131,88 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(goodSignals.maxRhythmMedianMs, 70)
         XCTAssertEqual(goodSignals.targetTempoRatio, 0.9)
     }
+
+    // MARK: - G3 Stage B：initialLoopRange / initialTempoRatio / displayName
+
+    func testInitialLoopRangeEmptyHotspotsCoversWholePiece() {
+        // 空 hotspot = 整曲级 → (1, total)
+        let range = CorrectionEngine.initialLoopRange(hotspots: [], totalMeasures: 20)
+        XCTAssertEqual(range.start, 1)
+        XCTAssertEqual(range.end, 20)
+    }
+
+    func testInitialLoopRangeSingleHotspotExtendsToNeighbor() {
+        // 单热点钳制后保证 start < end（终点自然顶到相邻下一小节）
+        let range = CorrectionEngine.initialLoopRange(hotspots: [0], totalMeasures: 20)
+        XCTAssertEqual(range.start, 1)
+        XCTAssertEqual(range.end, 2)
+    }
+
+    func testInitialLoopRangeUsesBoundingBoxOfHotspots() {
+        // 非空 → min/max 0-based +1 转 1-based
+        let range = CorrectionEngine.initialLoopRange(hotspots: [2, 5], totalMeasures: 20)
+        XCTAssertEqual(range.start, 3)
+        XCTAssertEqual(range.end, 6)
+    }
+
+    func testInitialLoopRangeOutOfBoundsClampsLegal() {
+        // 越界 hotspot → 钳到合法且 start < end、end ≤ total
+        let range = CorrectionEngine.initialLoopRange(hotspots: [18, 19], totalMeasures: 20)
+        XCTAssertGreaterThanOrEqual(range.start, 1)
+        XCTAssertLessThan(range.start, range.end)
+        XCTAssertLessThanOrEqual(range.end, 20)
+    }
+
+    func testInitialLoopRangeDisjointHotspotsStillBoundingBox() {
+        // 不连续热点 → 包围盒收（不聚类）
+        let range = CorrectionEngine.initialLoopRange(hotspots: [0, 2, 5], totalMeasures: 20)
+        XCTAssertEqual(range.start, 1)
+        XCTAssertEqual(range.end, 6)
+    }
+
+    func testInitialLoopRangeZeroTotalDoesNotCrash() {
+        // totalMeasures <= 0 → (1,1) 诚实兜底，不崩、不编区间
+        let range = CorrectionEngine.initialLoopRange(hotspots: [0], totalMeasures: 0)
+        XCTAssertEqual(range.start, 1)
+        XCTAssertEqual(range.end, 1)
+    }
+
+    func testInitialTempoRatioEmptyIsOne() {
+        // 空练习法 → 1.0（不降速）
+        XCTAssertEqual(CorrectionEngine.initialTempoRatio([:]), 1.0)
+    }
+
+    func testInitialTempoRatioTakesMostConservative() throws {
+        // 取最慢的那个（hands 0.6 < continuity 0.7 → 0.6）
+        let table = CorrectionEngine.remedyTable()
+        let remedies: [CorrectionErrorType: Remedy] = [
+            .hands: try XCTUnwrap(table[.hands]),
+            .continuity: try XCTUnwrap(table[.continuity]),
+        ]
+        XCTAssertEqual(CorrectionEngine.initialTempoRatio(remedies), 0.6)
+    }
+
+    func testInitialTempoRatioClampsToLegalBand() {
+        // 病态极慢值夹在 0.3...1.0
+        let slow = Remedy(tempoRatio: 0.1, separateHands: true, useMetronome: false, goal: "测试")
+        XCTAssertEqual(CorrectionEngine.initialTempoRatio([.wrongPitch: slow]), 0.3)
+        let fast = Remedy(tempoRatio: 1.5, separateHands: false, useMetronome: true, goal: "测试")
+        XCTAssertEqual(CorrectionEngine.initialTempoRatio([.tempo: fast]), 1.0)
+    }
+
+    func testDisplayNameCoversAllEightTypes() {
+        // 8 个 rawValue 全部能取到中文名、非空；逐类断言映射
+        XCTAssertEqual(CorrectionErrorType.allCases.count, 8)
+        XCTAssertEqual(CorrectionErrorType.wrongPitch.displayName, "错音")
+        XCTAssertEqual(CorrectionErrorType.missing.displayName, "漏音")
+        XCTAssertEqual(CorrectionErrorType.extra.displayName, "多弹")
+        XCTAssertEqual(CorrectionErrorType.rhythm.displayName, "节奏偏差")
+        XCTAssertEqual(CorrectionErrorType.tempo.displayName, "速度不足")
+        XCTAssertEqual(CorrectionErrorType.dynamics.displayName, "力度")
+        XCTAssertEqual(CorrectionErrorType.continuity.displayName, "连续性中断")
+        XCTAssertEqual(CorrectionErrorType.hands.displayName, "双手配合")
+        for type in CorrectionErrorType.allCases {
+            XCTAssertFalse(type.displayName.isEmpty, "\(type.rawValue) 展示名非空")
+        }
+    }
 }

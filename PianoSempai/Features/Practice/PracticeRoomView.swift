@@ -31,6 +31,13 @@ struct PracticeRoomView: View {
     /// 内置公版谱坐标（拜厄/哈农）：与 scoreFile 二选一，走 BundledScore 定位
     var bundledBook: String? = nil
     var bundledNumber: Int = 0
+    /// G3 Stage B 矫正进房：进房即锁定的 hotspot 循环区间（0-based，同 TakeAnalysis 口径）。
+    /// nil = 普通进房不锁定；[] = 整曲级（区间回退整曲 1…total）。
+    var initialHotspots: [Int]? = nil
+    /// G3 Stage B 矫正进房：初始速度比（CorrectionEngine.initialTempoRatio；nil = 默认 72）。
+    var initialTempoRatio: Double? = nil
+    /// G3 Stage B 矫正进房：对应处方（练完一遍即完成回写用；非矫正进房 nil）。
+    var correction: CorrectionPrescription? = nil
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -1106,6 +1113,11 @@ struct PracticeRoomView: View {
         )
         // 先落库再分析：pieceTakeHistory 要能查到这条新 take（连续计数口径）
         try? context.save()
+        // G3 Stage B：矫正进房练完即标记完成（完成口径不看达标率，ADR-0005 决策四；markCompleted 幂等）。
+        // 矫正进房照常 triggerAnalysis，其 analyzeAndStore 会走处方接线（通过→resolve，不过→未结去重不重建）。
+        if let correction {
+            CorrectionPrescriptionStore.markCompleted(correction, in: context)
+        }
         finishedSummary = summary
         triggerAnalysis(for: take)
     }
@@ -1181,11 +1193,31 @@ struct PracticeRoomView: View {
             let score = try ScoreLoader.loadScore(contentsOf: url)
             loadedScore = score
             let expected = ScoreExpectedPitches.extract(score: score)
+            // G3 Stage B：矫正进房初始速度 = 参考速 × 最保守速度比（CorrectionEngine.initialTempoRatio）；
+            // 无参考速回落 72（与默认口径一致）。configure 前算好，直接走 startBPM，不改 session 公开面。
+            let startBPM: Int
+            if let ratio = initialTempoRatio {
+                let ref = referenceTempo > 0 ? referenceTempo : (effectivePiece?.referenceTempo ?? 0)
+                let base = ref > 0 ? ref : 72
+                startBPM = Int((Double(base) * ratio).rounded())
+            } else {
+                startBPM = 72
+            }
             session.configure(
                 scoreName: displayTitle,
                 expectedPerMeasure: expected,
-                startBPM: 72
+                startBPM: startBPM
             )
+            // G3 Stage B：矫正进房进房即锁定 hotspot 循环区间（此时 expected 已有，总小节数可锚定）。
+            // 直接改 startMeasure/endMeasure → didSet→reconfigureRegion（phase 仍 .idle，正确）。
+            if let hotspots = initialHotspots {
+                let range = CorrectionEngine.initialLoopRange(
+                    hotspots: hotspots,
+                    totalMeasures: expected.count
+                )
+                session.loopConfig.startMeasure = range.start
+                session.loopConfig.endMeasure = range.end
+            }
         } catch {
             loadError = "谱面解析失败：\(error.localizedDescription)"
         }

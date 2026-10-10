@@ -24,6 +24,8 @@ struct TodayView: View {
     @Query private var pieces: [Piece]
     // G4 视奏留痕（ADR-0004）：选片去重用 history + 趋势旁观察样本
     @Query private var drillRecords: [SightReadDrillRecord]
+    // G3 Stage B（ADR-0005）：今日矫正卡数据源（未结未完成的处方）
+    @Query private var prescriptions: [CorrectionPrescription]
 
     let onBrowseLibrary: () -> Void
 
@@ -34,6 +36,8 @@ struct TodayView: View {
     @State private var practiceRoute: PracticeTaskRoute? // warmup / main / reward / review → S11
     // G4 ADR-0004：视奏训练独立路由（独立 item，勿复用 practiceRoute 的 warmup/main 语义）
     @State private var sightReadRoute: SightReadDrillRoute?
+    // G3 Stage B：矫正练习路由（进房锁 hotspot + 最保守初始速度 + 完成回写）
+    @State private var correctionRoute: CorrectionPrescription?
     @State private var showSightReadTrend = false
     /// 今日视奏片段：进入今日页时算一次（pick 内含随机源，body 重渲染不得重抽换曲）
     @State private var drillPick: SightReadDrillPick?
@@ -45,6 +49,12 @@ struct TodayView: View {
 
     private var settings: AppSettings? { settingsList.first }
     private var hasPlacement: Bool { !placementResults.isEmpty }
+
+    /// G3 Stage B：今天要练、尚未完成的未结处方。
+    /// completedAt != nil → 当天已完成不重复催；resolvedAt != nil → 已通过即消失（不渲染）。
+    private var activeCorrections: [CorrectionPrescription] {
+        prescriptions.filter { $0.resolvedAt == nil && $0.completedAt == nil }
+    }
 
     var body: some View {
         Group {
@@ -93,6 +103,24 @@ struct TodayView: View {
             SightReadDrillView(pick: route.pick) {
                 sightReadRoute = nil
             }
+        }
+        .fullScreenCover(item: $correctionRoute) { rx in
+            // G3 Stage B：矫正进房（ADR-0005 决策四）——锁定 hotspot 区间 + 最保守初始速度 +
+            // 练完即完成回写；完成口径不看达标，不锁过关（非门禁）。
+            let piece = pieces.first { $0.entityId == rx.pieceId }
+            let coords = BundledScoreCoordinates.resolve(book: rx.book, number: rx.number)
+            PracticeRoomView(
+                taskType: "correction",
+                pieceTitle: "\(rx.book) \(rx.number)",
+                timeLimitSec: nil,
+                piece: piece,
+                referenceTempo: piece?.referenceTempo ?? 0,
+                bundledBook: coords?.book,
+                bundledNumber: coords?.number ?? 0,
+                initialHotspots: rx.hotspotMeasures,
+                initialTempoRatio: CorrectionEngine.initialTempoRatio(rx.remedies),
+                correction: rx
+            )
         }
         .sheet(isPresented: $showSightReadTrend) {
             SightReadTrendView()
@@ -145,6 +173,13 @@ struct TodayView: View {
                 // 视觉上复用任务卡外壳）。仅当真实存在 reviewing 条目时出现，无假数据。
                 if let reviewPiece = TodayReviewPicker.pick(pieces) {
                     reviewCard(piece: reviewPiece)
+                        .padding(.top, 16)
+                }
+
+                // G3 Stage B：矫正卡插在主菜之前（ADR-0005 决策四）；只依赖处方本身，无 plan 也显示。
+                // 当天已完成（completedAt != nil）不重复催；已通过（resolvedAt != nil）即消失。
+                ForEach(activeCorrections, id: \.entityId) { rx in
+                    correctionCard(rx)
                         .padding(.top, 16)
                 }
 
@@ -457,6 +492,120 @@ struct TodayView: View {
             practiceRoute = PracticeTaskRoute(id: "review")
         } label: { card }
             .buttonStyle(.plain)
+    }
+
+    // MARK: G3 Stage B 矫正卡（ADR-0005 决策四：主菜之前的可选卡，非门禁不锁过关）
+
+    /// 复用任务卡外壳（与复习卡/热身卡同语言）：标题 + 错误类型 + hotspot + 练习法明细 +
+    /// 「开始矫正练习」按钮（点按整卡同效，进房走 correctionRoute）。
+    @ViewBuilder
+    private func correctionCard(_ rx: CorrectionPrescription) -> some View {
+        let card = taskCardChrome(isPrimary: false) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle().fill(Color.canvas)
+                        Circle().strokeBorder(Color.border, lineWidth: 1)
+                        Image(systemName: "crosshair")
+                            .font(.system(size: 18))
+                            .foregroundStyle(Color.textMuted)
+                    }
+                    .frame(width: 32, height: 32)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 8) {
+                            taskLabel("矫正", style: .amberOutline)
+                            Text("矫正练习 · \(rx.book) \(rx.number)")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(Color.textPrimary)
+                        }
+                        Text(hotspotLine(rx))
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.textMuted)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Color.textMuted)
+                }
+
+                // 明细只展示真实快照字段：错误类型行 + 逐条练习法（解码失败 → 空行不渲染，不编造）
+                VStack(alignment: .leading, spacing: 6) {
+                    if let types = errorTypesLine(rx) {
+                        detailRow(label: "错误类型", value: types)
+                    }
+                    ForEach(Array(remedyLines(rx).enumerated()), id: \.offset) { _, line in
+                        Text(line)
+                            .font(.system(size: 12))
+                            .leading(18, fontSize: 12)
+                            .foregroundStyle(Color.textMuted)
+                    }
+                }
+
+                Button {
+                    correctionRoute = rx
+                } label: {
+                    Text("开始矫正练习")
+                        .font(.system(size: 13, weight: .medium))
+                        .tracking(0.3)
+                        .foregroundStyle(Color.amber)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.amber.opacity(0.12))
+                        )
+                        .overlay(RoundedRectangle(cornerRadius: 10)
+                            .strokeBorder(Color.amber.opacity(0.4), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+
+        Button { correctionRoute = rx } label: { card }
+            .buttonStyle(.plain)
+    }
+
+    /// hotspot 展示行：空 = 整曲慢练（ADR-0005 决策二兜底）；非空 = 1-based 升序去重「第 n 小节」
+    private func hotspotLine(_ rx: CorrectionPrescription) -> String {
+        guard !rx.hotspotMeasures.isEmpty else { return "整曲慢练" }
+        let measures = Array(Set(rx.hotspotMeasures)).sorted().map { "第\($0 + 1)小节" }
+        return "错误热点 · " + measures.joined(separator: "、")
+    }
+
+    /// 错误类型展示行（rawValue → displayName；未知 rawValue 跳过不崩，红线 1 诚实）
+    private func errorTypesLine(_ rx: CorrectionPrescription) -> String? {
+        let names = rx.errorTypes.compactMap { CorrectionErrorType(rawValue: $0)?.displayName }
+        return names.isEmpty ? nil : names.joined(separator: "、")
+    }
+
+    /// 练习法逐条行（按处方 errorTypes 顺序，与错误类型行一致）：
+    /// 「displayName：目标 goal；速度 ♩=×0.6；分手；节拍器」——只展示真实快照字段（true 才列）。
+    private func remedyLines(_ rx: CorrectionPrescription) -> [String] {
+        let table = rx.remedies
+        return rx.errorTypes.compactMap { raw in
+            guard let type = CorrectionErrorType(rawValue: raw), let remedy = table[type] else { return nil }
+            var parts = ["目标 \(remedy.goal)", String(format: "速度 ♩=×%.1f", remedy.tempoRatio)]
+            if remedy.separateHands { parts.append("分手") }
+            if remedy.useMetronome { parts.append("节拍器") }
+            return "\(type.displayName)：" + parts.joined(separator: "；")
+        }
+    }
+
+    /// 卡内明细行（label 左灰、value 右主文色）
+    private func detailRow(label: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundStyle(Color.textMuted)
+            Text(value)
+                .font(.system(size: 12, weight: .medium))
+                .leading(18, fontSize: 12)
+                .foregroundStyle(Color.textPrimary)
+            Spacer(minLength: 0)
+        }
     }
 
     /// 任务2 主菜：进行中（当前焦点卡）：36pt 播放圆 + 实心标签 + chevron。
@@ -1880,6 +2029,6 @@ struct SightReadTrendView: View {
 #Preview {
     TodayView(onBrowseLibrary: {})
         .environmentObject(WarmupOverridePresenter())
-        .modelContainer(for: [AppSettings.self, PlacementResult.self, DailyPlan.self, PracticeTask.self, GateEvent.self, Take.self, CoursePathState.self, Piece.self, SightReadDrillRecord.self])
+        .modelContainer(for: [AppSettings.self, PlacementResult.self, DailyPlan.self, PracticeTask.self, GateEvent.self, Take.self, CoursePathState.self, Piece.self, SightReadDrillRecord.self, CorrectionPrescription.self])
         .preferredColorScheme(.dark)
 }

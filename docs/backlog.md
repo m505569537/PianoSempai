@@ -142,7 +142,8 @@ grep 实证仓库无任何 take 对比代码（无 CompareTake/TakeComparison）
 |---|---|---|---|---|---|
 | G1 | 可练谱获取指引页（在哪找现成 MusicXML / Mac 端 MuseScore 转换 / 导回 app） | D2 | P0 | done | 指引已存在于 PDF 资料库第二 tab，本次从 3 条提纲升级为三途径实战 SOP + 自查清单。2026-10-09 完成。 |
 | G2 | 接通一键「只练错误热点」：最近一次 `TakeAnalysis.hotspotMeasures` 喂给 LoopService | D1 / P12 | P0 | done | 新增 LoopService.hotspotRange/latestHotspotMeasures，S12 chip 按真实数据启用。616/0 全绿。2026-10-09 完成。 |
-| G3 | 错误类型 → 矫正练习处方引擎（映射教材条目/针对性小节，连续不过自动插） | D3 | P1 | open | 需先 Grill 错误分类口径与映射表。 |
+| G3 | 错误类型 → 矫正练习处方引擎（映射教材条目/针对性小节，连续不过自动插） | D3 | P1 | done | ADR-0005 已定（用户 8 项口径全拍板）。全量 8 类错误归并（错音/漏音/多弹/节奏/速度/力度/连续性/双手）+手工练习法表（慢练比/分手/节拍器/目标，针对 hotspot 不跨曲）；连续 2 次可评不过触发，低置信/不可评不计；矫正卡插主菜之前、非门禁不锁过关；进房锁 hotspot + 最保守速度，练完一遍即完成；通过即 resolve 清零。Stage A c8734bd + Stage B 界面，663/0 全绿。2026
+10: 10 完成。 |
 | G4 | 日常视奏训练（复用 SightReadSession，今日可选项 + 命中率趋势，对标 SASR） | D4 | P1 | done | ADR-0004 已定。素材=拜厄/哈农超前条（number>current 的 locked 谱，窗口 current+3~+8）；口径=命中率+用时+停顿数。Stage A 核心层+Stage B 界面，632/0 全绿。2026-10-09 完成。 |
 | G5 | 奖励曲难点段落自动混入热身 | D5 | P1 | open | 兑现 PRD M3 Q4=A。 |
 | G6 | 轻量练耳/视唱（听音辨音程、节奏型模仿） | — | P2 | needs-decision | 需先 Grill；P1 乐理课未做。 |
