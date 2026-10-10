@@ -829,3 +829,54 @@ final class SightReadDrillRecord {
     }
 }
 
+/// 矫正处方（ADR-0005 G3）：同一曲连续 2 次可评不过时自动生成（CorrectionPrescriptionStore）。
+/// 处方不锁过关（红线 4）：Piece.status 仍只由 CourseEngine 写，本表不写 Take/TakeAnalysis、
+/// 不触发过关/推进/streak；该曲通过硬指标后 resolvedAt 落值、卡消失、失败计数清零。
+/// 练习法以快照冻结——表以后改了，历史处方仍能看（ADR-0005 持久化节）。
+@Model
+final class CorrectionPrescription {
+    var entityId: UUID = UUID()
+    /// 所属曲目（Piece.entityId）
+    var pieceId: UUID = UUID()
+    var book: String = ""
+    var number: Int = 0
+    /// 命中错误类型 rawValue（CorrectionErrorType，8 类可多选；排序存储保证稳定）
+    var errorTypes: [String] = []
+    /// 练习法快照 JSON：命中项的 [CorrectionErrorType: Remedy] 按 rawValue 键编码成
+    /// [String: Remedy]（JSON 不支持枚举键），解码见 `remedies`
+    var remedyJSON: String = ""
+    /// 热点小节（与 analysis.hotspotMeasures 同口径）；空 = 整曲级练习法，不指定小节
+    var hotspotMeasures: [Int] = []
+    var prescribedAt: Date = Date()
+    /// 进房对 hotspot 练完一遍的时间（完成口径不看达标率，ADR-0005 决策四）
+    var completedAt: Date?
+    /// 该曲通过硬指标后落值（ADR-0005「通过即消失、计数清零」）；nil = 未结
+    var resolvedAt: Date?
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供；写法参考同文件 TakeAnalysis）
+    init(entityId: UUID = UUID(), pieceId: UUID = UUID(), book: String = "", number: Int = 0, errorTypes: [String] = [], remedyJSON: String = "", hotspotMeasures: [Int] = [], prescribedAt: Date = Date(), completedAt: Date? = nil, resolvedAt: Date? = nil) {
+        self.entityId = entityId
+        self.pieceId = pieceId
+        self.book = book
+        self.number = number
+        self.errorTypes = errorTypes
+        self.remedyJSON = remedyJSON
+        self.hotspotMeasures = hotspotMeasures
+        self.prescribedAt = prescribedAt
+        self.completedAt = completedAt
+        self.resolvedAt = resolvedAt
+    }
+
+    /// 练习法快照解码（坏 JSON / 空串 → 空，不崩溃；未知 rawValue 静默丢弃——
+    /// 快照只读不改写，历史处方不会因表调整而崩）
+    var remedies: [CorrectionErrorType: Remedy] {
+        guard let data = remedyJSON.data(using: .utf8),
+              let raw = try? JSONDecoder().decode([String: Remedy].self, from: data) else { return [:] }
+        var result: [CorrectionErrorType: Remedy] = [:]
+        for (key, remedy) in raw {
+            if let type = CorrectionErrorType(rawValue: key) { result[type] = remedy }
+        }
+        return result
+    }
+}
+

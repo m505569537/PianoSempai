@@ -32,6 +32,8 @@ struct PianoSempaiApp: App {
                     MonthlyReport.self,
                     // G4 日常视奏训练留痕（ADR-0004；旁观察样本，不碰过关链路）
                     SightReadDrillRecord.self,
+                    // G3 矫正处方（ADR-0005；诊断→处方→复查，不锁过关红线 4）
+                    CorrectionPrescription.self,
                 ])
         }
     }

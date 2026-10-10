@@ -382,3 +382,123 @@ enum SightReadTrend {
         return values.reduce(0, +) / Double(values.count)
     }
 }
+
+// MARK: - G3 矫正处方存储薄层（ADR-0005；诊断 → 处方 → 复查闭环的持久化侧）
+
+/// 纯函数分类器在 CorrectionEngine（ScoringModels.swift）；本层只做 TakeAnalysis → 信号
+/// 转换与处方落库。不碰 Piece.status（只由 CourseEngine 写）、不写 Take/TakeAnalysis、
+/// 不触发过关/推进/streak（红线 4：过关唯一依据仍是硬指标）。
+@MainActor
+enum CorrectionPrescriptionStore {
+
+    /// TakeAnalysis → 非持久 CorrectionSignals。
+    /// alignmentJSON 解码失败/空串 → 空逐音（视为无逐音信号，不得崩、不得编，红线 1）；
+    /// 六维 nil 原样保留（诚实：算不出的维度分类器不判）。
+    /// avgBPM 原样透传（0 = 速度维算不出，Models.swift 口径，classify 据此不判 tempo）。
+    static func makeSignals(from analysis: TakeAnalysis, timingWindowMs: Double,
+                            maxRhythmMedianMs: Double, targetTempoRatio: Double) -> CorrectionSignals {
+        let alignedNotes: [AlignedNote]
+        if let data = analysis.alignmentJSON.data(using: .utf8),
+           let decoded = try? JSONDecoder().decode([AlignedNote].self, from: data) {
+            alignedNotes = decoded
+        } else {
+            alignedNotes = []
+        }
+        return CorrectionSignals(
+            alignedNotes: alignedNotes,
+            pitchScore: analysis.pitchScore,
+            rhythmScore: analysis.rhythmScore,
+            tempoScore: analysis.tempoScore,
+            dynamicsScore: analysis.dynamicsScore,
+            continuityScore: analysis.continuityScore,
+            handsScore: analysis.handsScore,
+            rhythmMedianMs: analysis.rhythmMedianMs,
+            avgBPM: analysis.avgBPM,
+            tempoTargetHit: analysis.tempoTargetHit,
+            timingWindowMs: timingWindowMs,
+            maxRhythmMedianMs: maxRhythmMedianMs,
+            targetTempoRatio: targetTempoRatio,
+            hotspotMeasures: analysis.hotspotMeasures
+        )
+    }
+
+    /// 连续 2 次可评不过 → 创建处方落库；否则 nil（不满足不插，红线 2/4）。
+    /// 该 piece 已有 resolvedAt==nil 的未结处方 → 不重复创建，返回既有（ADR-0005 决策四去重）。
+    /// - Parameter analyses: 该曲的分析集（传入顺序不作保证，内部按 analyzedAt 旧→新重排）
+    @discardableResult
+    static func prescribeIfNeeded(piece: Piece, analyses: [TakeAnalysis], in context: ModelContext) -> CorrectionPrescription? {
+        let sorted = analyses.sorted { $0.analyzedAt < $1.analyzedAt }
+        let outcomes = sorted.map {
+            CorrectionEngine.EvaluableOutcome(canEvaluate: $0.canEvaluate,
+                                              passesHardMetrics: $0.passesHardMetrics,
+                                              confidence: $0.confidence)
+        }
+        guard CorrectionEngine.shouldPrescribe(outcomes) else { return nil }
+
+        if let existing = fetchUnresolved(pieceId: piece.entityId, in: context).first {
+            return existing
+        }
+
+        // 信号来源 = 最近一次「可评不过」（shouldPrescribe 为 true 时必存在；guard 兜底诚实）
+        let gate = ScoringStandards.confidenceGateThreshold
+        guard let latestFailing = sorted.last(where: {
+            $0.canEvaluate && $0.confidence >= gate && !$0.passesHardMetrics
+        }) else { return nil }
+
+        // 容差/标准按该曲教材取（与判分同一口径），不新造阈值
+        let standards = ScoringStandards.standards(forBook: piece.book)
+        let signals = makeSignals(from: latestFailing,
+                                  timingWindowMs: standards.tolerance.timingWindowMs,
+                                  maxRhythmMedianMs: standards.maxRhythmMedianMs,
+                                  targetTempoRatio: standards.targetTempoRatio)
+        let hitTypes = CorrectionEngine.classify(signals)
+        let prescription = CorrectionPrescription(
+            pieceId: piece.entityId, book: piece.book, number: piece.number,
+            errorTypes: hitTypes.map(\.rawValue).sorted(),
+            remedyJSON: remedySnapshotJSON(types: hitTypes),
+            hotspotMeasures: CorrectionEngine.prescriptionHotspots(latestFailing.hotspotMeasures)
+        )
+        context.insert(prescription)
+        try? context.save()
+        return prescription
+    }
+
+    /// 标记完成：进房对 hotspot 练完一遍即算（不看达标率，ADR-0005 决策四）。幂等——
+    /// 已有 completedAt 不再改写（当天已完成的矫正卡不重复催）。
+    static func markCompleted(_ prescription: CorrectionPrescription, in context: ModelContext) {
+        guard prescription.completedAt == nil else { return }
+        prescription.completedAt = Date()
+        try? context.save()
+    }
+
+    /// 通过即消失：该曲最新分析「可评且通过硬指标」→ 该曲所有未结处方 resolvedAt 落值
+    /// （ADR-0005「通过即消失、失败计数清零」）。低置信/不可评/未通过都不动处方状态。
+    static func resolveIfPassed(piece: Piece, latestAnalysis: TakeAnalysis?, in context: ModelContext) {
+        guard let latestAnalysis,
+              latestAnalysis.canEvaluate,
+              latestAnalysis.confidence >= ScoringStandards.confidenceGateThreshold,
+              latestAnalysis.passesHardMetrics else { return }
+        let unresolved = fetchUnresolved(pieceId: piece.entityId, in: context)
+        guard !unresolved.isEmpty else { return }
+        for prescription in unresolved { prescription.resolvedAt = Date() }
+        try? context.save()
+    }
+
+    /// 该曲未结处方（resolvedAt == nil）；fetch 失败返回空（不崩）
+    private static func fetchUnresolved(pieceId: UUID, in context: ModelContext) -> [CorrectionPrescription] {
+        let descriptor = FetchDescriptor<CorrectionPrescription>(
+            predicate: #Predicate { $0.pieceId == pieceId && $0.resolvedAt == nil })
+        return (try? context.fetch(descriptor)) ?? []
+    }
+
+    /// 命中类练习法快照（rawValue 键编码；编码失败 → "{}"，不阻断落库）
+    private static func remedySnapshotJSON(types: Set<CorrectionErrorType>) -> String {
+        let table = CorrectionEngine.remedyTable()
+        let raw: [String: Remedy] = Dictionary(uniqueKeysWithValues: types.compactMap { type in
+            table[type].map { (type.rawValue, $0) }
+        })
+        guard let data = try? JSONEncoder().encode(raw),
+              let text = String(data: data, encoding: .utf8) else { return "{}" }
+        return text
+    }
+}

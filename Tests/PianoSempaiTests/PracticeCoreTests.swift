@@ -698,4 +698,437 @@ final class PracticeCoreTests: XCTestCase {
             "同源口径：片段期望音与整条谱对应区间一致"
         )
     }
+
+    // MARK: G3 Correction Prescription（ADR-0005：错误类型 → 矫正处方核心层）
+
+    /// 分类器最小信号：默认全 nil / 无逐音 / 无节奏速度信号，只填关心的字段
+    private func makeCorrectionSignals(
+        alignedNotes: [AlignedNote] = [],
+        pitchScore: Int? = nil,
+        rhythmScore: Int? = nil,
+        tempoScore: Int? = nil,
+        dynamicsScore: Int? = nil,
+        continuityScore: Int? = nil,
+        handsScore: Int? = nil,
+        rhythmMedianMs: Double = 0,
+        avgBPM: Double = 0,
+        tempoTargetHit: Bool = false,
+        timingWindowMs: Double = 120,
+        maxRhythmMedianMs: Double = 100,
+        targetTempoRatio: Double = 0.8,
+        hotspotMeasures: [Int] = []
+    ) -> CorrectionSignals {
+        CorrectionSignals(
+            alignedNotes: alignedNotes, pitchScore: pitchScore, rhythmScore: rhythmScore,
+            tempoScore: tempoScore, dynamicsScore: dynamicsScore, continuityScore: continuityScore,
+            handsScore: handsScore, rhythmMedianMs: rhythmMedianMs, avgBPM: avgBPM,
+            tempoTargetHit: tempoTargetHit, timingWindowMs: timingWindowMs,
+            maxRhythmMedianMs: maxRhythmMedianMs, targetTempoRatio: targetTempoRatio,
+            hotspotMeasures: hotspotMeasures
+        )
+    }
+
+    /// 逐音 fixture：extra 无参考侧、missing 无演奏侧（与真实对齐口径一致）
+    private func makeAlignedNote(cls: NoteMatchClass, deltaMs: Double? = nil) -> AlignedNote {
+        AlignedNote(
+            refID: cls == .extra ? nil : 0,
+            refMeasureIndex: cls == .extra ? nil : 0,
+            refBeatInMeasure: cls == .extra ? nil : 0.0,
+            refPitch: cls == .extra ? nil : 60,
+            playedPitch: cls == .missing ? nil : 61,
+            deltaMs: deltaMs,
+            cls: cls,
+            hand: .right
+        )
+    }
+
+    /// 可评分析：默认可评、高置信、不过（G3 触发口径的最常见形态）
+    private func makeCorrectionAnalysis(
+        analyzedAt: Date,
+        canEvaluate: Bool = true,
+        passesHardMetrics: Bool = false,
+        confidence: Double = 0.9,
+        hotspotMeasures: [Int] = [],
+        alignmentJSON: String = "[]",
+        pitchScore: Int? = nil,
+        rhythmScore: Int? = nil,
+        tempoScore: Int? = nil,
+        dynamicsScore: Int? = nil,
+        continuityScore: Int? = nil,
+        handsScore: Int? = nil,
+        rhythmMedianMs: Double = 0,
+        avgBPM: Double = 0,
+        tempoTargetHit: Bool = false
+    ) -> TakeAnalysis {
+        TakeAnalysis(
+            analyzedAt: analyzedAt, confidence: confidence,
+            pitchScore: pitchScore, rhythmScore: rhythmScore, tempoScore: tempoScore,
+            dynamicsScore: dynamicsScore, continuityScore: continuityScore, handsScore: handsScore,
+            rhythmMedianMs: rhythmMedianMs, tempoTargetHit: tempoTargetHit, avgBPM: avgBPM,
+            hotspotMeasures: hotspotMeasures, canEvaluate: canEvaluate,
+            passesHardMetrics: passesHardMetrics, alignmentJSON: alignmentJSON
+        )
+    }
+
+    private func makeOutcome(canEvaluate: Bool = true, passes: Bool = false,
+                             confidence: Double = 0.9) -> CorrectionEngine.EvaluableOutcome {
+        .init(canEvaluate: canEvaluate, passesHardMetrics: passes, confidence: confidence)
+    }
+
+    private func makeCorrectionContainer() throws -> ModelContainer {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try ModelContainer(
+            for: Schema([Piece.self, TakeAnalysis.self, CorrectionPrescription.self]),
+            configurations: config
+        )
+    }
+
+    private func makeCorrectionPiece(book: String = "拜厄", number: Int = 12) -> Piece {
+        Piece(entityId: UUID(), title: "G3 测试曲", book: book, number: number, totalMeasures: 16)
+    }
+
+    func testClassifyOnlyWrongPitchFromNotes() {
+        let signals = makeCorrectionSignals(alignedNotes: [makeAlignedNote(cls: .wrongPitch)])
+        XCTAssertEqual(CorrectionEngine.classify(signals), Set([.wrongPitch]),
+                       "逐音错音 → 只判 wrongPitch，其余维 nil 不判")
+    }
+
+    func testClassifyOnlyMissingAndExtraFromNotes() {
+        let missing = CorrectionEngine.classify(
+            makeCorrectionSignals(alignedNotes: [makeAlignedNote(cls: .missing)]))
+        XCTAssertEqual(missing, Set([.missing]), "漏音只来自逐音信号")
+        let extra = CorrectionEngine.classify(
+            makeCorrectionSignals(alignedNotes: [makeAlignedNote(cls: .extra)]))
+        XCTAssertEqual(extra, Set([.extra]), "多弹只来自逐音信号")
+    }
+
+    func testClassifyOnlyRhythmFromOutOfWindowDelta() {
+        let signals = makeCorrectionSignals(
+            alignedNotes: [makeAlignedNote(cls: .correct, deltaMs: 150)],
+            timingWindowMs: 120)
+        XCTAssertEqual(CorrectionEngine.classify(signals), Set([.rhythm]),
+                       "|deltaMs| 超容差窗 → 只判 rhythm")
+    }
+
+    func testClassifyOnlyTempo() {
+        let signals = makeCorrectionSignals(avgBPM: 50, tempoTargetHit: false)
+        XCTAssertEqual(CorrectionEngine.classify(signals), Set([.tempo]),
+                       "实测有速度但未达目标 → 只判 tempo")
+    }
+
+    func testClassifyScoreDimensionsOnly() {
+        // dynamics：分数低、其余全 nil → 只判 dynamics（六维分数类逐一验证）
+        XCTAssertEqual(CorrectionEngine.classify(makeCorrectionSignals(dynamicsScore: 40)),
+                       Set([.dynamics]))
+        XCTAssertEqual(CorrectionEngine.classify(makeCorrectionSignals(continuityScore: 10)),
+                       Set([.continuity]))
+        XCTAssertEqual(CorrectionEngine.classify(makeCorrectionSignals(handsScore: 55)),
+                       Set([.hands]))
+    }
+
+    func testClassifyHonestWhenSignalsMissing() {
+        // 全空信号 → 集合为空：算不出的维度不判，禁止编错（红线 1）
+        XCTAssertEqual(CorrectionEngine.classify(makeCorrectionSignals()), Set<CorrectionErrorType>([]))
+        // avgBPM == 0 = 速度维算不出：即使 tempoTargetHit 默认 false 也不判 tempo
+        XCTAssertFalse(CorrectionEngine.classify(makeCorrectionSignals(avgBPM: 0, tempoTargetHit: false)).contains(.tempo))
+        // pitchScore nil + 无逐音 → 不判 wrongPitch
+        XCTAssertFalse(CorrectionEngine.classify(makeCorrectionSignals(pitchScore: nil)).contains(.wrongPitch))
+        // 刚过线的分数（≥ 60）不算低
+        XCTAssertFalse(CorrectionEngine.classify(makeCorrectionSignals(dynamicsScore: 60)).contains(.dynamics))
+    }
+
+    func testClassifyHitsMultipleTypesAtOnce() {
+        // 逐音错音（且带超窗 delta）+ 连续性低分 → 三类同时命中
+        let signals = makeCorrectionSignals(
+            alignedNotes: [makeAlignedNote(cls: .wrongPitch, deltaMs: 200)],
+            continuityScore: 20,
+            timingWindowMs: 120)
+        XCTAssertEqual(CorrectionEngine.classify(signals),
+                       Set([.wrongPitch, .rhythm, .continuity]))
+    }
+
+    func testClassifyRhythmWindowBoundaries() {
+        // 恰好在窗上（== timingWindowMs）不算超窗（判定是严格 >）
+        let onWindow = makeCorrectionSignals(
+            alignedNotes: [makeAlignedNote(cls: .correct, deltaMs: 120)], timingWindowMs: 120)
+        XCTAssertFalse(CorrectionEngine.classify(onWindow).contains(.rhythm))
+        // 超 0.5ms 即判
+        let justOver = makeCorrectionSignals(
+            alignedNotes: [makeAlignedNote(cls: .correct, deltaMs: 120.5)], timingWindowMs: 120)
+        XCTAssertTrue(CorrectionEngine.classify(justOver).contains(.rhythm))
+        // 中位数恰好等于阈值不算超；刚超 0.5 判
+        let medianOn = makeCorrectionSignals(rhythmMedianMs: 100, maxRhythmMedianMs: 100)
+        XCTAssertFalse(CorrectionEngine.classify(medianOn).contains(.rhythm))
+        let medianOver = makeCorrectionSignals(rhythmMedianMs: 100.5, maxRhythmMedianMs: 100)
+        XCTAssertTrue(CorrectionEngine.classify(medianOver).contains(.rhythm))
+    }
+
+    func testShouldPrescribeConsecutiveEvaluableFails() {
+        XCTAssertFalse(CorrectionEngine.shouldPrescribe([]), "空数组 → false")
+        XCTAssertFalse(CorrectionEngine.shouldPrescribe([makeOutcome(passes: false)]),
+                       "只有 1 次可评不过 → 还不触发")
+        XCTAssertTrue(CorrectionEngine.shouldPrescribe([
+            makeOutcome(passes: false), makeOutcome(passes: false),
+        ]), "连续 2 次可评不过 → 触发")
+        XCTAssertTrue(CorrectionEngine.shouldPrescribe([
+            makeOutcome(passes: false), makeOutcome(passes: false), makeOutcome(passes: false),
+        ]), "3 次连续不过仍触发")
+    }
+
+    func testShouldPrescribeIgnoresUnevaluableAndLowConfidence() {
+        // 不可评 / 低置信不计入、也不打断：可评序列 [fail, fail] 仍连续
+        XCTAssertTrue(CorrectionEngine.shouldPrescribe([
+            makeOutcome(canEvaluate: false, passes: false),
+            makeOutcome(passes: false, confidence: 0.5), // 低置信
+            makeOutcome(passes: false),
+            makeOutcome(passes: false),
+        ]))
+        // 不可评夹在中间也不打断
+        XCTAssertTrue(CorrectionEngine.shouldPrescribe([
+            makeOutcome(passes: false), makeOutcome(canEvaluate: false),
+            makeOutcome(passes: false),
+        ]))
+    }
+
+    func testShouldPrescribeResetsOnPass() {
+        XCTAssertFalse(CorrectionEngine.shouldPrescribe([
+            makeOutcome(passes: false), makeOutcome(passes: true),
+        ]), "最近可评通过 → 清零")
+        XCTAssertFalse(CorrectionEngine.shouldPrescribe([
+            makeOutcome(passes: false), makeOutcome(passes: false), makeOutcome(passes: true),
+        ]), "两次不过后通过 → false")
+        XCTAssertFalse(CorrectionEngine.shouldPrescribe([
+            makeOutcome(passes: false), makeOutcome(passes: false),
+            makeOutcome(passes: true), makeOutcome(passes: false, confidence: 0.5),
+        ]), "通过后的低置信不计入，最近可评仍是通过 → false")
+        XCTAssertTrue(CorrectionEngine.shouldPrescribe([
+            makeOutcome(passes: true), makeOutcome(passes: false), makeOutcome(passes: false),
+        ]), "更早的通过不阻断：最近两个可评不过 → true")
+    }
+
+    func testRemedyTableCoversAllEightTypes() throws {
+        let table = CorrectionEngine.remedyTable()
+        XCTAssertEqual(table.count, CorrectionErrorType.allCases.count, "8 类每类都有练习法")
+        for type in CorrectionErrorType.allCases {
+            let remedy = try XCTUnwrap(table[type])
+            XCTAssertFalse(remedy.goal.isEmpty, "\(type.rawValue) 的中文目标非空")
+            XCTAssertGreaterThan(remedy.tempoRatio, 0, "\(type.rawValue) tempoRatio 下界")
+            XCTAssertLessThanOrEqual(remedy.tempoRatio, 1, "\(type.rawValue) tempoRatio 上界（慢练不快于参考速）")
+        }
+    }
+
+    func testPrescriptionHotspotsEmptyMeansWholePiece() {
+        // hotspot 为空 → 返回空，调用方走整曲级练习法，不造小节（ADR-0005 决策二）
+        XCTAssertEqual(CorrectionEngine.prescriptionHotspots([]), [])
+        XCTAssertEqual(CorrectionEngine.prescriptionHotspots([1, 3]), [1, 3], "非空原样透传")
+    }
+
+    @MainActor
+    func testCorrectionPrescriptionSwiftDataRoundTrip() throws {
+        let context = ModelContext(try makeCorrectionContainer())
+        let remedy = Remedy(tempoRatio: 0.6, separateHands: true, useMetronome: false, goal: "双手对齐")
+        let remedyJSON = String(data: try JSONEncoder().encode(["hands": remedy]), encoding: .utf8)!
+        let prescribedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let pieceId = UUID()
+        let prescription = CorrectionPrescription(
+            pieceId: pieceId, book: "拜厄", number: 12,
+            errorTypes: ["hands", "rhythm"], remedyJSON: remedyJSON,
+            hotspotMeasures: [3, 5], prescribedAt: prescribedAt)
+        context.insert(prescription)
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<CorrectionPrescription>())
+        XCTAssertEqual(fetched.count, 1)
+        let r = try XCTUnwrap(fetched.first)
+        XCTAssertEqual(r.pieceId, pieceId)
+        XCTAssertEqual(r.book, "拜厄")
+        XCTAssertEqual(r.number, 12)
+        XCTAssertEqual(r.errorTypes, ["hands", "rhythm"])
+        XCTAssertEqual(r.hotspotMeasures, [3, 5])
+        XCTAssertEqual(r.prescribedAt, prescribedAt)
+        XCTAssertNil(r.completedAt, "默认未完成")
+        XCTAssertNil(r.resolvedAt, "默认未结")
+        XCTAssertEqual(r.remedies, [.hands: remedy], "快照 rawValue 键解码还原练习法")
+    }
+
+    @MainActor
+    func testPrescribeIfNeededNotTriggeredInsertsNothing() throws {
+        let context = ModelContext(try makeCorrectionContainer())
+        let piece = makeCorrectionPiece()
+        context.insert(piece)
+        // 只 1 次可评不过 → 不触发
+        let result = CorrectionPrescriptionStore.prescribeIfNeeded(
+            piece: piece, analyses: [makeCorrectionAnalysis(analyzedAt: Date(timeIntervalSince1970: 100))],
+            in: context)
+        XCTAssertNil(result)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<CorrectionPrescription>()).count, 0,
+                       "不满足不插库")
+    }
+
+    @MainActor
+    func testPrescribeIfNeededCreatesPrescriptionWithSnapshot() throws {
+        let context = ModelContext(try makeCorrectionContainer())
+        let piece = makeCorrectionPiece() // 拜厄 → beginner 容差 120ms / 中位数 100ms
+        context.insert(piece)
+        // 两次可评不过；最新一次：逐音错音（带超窗 delta）+ 连续性低分 + hotspot [2,4]
+        let note = makeAlignedNote(cls: .wrongPitch, deltaMs: 200)
+        let alignmentJSON = String(data: try JSONEncoder().encode([note]), encoding: .utf8)!
+        let older = makeCorrectionAnalysis(analyzedAt: Date(timeIntervalSince1970: 100))
+        let newer = makeCorrectionAnalysis(
+            analyzedAt: Date(timeIntervalSince1970: 200),
+            hotspotMeasures: [2, 4], alignmentJSON: alignmentJSON, continuityScore: 30)
+
+        let prescription = try XCTUnwrap(CorrectionPrescriptionStore.prescribeIfNeeded(
+            piece: piece, analyses: [newer, older], in: context))
+
+        XCTAssertEqual(prescription.pieceId, piece.entityId)
+        XCTAssertEqual(prescription.book, "拜厄")
+        XCTAssertEqual(prescription.number, 12)
+        XCTAssertEqual(prescription.errorTypes, ["continuity", "rhythm", "wrongPitch"],
+                       "三类命中且 rawValue 排序存储")
+        XCTAssertEqual(prescription.hotspotMeasures, [2, 4], "hotspot 原样进入处方")
+        XCTAssertNil(prescription.resolvedAt)
+        XCTAssertNil(prescription.completedAt)
+        // 快照：命中类的练习法与 remedyTable 一致，未命中类不进快照
+        let table = CorrectionEngine.remedyTable()
+        XCTAssertEqual(prescription.remedies.count, 3)
+        for type in [CorrectionErrorType.wrongPitch, .rhythm, .continuity] {
+            XCTAssertEqual(prescription.remedies[type], table[type], "\(type.rawValue) 快照与表一致")
+        }
+        XCTAssertNil(prescription.remedies[.tempo], "未命中类不进快照")
+        // 确实落库
+        XCTAssertEqual(try context.fetch(FetchDescriptor<CorrectionPrescription>()).count, 1)
+    }
+
+    @MainActor
+    func testPrescribeIfNeededDoesNotDuplicateUnresolved() throws {
+        let context = ModelContext(try makeCorrectionContainer())
+        let piece = makeCorrectionPiece()
+        context.insert(piece)
+        let analyses = [
+            makeCorrectionAnalysis(analyzedAt: Date(timeIntervalSince1970: 100)),
+            makeCorrectionAnalysis(analyzedAt: Date(timeIntervalSince1970: 200)),
+        ]
+        let first = try XCTUnwrap(
+            CorrectionPrescriptionStore.prescribeIfNeeded(piece: piece, analyses: analyses, in: context))
+        let second = CorrectionPrescriptionStore.prescribeIfNeeded(piece: piece, analyses: analyses, in: context)
+        XCTAssertEqual(second?.entityId, first.entityId, "已有未结处方 → 返回既有，不重复创建")
+        XCTAssertEqual(try context.fetch(FetchDescriptor<CorrectionPrescription>()).count, 1)
+    }
+
+    @MainActor
+    func testPrescribeIfNeededIgnoresResolvedOldPrescription() throws {
+        let context = ModelContext(try makeCorrectionContainer())
+        let piece = makeCorrectionPiece()
+        context.insert(piece)
+        let analyses = [
+            makeCorrectionAnalysis(analyzedAt: Date(timeIntervalSince1970: 100)),
+            makeCorrectionAnalysis(analyzedAt: Date(timeIntervalSince1970: 200)),
+        ]
+        let old = try XCTUnwrap(
+            CorrectionPrescriptionStore.prescribeIfNeeded(piece: piece, analyses: analyses, in: context))
+        // 旧处方已结（如上次通过清零）→ 不阻断再次创建
+        old.resolvedAt = Date()
+        try context.save()
+        let fresh = try XCTUnwrap(
+            CorrectionPrescriptionStore.prescribeIfNeeded(piece: piece, analyses: analyses, in: context))
+        XCTAssertNotEqual(fresh.entityId, old.entityId, "已结旧处方不影响新建判定")
+        XCTAssertEqual(try context.fetch(FetchDescriptor<CorrectionPrescription>()).count, 2)
+    }
+
+    @MainActor
+    func testMarkCompletedIsIdempotent() throws {
+        let context = ModelContext(try makeCorrectionContainer())
+        let prescription = CorrectionPrescription(pieceId: UUID(), book: "拜厄", number: 12)
+        context.insert(prescription)
+        try context.save()
+
+        CorrectionPrescriptionStore.markCompleted(prescription, in: context)
+        let first = try XCTUnwrap(prescription.completedAt, "首次标记 → completedAt 落值")
+        CorrectionPrescriptionStore.markCompleted(prescription, in: context)
+        XCTAssertEqual(prescription.completedAt, first, "幂等：已有 completedAt 不改写")
+    }
+
+    @MainActor
+    func testResolveIfPassedOnlyOnEvaluablePass() throws {
+        let context = ModelContext(try makeCorrectionContainer())
+        let piece = makeCorrectionPiece()
+        context.insert(piece)
+        let prescription = CorrectionPrescription(pieceId: piece.entityId, book: "拜厄", number: 12)
+        context.insert(prescription)
+        try context.save()
+
+        // 未通过（可评但不过）→ 不 resolve
+        CorrectionPrescriptionStore.resolveIfPassed(
+            piece: piece,
+            latestAnalysis: makeCorrectionAnalysis(analyzedAt: Date(timeIntervalSince1970: 100),
+                                                   passesHardMetrics: false),
+            in: context)
+        XCTAssertNil(prescription.resolvedAt)
+        // 低置信通过 → 不 resolve（不算清零）
+        CorrectionPrescriptionStore.resolveIfPassed(
+            piece: piece,
+            latestAnalysis: makeCorrectionAnalysis(analyzedAt: Date(timeIntervalSince1970: 200),
+                                                   passesHardMetrics: true, confidence: 0.5),
+            in: context)
+        XCTAssertNil(prescription.resolvedAt)
+        // 不可评通过 → 不 resolve
+        CorrectionPrescriptionStore.resolveIfPassed(
+            piece: piece,
+            latestAnalysis: makeCorrectionAnalysis(analyzedAt: Date(timeIntervalSince1970: 300),
+                                                   canEvaluate: false, passesHardMetrics: true),
+            in: context)
+        XCTAssertNil(prescription.resolvedAt)
+        // 可评 + 高置信 + 通过硬指标 → resolve 落值
+        CorrectionPrescriptionStore.resolveIfPassed(
+            piece: piece,
+            latestAnalysis: makeCorrectionAnalysis(analyzedAt: Date(timeIntervalSince1970: 400),
+                                                   passesHardMetrics: true),
+            in: context)
+        XCTAssertNotNil(prescription.resolvedAt, "通过硬指标 → 处方清零")
+        // latestAnalysis 为 nil → 不崩、无操作
+        let another = makeCorrectionPiece(number: 13)
+        context.insert(another)
+        CorrectionPrescriptionStore.resolveIfPassed(piece: another, latestAnalysis: nil, in: context)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<CorrectionPrescription>())
+            .filter { $0.resolvedAt == nil }.count, 0)
+    }
+
+    @MainActor
+    func testMakeSignalsPreservesNilScoresAndCorruptJSON() throws {
+        // 六维 nil 原样保留（诚实），损坏 alignmentJSON → 空逐音不崩
+        let corrupt = makeCorrectionAnalysis(
+            analyzedAt: Date(timeIntervalSince1970: 100),
+            hotspotMeasures: [1],
+            alignmentJSON: "not-json{{",
+            rhythmMedianMs: 88, avgBPM: 72, tempoTargetHit: true)
+        let corruptSignals = CorrectionPrescriptionStore.makeSignals(
+            from: corrupt, timingWindowMs: 120, maxRhythmMedianMs: 100, targetTempoRatio: 0.8)
+        XCTAssertTrue(corruptSignals.alignedNotes.isEmpty, "坏 JSON → 空逐音，不得崩、不得编")
+        XCTAssertNil(corruptSignals.pitchScore)
+        XCTAssertNil(corruptSignals.rhythmScore)
+        XCTAssertNil(corruptSignals.tempoScore)
+        XCTAssertNil(corruptSignals.dynamicsScore)
+        XCTAssertNil(corruptSignals.continuityScore)
+        XCTAssertNil(corruptSignals.handsScore)
+        XCTAssertEqual(corruptSignals.rhythmMedianMs, 88)
+        XCTAssertEqual(corruptSignals.avgBPM, 72)
+        XCTAssertEqual(corruptSignals.hotspotMeasures, [1])
+
+        // 好的 alignmentJSON → 逐音还原；非 nil 分数原样透传
+        let note = makeAlignedNote(cls: .wrongPitch, deltaMs: 150)
+        let goodJSON = String(data: try JSONEncoder().encode([note]), encoding: .utf8)!
+        let good = makeCorrectionAnalysis(
+            analyzedAt: Date(timeIntervalSince1970: 200),
+            alignmentJSON: goodJSON, pitchScore: 45, handsScore: 70,
+            rhythmMedianMs: 66, avgBPM: 90, tempoTargetHit: false)
+        let goodSignals = CorrectionPrescriptionStore.makeSignals(
+            from: good, timingWindowMs: 80, maxRhythmMedianMs: 70, targetTempoRatio: 0.9)
+        XCTAssertEqual(goodSignals.alignedNotes, [note], "逐音信号从 alignmentJSON 还原")
+        XCTAssertEqual(goodSignals.pitchScore, 45)
+        XCTAssertEqual(goodSignals.handsScore, 70)
+        XCTAssertEqual(goodSignals.timingWindowMs, 80, "容差窗透传")
+        XCTAssertEqual(goodSignals.maxRhythmMedianMs, 70)
+        XCTAssertEqual(goodSignals.targetTempoRatio, 0.9)
+    }
 }
