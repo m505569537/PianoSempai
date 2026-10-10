@@ -2138,4 +2138,99 @@ final class PracticeCoreTests: XCTestCase {
         session.answer(3)
         XCTAssertEqual(session.selected, 3)
     }
+
+    // MARK: G7 简谱标签纯函数（固定调，ADR-0009 Stage A）—— 数字/升降/八度点
+
+    // 自然音（accidental=nil）：按 pitch class 直取数字，.none。
+    func testNumberedNaturalWhiteKeysDefaultNoAccidental() {
+        let expected: [(Int, Int)] = [(60, 1), (62, 2), (64, 3), (65, 4), (67, 5), (69, 6), (71, 7)]
+        for (midi, digit) in expected {
+            let l = NumberedNotation.label(midiPitch: midi)
+            XCTAssertEqual(l, NumberedLabel(digit: digit, accidental: .none, octaveDotsUp: 0, octaveDotsDown: 0),
+                           "midi \(midi) → 数字 \(digit) 无记号、基准八度无点")
+        }
+    }
+
+    // 黑键 + 显式 ♯：数字 = pc−1 自然音。
+    func testNumberedBlackKeysWithExplicitSharp() {
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 61, accidental: .sharp),
+                       NumberedLabel(digit: 1, accidental: .sharp, octaveDotsUp: 0, octaveDotsDown: 0), "C♯ → ♯1")
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 66, accidental: .sharp),
+                       NumberedLabel(digit: 4, accidental: .sharp, octaveDotsUp: 0, octaveDotsDown: 0), "F♯ → ♯4")
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 68, accidental: .sharp),
+                       NumberedLabel(digit: 5, accidental: .sharp, octaveDotsUp: 0, octaveDotsDown: 0), "G♯ → ♯5")
+    }
+
+    // 黑键 + 显式 ♭：数字 = pc+1 自然音。
+    func testNumberedBlackKeysWithExplicitFlat() {
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 63, accidental: .flat),
+                       NumberedLabel(digit: 3, accidental: .flat, octaveDotsUp: 0, octaveDotsDown: 0), "E♭ → ♭3")
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 70, accidental: .flat),
+                       NumberedLabel(digit: 7, accidental: .flat, octaveDotsUp: 0, octaveDotsDown: 0), "B♭ → ♭7")
+    }
+
+    // 倍升/倍降：基准 pc−2 / pc+2（mod 12）。
+    func testNumberedDoubleSharpAndDoubleFlat() {
+        // D𝄪 = E（pitch 64 = pc4，基准 pc2 → 数字 2）
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 64, accidental: .doubleSharp),
+                       NumberedLabel(digit: 2, accidental: .doubleSharp, octaveDotsUp: 0, octaveDotsDown: 0))
+        // E𝄫 = D（pitch 62 = pc2，基准 pc4 → 数字 3）
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 62, accidental: .doubleFlat),
+                       NumberedLabel(digit: 3, accidental: .doubleFlat, octaveDotsUp: 0, octaveDotsDown: 0))
+    }
+
+    // 显式还原：落在自然 pc 上按 pc 取数字、.natural。
+    func testNumberedExplicitNaturalOnNaturalPC() {
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 60, accidental: .natural),
+                       NumberedLabel(digit: 1, accidental: .natural, octaveDotsUp: 0, octaveDotsDown: 0), "中央 C 带 ♮ → 1♮")
+    }
+
+    // 黑键缺省兜底（accidental=nil）：确定性等音默认（pc 1/3/6/8 → ♯，pc 10 → ♭）。
+    func testNumberedBlackKeysNilAccidentalDeterministicDefault() {
+        let expected: [(Int, Int, NumberedAccidental)] = [
+            (61, 1, .sharp), (63, 2, .sharp), (66, 4, .sharp), (68, 5, .sharp), (70, 7, .flat),
+        ]
+        for (midi, digit, acc) in expected {
+            let l = NumberedNotation.label(midiPitch: midi)
+            XCTAssertEqual(l, NumberedLabel(digit: digit, accidental: acc, octaveDotsUp: 0, octaveDotsDown: 0),
+                           "midi \(midi) 缺省 → \(acc) \(digit)")
+        }
+    }
+
+    // 黑键缺省兜底确定性：同输入连调 3 次结果完全相等（无摇摆）。
+    func testNumberedBlackKeysNilAccidentalStableAcrossRepeatedCalls() {
+        for midi in [61, 63, 66, 68, 70] {
+            let first = NumberedNotation.label(midiPitch: midi)
+            XCTAssertEqual(NumberedNotation.label(midiPitch: midi), first)
+            XCTAssertEqual(NumberedNotation.label(midiPitch: midi), first, "midi \(midi) 三次调用结果一致")
+        }
+    }
+
+    // 八度点：中央 C 八度（C4–B4）0/0，向上/向下各差一个八度 +1 点。
+    func testNumberedOctaveDotsAroundReferenceOctave() {
+        // C5/C6：数字仍 1，上方点 1/2
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 72).octaveDotsUp, 1, "C5 → 上 1 点")
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 72).octaveDotsDown, 0)
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 84).octaveDotsUp, 2, "C6 → 上 2 点")
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 84).digit, 1)
+        // C3/C2：下方点 1/2
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 48).octaveDotsDown, 1, "C3 → 下 1 点")
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 48).digit, 1)
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 36).octaveDotsDown, 2, "C2 → 下 2 点")
+        // 边界：B4（71）仍在基准八度 0/0，C5（72）起才有上方点
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 71), NumberedLabel(digit: 7, accidental: .none, octaveDotsUp: 0, octaveDotsDown: 0))
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 72), NumberedLabel(digit: 1, accidental: .none, octaveDotsUp: 1, octaveDotsDown: 0))
+        // 中央 C 恰在基准 0/0
+        XCTAssertEqual(NumberedNotation.label(midiPitch: 60), NumberedLabel(digit: 1, accidental: .none, octaveDotsUp: 0, octaveDotsDown: 0))
+    }
+
+    // MIDI 边界 0 / 127 不崩：octave 点有限非负、数字在 1...7。
+    func testNumberedExtremeMIDIPitchDoesNotCrash() {
+        for midi in [0, 127] {
+            let l = NumberedNotation.label(midiPitch: midi)
+            XCTAssertTrue((1...7).contains(l.digit), "midi \(midi) 数字 \(l.digit) 越界")
+            XCTAssertGreaterThanOrEqual(l.octaveDotsUp, 0, "midi \(midi) 上方点为有限非负")
+            XCTAssertGreaterThanOrEqual(l.octaveDotsDown, 0, "midi \(midi) 下方点为有限非负")
+        }
+    }
 }
