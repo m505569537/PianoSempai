@@ -37,6 +37,8 @@ struct PianoSempaiApp: App {
                     // G5 奖励曲难度评估与铺路卡（ADR-0006；非门禁，不碰 Piece.status）
                     RewardDifficultyAssessment.self,
                     RewardPavingCard.self,
+                    // G6 听音练耳轮次（ADR-0008；旁观察样本，不碰过关链路）
+                    EarTrainingRound.self,
                 ])
         }
     }

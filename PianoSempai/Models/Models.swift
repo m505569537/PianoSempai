@@ -951,3 +951,30 @@ final class RewardPavingCard {
     }
 }
 
+// MARK: - G6 听音练耳轮次（ADR-0008）
+
+/// 听音练耳轮次（ADR-0008 G6）：每轮固定 10 题，一轮一条。
+/// 不写 Take/TakeAnalysis、不碰 Piece.status、不触发过关/推进/streak（旁观察样本）。
+@Model
+final class EarTrainingRound {
+    var entityId: UUID = UUID()
+    /// 题型 rawValue，首批恒为 "interval"（预留二期题型）
+    var kind: String = "interval"
+    var correctCount: Int = 0
+    var totalCount: Int = 10
+    /// 命中率 0...1（= correct/total）；total==0 时 nil（本批 total 恒 10，不会发生）
+    var hitRate: Double? = nil
+    var createdAt: Date = Date()
+
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供；写法参考同文件 RewardPavingCard）
+    init(entityId: UUID = UUID(), kind: String = "interval", correctCount: Int = 0,
+         totalCount: Int = 10, hitRate: Double? = nil, createdAt: Date = Date()) {
+        self.entityId = entityId
+        self.kind = kind
+        self.correctCount = correctCount
+        self.totalCount = totalCount
+        self.hitRate = hitRate
+        self.createdAt = createdAt
+    }
+}
+

@@ -1788,4 +1788,237 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(result.currentConsecutiveWeeks, 0, "无效 take 不延续连续")
         XCTAssertEqual(result.longestWeeks, 1, "有效只来自 -2 周")
     }
+
+    // MARK: G6 听音辨音程 — 解锁 / 出题 / 判定 / 留痕 / 趋势（ADR-0008 Stage A）
+
+    /// 测试用确定性随机源（简单 LCG，Numerical Recipes 常数）；同种子 → 同序列
+    private struct SeededGenerator: RandomNumberGenerator {
+        private var state: UInt64
+        init(seed: UInt64) { state = seed }
+        mutating func next() -> UInt64 {
+            state = state &* 6364136223846793005 &+ 1442695040888963407
+            return state
+        }
+    }
+
+    private func makeEarContainer() throws -> ModelContainer {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try ModelContainer(for: EarTrainingRound.self, configurations: config)
+    }
+
+    // 解锁：边界严格按 ≤30 / 31...60 / >60
+
+    func testIntervalUnlockZeroAndBoundary30AreEntryTier() {
+        XCTAssertEqual(IntervalUnlock.allowedSemitones(currentBeyer: 0), [2, 3, 4, 7, 12], "无进度（0）归入门档")
+        XCTAssertEqual(IntervalUnlock.allowedSemitones(currentBeyer: 30), [2, 3, 4, 7, 12], "30 归入门")
+    }
+
+    func testIntervalUnlockBoundary31And60AreAdvancedTier() {
+        let advanced = Set([2, 3, 4, 7, 12]).union([1, 5, 9, 10])
+        XCTAssertEqual(IntervalUnlock.allowedSemitones(currentBeyer: 31), advanced, "31 进阶")
+        XCTAssertEqual(IntervalUnlock.allowedSemitones(currentBeyer: 60), advanced, "60 仍进阶")
+    }
+
+    func testIntervalUnlockBoundary61AndBeyondAreFullTier() {
+        XCTAssertEqual(IntervalUnlock.allowedSemitones(currentBeyer: 61), Set(1...12), "61 全开")
+        XCTAssertEqual(IntervalUnlock.allowedSemitones(currentBeyer: 100), Set(1...12))
+    }
+
+    func testIntervalUnlockTiersUnionCoversAllTwelveAndEntryCountFive() {
+        let entry = IntervalUnlock.allowedSemitones(currentBeyer: 30)
+        let advanced = IntervalUnlock.allowedSemitones(currentBeyer: 60)
+        let full = IntervalUnlock.allowedSemitones(currentBeyer: 61)
+        XCTAssertEqual(entry.count, 5, "入门档 5 个（最早档 ≥4，出题前置条件恒满足）")
+        XCTAssertEqual(entry.union(advanced).union(full), Set(1...12), "三档并集恰为 1...12")
+        XCTAssertTrue(advanced.isSuperset(of: entry), "进阶包含入门")
+        XCTAssertTrue(full.isSuperset(of: advanced), "后期包含进阶")
+    }
+
+    // displayName：中文按字面比较，不假设拼音序
+
+    func testIntervalIDDisplayNamesPinned() {
+        XCTAssertEqual(IntervalID(rawValue: 1)?.displayName, "小二度")
+        XCTAssertEqual(IntervalID(rawValue: 4)?.displayName, "大三度")
+        XCTAssertEqual(IntervalID(rawValue: 6)?.displayName, "三全音", "增四/减五统一单标签三全音（ADR-0008 §7）")
+        XCTAssertEqual(IntervalID(rawValue: 7)?.displayName, "纯五度")
+        XCTAssertEqual(IntervalID(rawValue: 12)?.displayName, "纯八度")
+    }
+
+    func testIntervalIDDisplayNameNonEmptyForAllCases() {
+        var names: Set<String> = []
+        for interval in IntervalID.allCases {
+            XCTAssertFalse(interval.displayName.isEmpty, "rawValue \(interval.rawValue) 名称不得为空")
+            names.insert(interval.displayName)
+        }
+        XCTAssertEqual(names.count, IntervalID.allCases.count, "12 个半音数标签互异（半音数 6 单标签）")
+    }
+
+    // 出题：不变量逐题钉
+
+    func testIntervalQuizInvariantsAcrossSeedsAndTiers() {
+        let tiers: [Set<Int>] = [
+            [2, 3, 4, 7, 12],
+            [1, 2, 3, 4, 5, 7, 9, 10, 12],
+            Set(1...12),
+        ]
+        for allowed in tiers {
+            for seed in [1, 42, 2026] {
+                var gen = SeededGenerator(seed: UInt64(seed))
+                for _ in 0..<30 {
+                    let q = IntervalQuiz.makeQuestion(allowed: allowed, using: &gen)
+                    XCTAssertTrue(IntervalQuiz.rootRange.contains(q.rootMIDINote), "root ∈ [55,67]，实得 \(q.rootMIDINote)")
+                    XCTAssertTrue(allowed.contains(q.answerSemitones), "answer ∈ allowed")
+                    XCTAssertEqual(q.topMIDINote, q.rootMIDINote + q.answerSemitones)
+                    XCTAssertLessThanOrEqual(q.topMIDINote, 79, "冠音 ≤ 79（root ≤67 + 12）")
+                    XCTAssertEqual(q.options.count, 4)
+                    XCTAssertEqual(q.options.filter { $0 == q.answerSemitones }.count, 1, "正确项恰出现一次")
+                    let distractors = q.options.filter { $0 != q.answerSemitones }
+                    XCTAssertEqual(distractors.count, 3, "3 个干扰项")
+                    XCTAssertEqual(Set(distractors).count, 3, "干扰项互异（半音数互异即标签互异）")
+                    for d in distractors {
+                        XCTAssertTrue(allowed.contains(d), "干扰项 ∈ allowed")
+                    }
+                    XCTAssertEqual(Set(q.options).count, 4, "4 选项整体互异")
+                }
+            }
+        }
+    }
+
+    func testIntervalQuizEntryTierOptionsAllFromUnlockedFive() {
+        let entry: Set<Int> = [2, 3, 4, 7, 12]
+        var gen = SeededGenerator(seed: 7)
+        for _ in 0..<50 {
+            let q = IntervalQuiz.makeQuestion(allowed: entry, using: &gen)
+            for option in q.options {
+                XCTAssertTrue(entry.contains(option), "入门档 4 选项必须全部来自这 5 个，实得 \(option)")
+            }
+        }
+    }
+
+    func testIntervalQuizDeterministicSameSeed() {
+        let allowed: Set<Int> = [2, 3, 4, 7, 12]
+        var genA = SeededGenerator(seed: 99)
+        var genB = SeededGenerator(seed: 99)
+        let seqA = (0..<10).map { _ in IntervalQuiz.makeQuestion(allowed: allowed, using: &genA) }
+        let seqB = (0..<10).map { _ in IntervalQuiz.makeQuestion(allowed: allowed, using: &genB) }
+        XCTAssertEqual(seqA, seqB, "同种子两次各出 10 题，序列完全相等")
+    }
+
+    func testIntervalQuizRootRangePinned() {
+        XCTAssertEqual(IntervalQuiz.rootRange, 55...67, "根音窗口 G3~G4，保证冠音 ≤79")
+    }
+
+    // 判定
+
+    func testIntervalJudgingCorrectOnExactAnswer() {
+        let q = IntervalQuestion(rootMIDINote: 60, answerSemitones: 7, options: [7, 2, 3, 12])
+        XCTAssertTrue(IntervalJudging.isCorrect(selected: 7, question: q))
+    }
+
+    func testIntervalJudgingWrongIncludesAdjacentSemitone() {
+        let q = IntervalQuestion(rootMIDINote: 60, answerSemitones: 7, options: [7, 2, 3, 12])
+        for wrong in [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12] where wrong != 7 {
+            XCTAssertFalse(IntervalJudging.isCorrect(selected: wrong, question: q),
+                           "选相邻半音 \(wrong) 也必须判错")
+        }
+    }
+
+    // 留痕：store 写库
+
+    @MainActor
+    func testEarTrainingStoreSaveHitRateAndDefaultKind() throws {
+        let context = ModelContext(try makeEarContainer())
+        let round = EarTrainingStore.save(correct: 7, total: 10, in: context)
+        XCTAssertEqual(round.kind, "interval", "默认题型 interval")
+        XCTAssertEqual(round.correctCount, 7)
+        XCTAssertEqual(round.totalCount, 10)
+        XCTAssertEqual(round.hitRate ?? -1, 0.7, accuracy: 0.0001, "hitRate = correct/total 真实比值（带容差）")
+
+        let all = try context.fetch(FetchDescriptor<EarTrainingRound>())
+        XCTAssertEqual(all.count, 1)
+    }
+
+    @MainActor
+    func testEarTrainingStoreSaveZeroTotalHonestNil() throws {
+        let context = ModelContext(try makeEarContainer())
+        let round = EarTrainingStore.save(correct: 0, total: 0, in: context)
+        XCTAssertNil(round.hitRate, "total==0 → hitRate 必须为 nil，禁止编造")
+    }
+
+    func testEarTrainingRoundSwiftDataRoundTrip() throws {
+        let context = ModelContext(try makeEarContainer())
+        let createdAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let round = EarTrainingRound(kind: "interval", correctCount: 8, totalCount: 10,
+                                     hitRate: 0.8, createdAt: createdAt)
+        context.insert(round)
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<EarTrainingRound>())
+        XCTAssertEqual(fetched.count, 1)
+        let r = try XCTUnwrap(fetched.first)
+        XCTAssertEqual(r.kind, "interval")
+        XCTAssertEqual(r.correctCount, 8)
+        XCTAssertEqual(r.totalCount, 10)
+        XCTAssertEqual(r.hitRate ?? -1, 0.8, accuracy: 0.0001)
+        XCTAssertEqual(r.createdAt, createdAt)
+    }
+
+    // 趋势：口径照抄 SightReadTrend（最近 N、升序、<3 样本 mean=nil），按 kind 过滤
+
+    func testEarTrainingTrendAscendingMeanAndRecent20() {
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        var rounds: [EarTrainingRound] = []
+        // 25 条 interval 轮次（hitRate = i/100，时序递增），最近 20 条 = i=5...24
+        for i in 0..<25 {
+            rounds.append(EarTrainingRound(correctCount: i, totalCount: 10,
+                                           hitRate: Double(i) / 100.0,
+                                           createdAt: base.addingTimeInterval(Double(i))))
+        }
+        let summary = EarTrainingTrend.summarize(rounds: rounds)
+        XCTAssertEqual(summary.totalCount, 20, "只取最近 20 轮")
+        XCTAssertEqual(summary.hitRates.count, 20)
+        XCTAssertEqual(summary.hitRates.first ?? -1, 0.05, accuracy: 0.0001, "时间升序（窗口内最早 i=5 在左）")
+        XCTAssertEqual(summary.hitRates.last ?? -1, 0.24, accuracy: 0.0001, "最新 i=24 在右")
+        XCTAssertEqual(summary.mean ?? -1, (0.05 + 0.24) / 2, accuracy: 0.0001,
+                       "20 个等差样本 0.05...0.24 → 均值 = 首尾平均")
+
+        // 有效样本 < 3 → 均值 nil（诚实留白）
+        let sparse = EarTrainingTrend.summarize(rounds: Array(rounds.prefix(2)))
+        XCTAssertNil(sparse.mean)
+        XCTAssertEqual(sparse.totalCount, 2)
+        XCTAssertEqual(sparse.hitRates.count, 2)
+    }
+
+    func testEarTrainingTrendFiltersByKind() {
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        var rounds: [EarTrainingRound] = []
+        for i in 0..<3 {
+            rounds.append(EarTrainingRound(correctCount: i + 1, totalCount: 10,
+                                           hitRate: Double(i + 1) / 10.0,
+                                           createdAt: base.addingTimeInterval(Double(i))))
+        }
+        // 混入 1 条非 interval 题型（二期预留），不得参与统计
+        rounds.append(EarTrainingRound(kind: "rhythm", correctCount: 10, totalCount: 10,
+                                       hitRate: 1.0, createdAt: base.addingTimeInterval(100)))
+        let summary = EarTrainingTrend.summarize(rounds: rounds)
+        XCTAssertEqual(summary.totalCount, 3, "非 interval 题型不计数")
+        XCTAssertEqual(summary.hitRates, [0.1, 0.2, 0.3], "只统计 interval，时间升序")
+        XCTAssertEqual(summary.mean ?? -1, 0.2, accuracy: 0.0001)
+    }
+
+    func testEarTrainingTrendExplicitKindParameterFilters() {
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        var rounds: [EarTrainingRound] = []
+        for i in 0..<3 {
+            rounds.append(EarTrainingRound(kind: "rhythm", correctCount: 5, totalCount: 10,
+                                           hitRate: 0.5,
+                                           createdAt: base.addingTimeInterval(Double(i))))
+        }
+        rounds.append(EarTrainingRound(kind: "interval", correctCount: 1, totalCount: 10,
+                                       hitRate: 0.1, createdAt: base.addingTimeInterval(100)))
+        let summary = EarTrainingTrend.summarize(rounds: rounds, kind: "rhythm")
+        XCTAssertEqual(summary.totalCount, 3, "kind 参数过滤生效")
+        XCTAssertEqual(summary.hitRates, [0.5, 0.5, 0.5])
+        XCTAssertEqual(summary.mean ?? -1, 0.5, accuracy: 0.0001)
+    }
 }
