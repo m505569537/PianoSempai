@@ -31,6 +31,7 @@ struct SettingsView: View {
     @State private var showNotes = false
     @State private var showNotifications = false
     @State private var showAttribution = false
+    @State private var showEarTraining = false
     /// 沙盒占用（Documents 递归求和；进入页面时算一次，避免每次 body 重算）
     @State private var storageText = "—"
 
@@ -108,6 +109,10 @@ struct SettingsView: View {
                     ) {
                         showWeeklyGoal = true
                     }
+                    hairline
+                    row(icon: "ear", title: "听音练耳", value: "辨音程") {
+                        showEarTraining = true
+                    }
                 }
 
                 groupSection(title: "AI 助教 Neko", badge: "Plus") {
@@ -176,6 +181,9 @@ struct SettingsView: View {
         .sheet(isPresented: $showNotes) { NotesView() }
         .sheet(isPresented: $showNotifications) {
             WeeklyDigestSheet()
+        }
+        .sheet(isPresented: $showEarTraining) {
+            IntervalEarTrainingView()
         }
     }
 

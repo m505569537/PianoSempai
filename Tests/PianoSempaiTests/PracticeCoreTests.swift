@@ -2021,4 +2021,121 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(summary.hitRates, [0.5, 0.5, 0.5])
         XCTAssertEqual(summary.mean ?? -1, 0.5, accuracy: 0.0001)
     }
+
+    // MARK: - G6 Stage B：练耳会话状态机（IntervalQuizSession；不测真实发声——音频属设备/真机项）
+
+    /// 固定题目 q 重复填满一轮 10 题（session init 预生成整轮）
+    @MainActor
+    private func makeSession(questions: [IntervalQuestion], context: ModelContext) -> IntervalQuizSession {
+        var queue = questions
+        let fallback = questions.first ?? IntervalQuestion(rootMIDINote: 60, answerSemitones: 7, options: [7, 2, 3, 12])
+        return IntervalQuizSession(allowed: Set(1...12), context: context) {
+            queue.isEmpty ? fallback : queue.removeFirst()
+        }
+    }
+
+    @MainActor
+    func testSessionAllCorrectFinishesAndSavesOneRound() throws {
+        let context = ModelContext(try makeEarContainer())
+        let questions = (0..<10).map { _ in
+            IntervalQuestion(rootMIDINote: 60, answerSemitones: 7, options: [7, 2, 3, 12])
+        }
+        let session = makeSession(questions: questions, context: context)
+
+        for i in 0..<10 {
+            XCTAssertFalse(session.finished, "第 \(i + 1) 题答完前不得 finished")
+            session.answer(7)
+            session.next()
+        }
+        XCTAssertTrue(session.finished, "第 10 次 next 后本轮结束")
+        XCTAssertEqual(session.finalHitRate ?? -1, 1.0, accuracy: 0.0001)
+
+        let rounds = try context.fetch(FetchDescriptor<EarTrainingRound>())
+        XCTAssertEqual(rounds.count, 1, "一轮恰写一条 round")
+        let round = try XCTUnwrap(rounds.first)
+        XCTAssertEqual(round.kind, "interval")
+        XCTAssertEqual(round.correctCount, 10)
+        XCTAssertEqual(round.totalCount, 10)
+    }
+
+    @MainActor
+    func testSessionSevenCorrectRecordsHitRate0point7() throws {
+        let context = ModelContext(try makeEarContainer())
+        // 前 7 题答对、后 3 题答错（答案 7，选 2 判错）
+        let questions = (0..<10).map { _ in
+            IntervalQuestion(rootMIDINote: 60, answerSemitones: 7, options: [7, 2, 3, 12])
+        }
+        let session = makeSession(questions: questions, context: context)
+        for i in 0..<10 {
+            session.answer(i < 7 ? 7 : 2)
+            session.next()
+        }
+        XCTAssertTrue(session.finished)
+        XCTAssertEqual(session.finalHitRate ?? -1, 0.7, accuracy: 0.0001, "命中 7/10 = 0.7（带容差）")
+
+        let rounds = try context.fetch(FetchDescriptor<EarTrainingRound>())
+        XCTAssertEqual(rounds.count, 1)
+        XCTAssertEqual(try XCTUnwrap(rounds.first).correctCount, 7)
+    }
+
+    @MainActor
+    func testSessionAnswerIdempotentFirstAnswerWins() throws {
+        let context = ModelContext(try makeEarContainer())
+        // 单题：answer 7（对）再 answer 2（错）——只按首次计，selected 不被第二次覆盖
+        let session = makeSession(
+            questions: Array(repeating: IntervalQuestion(rootMIDINote: 60, answerSemitones: 7, options: [7, 2, 3, 12]), count: 10),
+            context: context)
+        session.answer(7)
+        session.answer(2)
+        XCTAssertEqual(session.selected, 7, "首次作答保留，第二次不覆盖")
+        // 走完剩余各题：循环内先答当前题再 next（首次 answer 打在已答的 q1 上是 no-op）
+        for _ in 1..<10 {
+            session.answer(7)
+            session.next()
+        }
+        // 上循环结束时停在 q10：补答并 next 收尾
+        session.answer(7)
+        session.next()
+        XCTAssertTrue(session.finished)
+        XCTAssertEqual(session.finalHitRate ?? -1, 1.0, accuracy: 0.0001, "重复作答不额外扣分")
+    }
+
+    @MainActor
+    func testSessionNextAfterFinishedDoesNotWriteSecondRound() throws {
+        let context = ModelContext(try makeEarContainer())
+        let session = makeSession(
+            questions: Array(repeating: IntervalQuestion(rootMIDINote: 60, answerSemitones: 7, options: [7, 2, 3, 12]), count: 10),
+            context: context)
+        for _ in 0..<10 {
+            session.answer(7)
+            session.next()
+        }
+        XCTAssertTrue(session.finished)
+        session.next()
+        session.next()
+        let rounds = try context.fetch(FetchDescriptor<EarTrainingRound>())
+        XCTAssertEqual(rounds.count, 1, "finished 后再调 next 不得产生第二条 round（收尾防重入）")
+    }
+
+    @MainActor
+    func testSessionNextBeforeLastQuestionAdvancesAndResetsSelection() throws {
+        let context = ModelContext(try makeEarContainer())
+        // 两题不同答案，验证推进后 selected 复位 nil、displayIndex 跟随
+        let first = IntervalQuestion(rootMIDINote: 60, answerSemitones: 7, options: [7, 2, 3, 12])
+        let second = IntervalQuestion(rootMIDINote: 62, answerSemitones: 3, options: [3, 7, 2, 12])
+        let session = makeSession(questions: [first] + Array(repeating: second, count: 9), context: context)
+
+        XCTAssertEqual(session.displayIndex, 1)
+        XCTAssertNil(session.selected, "初始未作答")
+        session.answer(7)
+        XCTAssertEqual(session.selected, 7)
+        session.next() // 未到第 10 题：正常推进
+        XCTAssertFalse(session.finished)
+        XCTAssertEqual(session.currentQuestion, second, "推进到第 2 题")
+        XCTAssertNil(session.selected, "推进后 selected 复位 nil")
+        XCTAssertEqual(session.displayIndex, 2)
+        // 新题按新答案作答
+        session.answer(3)
+        XCTAssertEqual(session.selected, 3)
+    }
 }
