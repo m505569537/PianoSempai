@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - S12 段落循环设置（底部抽屉；校验走 LoopService，非法区间拒绝开始）
 // 真值：docs/design-reference/screens/S12-loop-settings/code.html（id e326117680544db8897517772be93a57）。
-// 结构：抓手 + 标题行 / 滚动三卡（选择小节 · 循环方式 · 每遍之间）/ 吸底双钮 1:2。
+// 结构：抓手 + 标题行 / 滚动四卡（选择小节 · 循环方式 · 每遍之间 · 目标遍数）/ 吸底双钮 1:2。
 // 呈现保持 NocturneBottomDrawer（底部抽屉）：真值的整屏 vs 抽屉形态「待产品确认」，本屏不改外层。
 
 struct S12LoopSettingsSheet: View {
@@ -19,6 +19,8 @@ struct S12LoopSettingsSheet: View {
     @State private var mode: LoopMode = .loop
     @State private var gapSec: Int = 3
     @State private var countIn: Bool = true
+    /// 目标遍数 chip 单选态（卡 4）：打开时按 loopConfig.targetLoopCount 回显
+    @State private var target: TargetLoopPick = .none
     @State private var initialized = false
     /// 快捷 chips 单选态（真值 §5.3：错误热点 / 当前段 / 全曲 / 手动，互斥）
     @State private var quick: QuickPick = .current
@@ -41,6 +43,7 @@ struct S12LoopSettingsSheet: View {
                     measureCard
                     modeCard
                     gapCard
+                    targetLoopCard
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 4)
@@ -62,6 +65,8 @@ struct S12LoopSettingsSheet: View {
             mode = session.loopConfig.mode
             gapSec = session.loopConfig.gapSec
             countIn = session.loopConfig.countIn
+            // 打开即回显既有目标遍数（0 / 3 / 5 之外的存量值一律按「不限」呈现，不编造档位）
+            target = TargetLoopPick.pick(for: session.loopConfig.targetLoopCount)
             // 打开即当前段（真值 §5.3 默认激活项），值与 loopConfig 一致
             quick = .current
         }
@@ -265,42 +270,21 @@ struct S12LoopSettingsSheet: View {
     }
 
     private func quickChip(_ pick: QuickPick) -> some View {
-        let selected = quick == pick
         // 是否可用由实例数据决定：错误热点看传入的 hotspotMeasures 能否解析出合法区间（G2），
         // 其余 chips 恒有真实来源。无数据保持 opacity 0.4 + disabled（不造假徽标/圆点）
         let enabled: Bool = {
             guard pick == .hotspot else { return true }
             return LoopService.hotspotRange(hotspotMeasures: hotspotMeasures, totalMeasures: totalMeasures) != nil
         }()
-        return Button {
+        return s12Chip(
+            title: pick.title,
+            icon: pick.icon,
+            isSelected: quick == pick,
+            isEnabled: enabled
+        ) {
             quick = pick
             applyQuick(pick)
-        } label: {
-            HStack(spacing: 4) {
-                if let icon = pick.icon {
-                    Image(systemName: icon)
-                        .font(.system(size: 12, weight: .medium))
-                }
-                Text(pick.title)
-                    .font(.labelMd)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .foregroundStyle(selected ? Color.s12Primary : Color.s12OnSurfaceVariant)
-            .frame(maxWidth: .infinity)
-            .frame(height: 32)
-            .background(
-                selected ? Color.s12PrimaryContainer15 : Color.s12ContainerLow,
-                in: RoundedRectangle(cornerRadius: 4, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .strokeBorder(selected ? Color.s12PrimaryContainer : Color.s12OutlineVariant40, lineWidth: 1)
-            )
-            .opacity(enabled ? 1 : 0.4)
         }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
     }
 
     /// 快捷 chips 的真实行为：全曲 / 当前段 / 错误热点（有数据时）有据可依；手动只标记用户驱动
@@ -441,6 +425,77 @@ struct S12LoopSettingsSheet: View {
         }
     }
 
+    // MARK: 卡4 目标遍数
+
+    /// 卡 4「目标遍数」（P1 循环遍数面板）：不限 / 3 遍 / 5 遍，单选互斥。
+    /// 「不限」= targetLoopCount 0——维持现状，循环照旧一直转。
+    private var targetLoopCard: some View {
+        s12Card {
+            HStack(alignment: .firstTextBaseline) {
+                Text("目标遍数")
+                    .font(.titleMd)
+                    .foregroundStyle(Color.s12OnSurface)
+                Spacer(minLength: 8)
+                Text(target.note)
+                    .font(.labelSm)
+                    .foregroundStyle(Color.s12OnSurfaceVariant)
+            }
+
+            HStack(spacing: 4) {
+                ForEach(TargetLoopPick.allCases, id: \.self) { pick in
+                    targetLoopChip(pick)
+                }
+            }
+            .padding(.top, 12)
+        }
+    }
+
+    /// 目标遍数 chip（P1 卡 4）：与卡 1 快捷 chips 共用 s12Chip 同一组件，不自造视觉。
+    /// 三档恒有真实来源，无禁用态——不像「错误热点」依赖外部数据。
+    private func targetLoopChip(_ pick: TargetLoopPick) -> some View {
+        s12Chip(title: pick.title, isSelected: target == pick) {
+            target = pick
+        }
+    }
+
+    /// S12 单选 chip 单体（真值 §5.3 视觉；快捷 chips 与目标遍数 chips 共用，不另造组件）：
+    /// labelMd 字、选中 primary 字 + primary-container/15 底 + 1pt primary-container 边，
+    /// 未选中 on-surface-variant 字 + container-low 底 + 1pt outline-variant/40 边；等高 32、圆角 4。
+    private func s12Chip(
+        title: String,
+        icon: String? = nil,
+        isSelected: Bool,
+        isEnabled: Bool = true,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 12, weight: .medium))
+                }
+                Text(title)
+                    .font(.labelMd)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(isSelected ? Color.s12Primary : Color.s12OnSurfaceVariant)
+            .frame(maxWidth: .infinity)
+            .frame(height: 32)
+            .background(
+                isSelected ? Color.s12PrimaryContainer15 : Color.s12ContainerLow,
+                in: RoundedRectangle(cornerRadius: 4, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(isSelected ? Color.s12PrimaryContainer : Color.s12OutlineVariant40, lineWidth: 1)
+            )
+            .opacity(isEnabled ? 1 : 0.4)
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+    }
+
     /// 间隔秒数步进器（真值 §7.1）：值 14pt medium，min-w56 居中
     private var gapStepper: some View {
         HStack(spacing: 4) {
@@ -523,14 +578,35 @@ struct S12LoopSettingsSheet: View {
         }
     }
 
-    private func applyAndStart() {
-        guard rangeValid else { return }
-        session.loopConfig = LoopConfig(
+    /// 「开始循环练习」的写回口径（纯函数，可单测）：整份 LoopConfig 一次回写，
+    /// 目标遍数随卡 4 选中档位（TargetLoopPick）一起带走——不存在只写一半的路径。
+    static func loopConfig(
+        start: Int,
+        end: Int,
+        mode: LoopMode,
+        gapSec: Int,
+        countIn: Bool,
+        target: TargetLoopPick
+    ) -> LoopConfig {
+        LoopConfig(
             startMeasure: start,
             endMeasure: end,
             mode: mode,
             gapSec: gapSec,
-            countIn: countIn
+            countIn: countIn,
+            targetLoopCount: target.loopCount
+        )
+    }
+
+    private func applyAndStart() {
+        guard rangeValid else { return }
+        session.loopConfig = Self.loopConfig(
+            start: start,
+            end: end,
+            mode: mode,
+            gapSec: gapSec,
+            countIn: countIn,
+            target: target
         )
         // TODO(P2)：错误计数接 M5 完整对齐判分；当前按简单匹配错音口径（brief 授权）
         dismiss()
@@ -561,6 +637,49 @@ private enum QuickPick: String, CaseIterable {
 
     // G2：chip 是否可用不再写死在枚举里（原来 hasRealSource 恒 false for .hotspot），
     // 改由视图层按传入的 hotspotMeasures 计算（见 quickChip）。
+}
+
+// MARK: - 目标遍数 chip 单选枚举（卡 4：不限 / 3 遍 / 5 遍）
+
+/// 卡 4「目标遍数」三档（P1 循环遍数面板）。内部不私有：loopCount / pick(for:) 是纯函数，供单测。
+enum TargetLoopPick: String, CaseIterable {
+    case none, three, five
+
+    var title: String {
+        switch self {
+        case .none: return "不限"
+        case .three: return "3 遍"
+        case .five: return "5 遍"
+        }
+    }
+
+    /// 卡标题行右注：只说明当前档位的实际语义，不补占位
+    var note: String {
+        switch self {
+        case .none: return "不限遍数"
+        case .three: return "弹满 3 遍"
+        case .five: return "弹满 5 遍"
+        }
+    }
+
+    /// 写回 loopConfig.targetLoopCount 的真实值：0 = 不限（维持现状）
+    var loopCount: Int {
+        switch self {
+        case .none: return 0
+        case .three: return 3
+        case .five: return 5
+        }
+    }
+
+    /// 由既有 targetLoopCount 反查选中项（打开 sheet 回显用）。
+    /// 三档之外的存量值（含负数/未来档位）→ 不限，不冒充某一档。
+    static func pick(for targetLoopCount: Int) -> TargetLoopPick {
+        switch targetLoopCount {
+        case 3: return .three
+        case 5: return .five
+        default: return .none
+        }
+    }
 }
 
 // MARK: - 底部双钮样式（真值 §8）

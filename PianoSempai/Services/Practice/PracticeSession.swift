@@ -50,6 +50,10 @@ final class PracticeSession: ObservableObject {
     @Published private(set) var elapsedSec = 0
     /// 自由弹奏音符流（S14 卷帘：pitch + 相对秒）
     @Published private(set) var playedNotes: [(pitch: UInt8, sec: Double)] = []
+    /// 已完成遍数：区间 wrap 回起点（consumeFollow 内一遍结束）时 +1。
+    /// 只服务交互层进度展示（顶栏副行 / 循环格 badge），不参与过关判定。
+    /// 弹满 loopConfig.targetLoopCount（>0）时自动 finish()；计数在 start() 归零，每会话独立。
+    @Published private(set) var completedLoopCount: Int = 0
 
     let isFreePlay: Bool
     private(set) var scoreName = ""
@@ -110,6 +114,8 @@ final class PracticeSession: ObservableObject {
         midiEventCount = 0
         timeUp = false
         elapsedSec = 0
+        // 遍数进度每会话独立：上一会话弹了几遍不带进这一次（finish() 不清零，这里清）
+        completedLoopCount = 0
         pauseStartedAt = nil
         totalPaused = 0
         interruptionStarts = []
@@ -209,14 +215,15 @@ final class PracticeSession: ObservableObject {
         }
     }
 
-    /// 结束（用户点"结束并生成报告"/ 时间到收尾）。幂等：重复调用返回同一 summary。
+    /// 结束（用户点"结束并生成报告"/ 时间到收尾 / 弹满目标遍数自动收尾）。幂等：重复调用返回同一 summary。
     /// 时长同样只算活跃时间——暂停的几分钟不计入 take duration。
+    /// 遍数清零不在这里做：归 start() 管，收尾后面板仍能显示「完成/目标」。
     func finish(now: Date = Date()) -> TakeSummary {
         timer?.invalidate()
         timer = nil
         phase = .finished
         let duration = startedAt == nil ? 0 : Int(activeElapsed(now: now))
-        return TakeSummary(
+        let summary = TakeSummary(
             durationSec: duration,
             noteCount: followState.playedCount,
             wrongNotes: followState.wrongNotes,
@@ -228,6 +235,7 @@ final class PracticeSession: ObservableObject {
             measureTo: isFreePlay ? nil : loopConfig.endMeasure,
             midiFileName: fileURL?.lastPathComponent ?? ""
         )
+        return summary
     }
 
     // MARK: 事件消费（MIDIHub.onEvent）
@@ -278,6 +286,12 @@ final class PracticeSession: ObservableObject {
             tempoState = LoopService.afterPass(tempoState, mode: loopConfig.mode, wrongNotesThisPass: passWrong)
             if let change = tempoState.lastChange {
                 toast = LoopService.toastText(for: change)
+            }
+            // 遍数进度只在这里自增：引擎的 wrap 判定是唯一真源，交互层不另起一套计数
+            completedLoopCount += 1
+            // 弹满目标遍数 → 自动收尾（只走 finish()：不触发通关/解锁/streak/铺路/矫正）
+            if loopConfig.targetLoopCount > 0, completedLoopCount >= loopConfig.targetLoopCount {
+                _ = finish(now: Date())
             }
         }
     }

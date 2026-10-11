@@ -20,6 +20,9 @@ struct LoopConfig: Equatable {
     var mode: LoopMode = .loop
     var gapSec: Int = 3
     var countIn: Bool = true
+    /// 目标遍数（P1 循环遍数面板）：0 = 不限（维持原状），>0 = 顶栏/循环格显示「已完成/目标」进度。
+    /// 只作交互层计数展示，不进过关判定、不改引擎 wrap 行为（wrap 检测本就在 consumeFollow 内）。
+    var targetLoopCount: Int = 0
 
     var measureCount: Int { endMeasure - startMeasure + 1 }
 }

@@ -309,12 +309,46 @@ struct PracticeRoomView: View {
         }
     }
 
-    /// 副行只用真实数据：循环区间（loopConfig 已按总小节数钳制）+ 房间 BPM。
+    /// 副行只用真实数据：循环区间（loopConfig 已按总小节数钳制）+ 房间 BPM +（有目标遍数时）遍数进度。
     /// 谱还没加载好时区间谈不上，只给 BPM——不编造小节号。
     private var headerSubtitle: String {
-        let bpm = "♩=\(session.tempoState.bpm)"
-        guard loadedScore != nil else { return bpm }
-        return "\(session.loopConfig.startMeasure)–\(session.loopConfig.endMeasure) 小节 · \(bpm)"
+        Self.headerSubtitleText(
+            scoreLoaded: loadedScore != nil,
+            startMeasure: session.loopConfig.startMeasure,
+            endMeasure: session.loopConfig.endMeasure,
+            completedLoopCount: session.completedLoopCount,
+            targetLoopCount: session.loopConfig.targetLoopCount,
+            bpm: session.tempoState.bpm
+        )
+    }
+
+    /// 顶栏副行文案（纯函数，可单测；视图只喂真实数据）：
+    /// 谱已加载才给「区间」，BPM 恒在；仅当 targetLoopCount > 0 时追加「完成/目标 遍」。
+    /// 无目标遍数 → 不出现「遍」字，文案与加此功能前逐字一致。
+    static func headerSubtitleText(
+        scoreLoaded: Bool,
+        startMeasure: Int,
+        endMeasure: Int,
+        completedLoopCount: Int,
+        targetLoopCount: Int,
+        bpm: Int
+    ) -> String {
+        var parts: [String] = []
+        if scoreLoaded {
+            parts.append("\(startMeasure)–\(endMeasure) 小节")
+        }
+        parts.append("♩=\(bpm)")
+        if let progress = loopProgressText(completedLoopCount: completedLoopCount, targetLoopCount: targetLoopCount) {
+            parts.append("\(progress) 遍")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    /// 遍数进度文案（纯函数，可单测）：「完成/目标」，如 "3/5"。
+    /// targetLoopCount <= 0 = 无目标 → nil，顶栏与循环格 badge 都不显示（不造假进度）。
+    static func loopProgressText(completedLoopCount: Int, targetLoopCount: Int) -> String? {
+        guard targetLoopCount > 0 else { return nil }
+        return "\(completedLoopCount)/\(targetLoopCount)"
     }
 
     /// 右：关闭钮（真值：28pt 圆、bg white/4、18pt muted X）。
@@ -794,6 +828,11 @@ struct PracticeRoomView: View {
                 value: session.loopConfig.cellLabel(totalMeasures: totalMeasures) ?? "",
                 valueColor: loopActive ? Color.amber : Color.textMuted,
                 highlighted: loopActive,
+                // 目标遍数 badge（P1）：仅 target>0 时显示「完成/目标」，如 3/5；无目标不占位
+                badge: Self.loopProgressText(
+                    completedLoopCount: session.completedLoopCount,
+                    targetLoopCount: session.loopConfig.targetLoopCount
+                ),
                 action: { if loadedScore != nil { showLoopSheet = true } } // S12：段落循环设置（需有谱）
             )
             dockCell(
@@ -821,6 +860,7 @@ struct PracticeRoomView: View {
 
     /// 坞内一格（真值：圆角 12；未激活 bg white/3 + 1pt white/5；激活 bg amber/10 + 1pt amber/70）。
     /// 普通按钮 + contentShape 保证整格可点；按压缩放交给 buttonStyle 默认按下反馈。
+    /// badge：标题行右侧的小进度标（循环格的「完成/目标」遍数），nil = 不显示——其余四格不传。
     private func dockCell(
         icon: String,
         label: String,
@@ -828,6 +868,7 @@ struct PracticeRoomView: View {
         valueColor: Color = Color.textMuted,
         highlighted: Bool,
         dot: Bool = false,
+        badge: String? = nil,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -843,8 +884,17 @@ struct PracticeRoomView: View {
                                 .offset(x: 5, y: -5)
                         }
                     }
-                Text(label)
-                    .font(.system(size: 11, weight: highlighted ? .semibold : .medium))
+                // 标题行：label +（有目标遍数时）badge。badge 用 labelSm/textMuted 既有 token，不引新色
+                HStack(spacing: 2) {
+                    Text(label)
+                        .font(.system(size: 11, weight: highlighted ? .semibold : .medium))
+                    if let badge {
+                        Text(badge)
+                            .font(.labelSm)
+                            .monospacedDigit()
+                            .foregroundStyle(Color.textMuted)
+                    }
+                }
                 Text(value)
                     .font(.labelMono(8.5, weight: .medium))
                     .monospacedDigit()

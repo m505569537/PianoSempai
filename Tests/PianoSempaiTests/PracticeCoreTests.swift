@@ -2386,4 +2386,213 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(caption, "共 16 小节", "空曲名只显小节数，不补「练习」之类占位")
         XCTAssertFalse(caption.contains("曲目："))
     }
+
+    // MARK: P1 连续循环遍数面板（LoopConfig.targetLoopCount / completedLoopCount / 顶栏与 badge 文案）
+
+    func testLoopConfigTargetLoopCountDefaultsToUnlimited() {
+        XCTAssertEqual(LoopConfig().targetLoopCount, 0, "默认 0 = 不限遍数，维持现状")
+        XCTAssertEqual(
+            LoopConfig(startMeasure: 2, endMeasure: 5, mode: .adaptiveUp, gapSec: 4, countIn: false, targetLoopCount: 3).targetLoopCount,
+            3,
+            "显式传入的遍数原样保留（其余字段不受影响）"
+        )
+    }
+
+    /// 一遍 = 走完 region 全部期望音（65 是终点小节最后一音 → 立即 wrap 回小节 0）
+    @MainActor
+    private func playOneLoopPass(_ session: PracticeSession) {
+        for pitch in [UInt8(60), 64, 67, 72, 65] {
+            session.handle(MIDIEvent(kind: .noteOn(note: pitch, velocity: 90), channel: 0, timeNanos: 1))
+        }
+    }
+
+    @MainActor
+    func testCompletedLoopCountIncrementsOnEachWrap() {
+        let session = PracticeSession()
+        session.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 72)
+        session.start(metronome: MetronomeService(), countIn: false, metronomeOn: false)
+        XCTAssertEqual(session.completedLoopCount, 0, "未开弹前为 0")
+
+        playOneLoopPass(session)
+        XCTAssertEqual(session.completedLoopCount, 1, "第一次 wrap 回起点 → 1 遍")
+        XCTAssertEqual(session.followState.measureIndex, 0, "遍数自增不改光标状态")
+
+        playOneLoopPass(session)
+        playOneLoopPass(session)
+        XCTAssertEqual(session.completedLoopCount, 3, "三次 wrap → 3 遍")
+    }
+
+    @MainActor
+    func testHeaderSubtitleOmitsLoopProgressWithoutTarget() {
+        let session = PracticeSession()
+        session.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 72)
+        session.start(metronome: MetronomeService(), countIn: false, metronomeOn: false)
+
+        let text = PracticeRoomView.headerSubtitleText(
+            scoreLoaded: true,
+            startMeasure: session.loopConfig.startMeasure,
+            endMeasure: session.loopConfig.endMeasure,
+            completedLoopCount: session.completedLoopCount,
+            targetLoopCount: session.loopConfig.targetLoopCount,
+            bpm: session.tempoState.bpm
+        )
+        XCTAssertFalse(text.contains("遍"), "不限遍数 → 文案不出现「遍」字")
+        XCTAssertEqual(text, "1–3 小节 · ♩=72", "区间 + BPM 原文案逐字不变")
+
+        // 谱未加载好：只给 BPM，不编造小节号（原逻辑）
+        let noScore = PracticeRoomView.headerSubtitleText(
+            scoreLoaded: false, startMeasure: 1, endMeasure: 3,
+            completedLoopCount: 0, targetLoopCount: 0, bpm: 72
+        )
+        XCTAssertEqual(noScore, "♩=72")
+    }
+
+    @MainActor
+    func testHeaderSubtitleShowsProgressWhenTargetSet() {
+        let session = PracticeSession()
+        session.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 72)
+        session.start(metronome: MetronomeService(), countIn: false, metronomeOn: false)
+        // 与 S12 applyAndStart 同一写入口径：整份 LoopConfig 回写（含 targetLoopCount）
+        session.loopConfig = LoopConfig(
+            startMeasure: 1, endMeasure: 3, mode: .loop, gapSec: 3, countIn: true, targetLoopCount: 3
+        )
+
+        for _ in 0..<3 { playOneLoopPass(session) }
+        XCTAssertEqual(session.completedLoopCount, 3, "弹满 3 遍")
+        XCTAssertEqual(session.phase, .finished, "弹满即自动 finish；计数不清零，进度仍可显示")
+
+        let text = PracticeRoomView.headerSubtitleText(
+            scoreLoaded: true,
+            startMeasure: session.loopConfig.startMeasure,
+            endMeasure: session.loopConfig.endMeasure,
+            completedLoopCount: session.completedLoopCount,
+            targetLoopCount: session.loopConfig.targetLoopCount,
+            bpm: session.tempoState.bpm
+        )
+        XCTAssertTrue(text.contains("3/3 遍"), "target=3 且弹满 3 遍 → 追加「3/3 遍」")
+        XCTAssertTrue(text.hasPrefix("1–3 小节 · "), "区间仍在最前，进度追加在末尾")
+    }
+
+    func testLoopProgressTextOnlyWithTarget() {
+        XCTAssertNil(PracticeRoomView.loopProgressText(completedLoopCount: 0, targetLoopCount: 0),
+                     "不限 → nil，循环格 badge 不显示（不造假进度）")
+        XCTAssertEqual(PracticeRoomView.loopProgressText(completedLoopCount: 2, targetLoopCount: 5), "2/5")
+        XCTAssertEqual(PracticeRoomView.loopProgressText(completedLoopCount: 3, targetLoopCount: 3), "3/3")
+    }
+
+    func testTargetLoopPickSelectionSequence() {
+        // chip 选择序列：不限 → 0，选 3 → 3，选 5 → 5
+        XCTAssertEqual(TargetLoopPick.none.loopCount, 0, "「不限」= 0（不限遍数）")
+        XCTAssertEqual(TargetLoopPick.three.loopCount, 3)
+        XCTAssertEqual(TargetLoopPick.five.loopCount, 5)
+
+        // chip 文案（brief §3：不限 / 3 遍 / 5 遍）
+        XCTAssertEqual(TargetLoopPick.none.title, "不限", "空态档位叫「不限」，不写「无目标」")
+        XCTAssertEqual(TargetLoopPick.three.title, "3 遍")
+        XCTAssertEqual(TargetLoopPick.five.title, "5 遍")
+
+        // 打开 sheet 的回显：既有值反查选中项
+        XCTAssertEqual(TargetLoopPick.pick(for: 0), .none)
+        XCTAssertEqual(TargetLoopPick.pick(for: 3), .three)
+        XCTAssertEqual(TargetLoopPick.pick(for: 5), .five)
+        XCTAssertEqual(TargetLoopPick.pick(for: 7), .none, "三档之外的存量值按「不限」呈现，不冒充档位")
+    }
+
+    @MainActor
+    func testAutoFinishWhenTargetLoopCountReached() {
+        let session = PracticeSession()
+        session.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 72)
+        session.start(metronome: MetronomeService(), countIn: false, metronomeOn: false)
+        session.loopConfig = LoopConfig(
+            startMeasure: 1, endMeasure: 3, mode: .loop, gapSec: 3, countIn: true, targetLoopCount: 3
+        )
+
+        playOneLoopPass(session)
+        XCTAssertEqual(session.phase, .performing, "第 1 遍：还差 2 遍，不收尾")
+        playOneLoopPass(session)
+        XCTAssertEqual(session.phase, .performing, "第 2 遍：还差 1 遍，不收尾")
+
+        playOneLoopPass(session)
+        XCTAssertEqual(session.completedLoopCount, 3, "第三遍 wrap 后计数到 3")
+        XCTAssertEqual(session.phase, .finished, "弹满目标遍数 → 自动 finish()，phase 停在 finished")
+
+        // 收尾后不再计遍（handle 被 phase 挡掉）
+        playOneLoopPass(session)
+        XCTAssertEqual(session.completedLoopCount, 3, "finished 后 MIDI 事件不再推进遍数")
+    }
+
+    @MainActor
+    func testNoAutoFinishWithoutTargetLoopCount() {
+        let session = PracticeSession()
+        session.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 72)
+        session.start(metronome: MetronomeService(), countIn: false, metronomeOn: false)
+        XCTAssertEqual(session.loopConfig.targetLoopCount, 0, "默认 0 = 不限遍数")
+
+        for _ in 0..<4 { playOneLoopPass(session) }
+        XCTAssertEqual(session.completedLoopCount, 4, "四遍都计数")
+        XCTAssertEqual(session.phase, .performing, "target=0 → 循环照旧一直转，绝不自动收尾")
+    }
+
+    @MainActor
+    func testStartResetsCompletedLoopCountFromPreviousSession() {
+        let session = PracticeSession()
+        session.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 72)
+        session.start(metronome: MetronomeService(), countIn: false, metronomeOn: false)
+        session.loopConfig.targetLoopCount = 5
+
+        playOneLoopPass(session)
+        playOneLoopPass(session)
+        XCTAssertEqual(session.completedLoopCount, 2)
+
+        _ = session.finish()
+        XCTAssertEqual(session.completedLoopCount, 2, "finish() 不清零：收尾后仍显示「2/5」")
+
+        // 同一会话对象再开一轮：上一会话的 2 遍不带进来
+        session.start(metronome: MetronomeService(), countIn: false, metronomeOn: false)
+        XCTAssertEqual(session.completedLoopCount, 0, "start() 清零上一会话计数（每会话独立）")
+    }
+
+    @MainActor
+    func testFinishIsIdempotent() {
+        let session = PracticeSession()
+        session.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 72)
+        session.start(metronome: MetronomeService(), countIn: false, metronomeOn: false)
+        session.loopConfig.targetLoopCount = 5
+        playOneLoopPass(session)
+
+        // 固定 now：finish() 默认取 Date()，两次调用若跨了整秒边界 durationSec 会抖
+        let now = Date()
+        let first = session.finish(now: now)
+        let second = session.finish(now: now)
+        XCTAssertEqual(first, second, "重复 finish() 返回同一 summary（幂等，不重复落库）")
+        XCTAssertEqual(session.phase, .finished, "重复 finish() 不把 phase 带走")
+    }
+
+    func testS12TargetPickWritesBackLoopConfig() {
+        // applyAndStart 的写回口径：整份 LoopConfig 一次回写，targetLoopCount 随选中档位带走
+        let three = S12LoopSettingsSheet.loopConfig(
+            start: 2, end: 6, mode: .adaptiveUp, gapSec: 4, countIn: false, target: .three
+        )
+        XCTAssertEqual(three.targetLoopCount, 3, "选中「3 遍」→ 写回 3")
+        XCTAssertEqual(three.startMeasure, 2, "目标遍数与区间/模式/间隔同批写回，不丢字段")
+        XCTAssertEqual(three.endMeasure, 6)
+        XCTAssertEqual(three.mode, .adaptiveUp)
+        XCTAssertEqual(three.gapSec, 4)
+        XCTAssertFalse(three.countIn)
+
+        let five = S12LoopSettingsSheet.loopConfig(
+            start: 1, end: 8, mode: .loop, gapSec: 3, countIn: true, target: .five
+        )
+        XCTAssertEqual(five.targetLoopCount, 5, "选中「5 遍」→ 写回 5")
+
+        // 首次打开默认选中「不限」（=0，维持现状）
+        let none = S12LoopSettingsSheet.loopConfig(
+            start: 1, end: 8, mode: .loop, gapSec: 3, countIn: true, target: .none
+        )
+        XCTAssertEqual(none.targetLoopCount, 0, "默认「不限」→ 0")
+        XCTAssertEqual(
+            TargetLoopPick.pick(for: LoopConfig().targetLoopCount), .none,
+            "空态回显：默认 LoopConfig 的 targetLoopCount 落在「不限」档"
+        )
+    }
 }
