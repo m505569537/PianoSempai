@@ -102,21 +102,22 @@ struct NumberedNotationOverlayView: View {
     let sp: CGFloat
 
     var body: some View {
-        // 复用现有色板 token（不自创色）：半透明深色避免喧宾夺主。
-        // 字号约 sp*0.95（core），八度点更小；点少（≤4）用紧凑 VStack 不挤谱面。
+        // 墨色用 scoreInk（#1C1917，色板既有的符头墨黑 token）——标注画在白纸上，
+        // 不能用 textPrimary（浅米色，画在白纸上不可见，真机验收即踩）。
+        // 字号 sp*1.35（原 sp*0.95≈7pt 在真机上不可读，调大一档仍不压符头）。
         ForEach(Array(annotations.enumerated()), id: \.offset) { _, annotation in
             let glyph = NumberedGlyphText.from(annotation.label)
             VStack(spacing: 0) {
                 ForEach(Array(glyph.dotsUp.enumerated()), id: \.offset) { _, dot in
-                    Text(dot).font(.system(size: sp * 0.5, weight: .bold))
+                    Text(dot).font(.system(size: sp * 0.6, weight: .bold))
                 }
                 Text(glyph.core)
-                    .font(.system(size: sp * 0.95, weight: .medium))
+                    .font(.system(size: sp * 1.35, weight: .semibold))
                 ForEach(Array(glyph.dotsDown.enumerated()), id: \.offset) { _, dot in
-                    Text(dot).font(.system(size: sp * 0.5, weight: .bold))
+                    Text(dot).font(.system(size: sp * 0.6, weight: .bold))
                 }
             }
-            .foregroundStyle(Color.textPrimary.opacity(0.75))
+            .foregroundStyle(Color.scoreInk)
             // 数字标在符头**上方**（ADR-0009 §「逐音符上方标」），不压符头：
             // 整体中心相对符头中心上移 sp*1.6（约一个符头高度 + 间隙）。
             // frame 仍是符头框（noteFrame 几何/测试不变），仅渲染位置上抬。

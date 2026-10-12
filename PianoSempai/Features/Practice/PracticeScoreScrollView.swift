@@ -27,6 +27,11 @@ struct PracticeScoreScrollView: View {
     /// G7 简谱叠加开关（ADR-0009 Stage B）：不持久化，每次进练习室默认关。
     @State private var showNumbered = false
 
+    /// 纸张 #FBF8F2（S11 真值 §4，与 PracticeRoomView.s11Paper 同值；那边 fileprivate）。
+    /// 引擎把页面背景写死为纯白且不许改包源码，故用 multiply 叠染（白×纸色=纸色，
+    /// 黑符头×纸色≈黑），谱面与纸张卡颜色一致。
+    private static let paper = Color(red: 0xFB / 255, green: 0xF8 / 255, blue: 0xF2 / 255)
+
     var body: some View {
         GeometryReader { proxy in
             ScrollViewReader { scrollProxy in
@@ -75,6 +80,14 @@ struct PracticeScoreScrollView: View {
                     playbackCursor: cursor,
                     playbackCursorColor: Color.amber.opacity(0.25),
                 )
+                // 引擎页面背景硬编码纯白（包红线：不改包源码）。multiply 叠染纸张色：
+                // 白底×纸色=纸色、符头墨黑×纸色≈墨黑，谱面与纸张卡颜色一致、无白块错色。
+                .overlay {
+                    Rectangle()
+                        .fill(Self.paper)
+                        .blendMode(.multiply)
+                        .allowsHitTesting(false)
+                }
                 // G7 简谱叠加：与 ScoreView 同处一个 topLeading ZStack，标注坐标即
                 // 文档坐标（文档 (0,0)=ScoreView 左上），与符头天然对齐；自带
                 // allowsHitTesting(false)，不挡谱面手势。
@@ -91,8 +104,15 @@ struct PracticeScoreScrollView: View {
     }
 
     private var options: ScoreViewOptions {
+        Self.makeOptions(staffSize: 28)
+    }
+
+    private static func makeOptions(staffSize: CGFloat) -> ScoreViewOptions {
         // honor：我们注入的 lineBreak 必须生效（自动档时已清空，靠宽度换行）。
-        ScoreViewOptions(wrapToViewWidth: true, breakPolicy: .honor)
+        // break 徽章关掉：换行是 App 层注入的显示偏好，不是原稿标记，画 ↩ 提示标是噪音。
+        var options = ScoreViewOptions(staffSize: staffSize, wrapToViewWidth: true, breakPolicy: .honor)
+        options.breakIndicatorVisibility = .none
+        return options
     }
 
     /// 第 idx 个锚点槽位的高度：从本 system 的 origin 到下一个 system 的 origin；
@@ -113,7 +133,32 @@ struct PracticeScoreScrollView: View {
         let width = max(rawWidth, options.staffSize * 4)
         let laid = ScoreLineBreaker.apply(to: score, measuresPerLine: measuresPerLine)
         displayScore = laid
-        document = LayoutEngine.layout(score: laid, options: options, availableWidth: width)
+        var staffSize: CGFloat = 28
+        var doc = LayoutEngine.layout(
+            score: laid,
+            options: Self.makeOptions(staffSize: staffSize),
+            availableWidth: width)
+        // 固定档（N ≥ 2）：可用宽度放不下 N 小节时引擎会按宽度提前折行，
+        // 「每行 N 小节」形同虚设。探测实际每行最多小节数，按比例缩小字号
+        // 重排（最多 3 轮），直到放下 N 小节或不再改善为止。
+        if measuresPerLine >= 2 {
+            var attempt = 0
+            while attempt < 3 {
+                let maxPer = doc.systems.map(\.measures.count).max() ?? 0
+                guard maxPer >= 1, maxPer < measuresPerLine else { break }
+                let scaled = max(9, staffSize * CGFloat(maxPer) / CGFloat(measuresPerLine))
+                guard scaled < staffSize - 0.5 else { break }
+                staffSize = scaled
+                let retried = LayoutEngine.layout(
+                    score: laid,
+                    options: Self.makeOptions(staffSize: staffSize),
+                    availableWidth: width)
+                guard retried.systems.count < doc.systems.count else { break }
+                doc = retried
+                attempt += 1
+            }
+        }
+        document = doc
         // 换行/档位改变后 system 索引整体重算，强制下一次光标变化重新定位。
         lastScrolledSystem = -1
     }

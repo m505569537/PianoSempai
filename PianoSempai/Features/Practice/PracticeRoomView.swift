@@ -965,12 +965,12 @@ struct PracticeRoomView: View {
                 .font(.system(size: 8.5))
                 .foregroundStyle(Color.textMuted.opacity(0.8))
         }
-        .frame(maxWidth: .infinity)
+        .fixedSize(horizontal: true, vertical: false)
+        .frame(minWidth: 58)
         .padding(.vertical, 6)
         .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.05), lineWidth: 1))
     }
-
     /// 速度格内的 20pt 步进钮（真值：圆角 4、bg white/5）。
     private func tempoStepButton(symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {

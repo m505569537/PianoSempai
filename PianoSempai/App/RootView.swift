@@ -30,20 +30,23 @@ struct RootView: View {
                 // 首次启动：建单例设置（task 中写，避免视图更新期写库）
                 Color.canvas
                     .ignoresSafeArea()
-                    .task {
-                        let settings = AppSettings.fetchOrCreate(in: context)
-                        // DEBUG-only 视觉验收钩子：simctl launch 传 --ui.skipOnboarding 直接看今日页。
-                        // 只改 onboarding 标志，绝不写课程状态（红线 1/3）。
-                        #if DEBUG
-                        if ProcessInfo.processInfo.arguments.contains("--ui.skipOnboarding") {
-                            settings.onboardingCompleted = true
-                        }
-                        #endif
-                    }
             }
         }
         .background(Color.canvas)
         .task {
+            // DEBUG-only 视觉验收钩子：simctl launch 传 --ui.skipOnboarding 直接进主框架。
+            // 挂在根视图（不挂首次启动分支——settings 一旦存在，那条分支永远不再走，钩子即失效）。
+            // 只改 onboarding 标志，绝不写课程状态（红线 1/3）。
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--ui.skipOnboarding") {
+                let settings = settingsList.first ?? AppSettings.fetchOrCreate(in: context)
+                if !settings.onboardingCompleted {
+                    settings.onboardingCompleted = true
+                }
+                // 缺 save 会丢：autosave 不保证覆盖 task 内的修改，重启后仍在 onboarding。
+                try? context.save()
+            }
+            #endif
             // Stage B §1 启动接线（ADR-0003）：先对账（既有已定级但无 Piece 行 → 一次性补建），
             // 再翻到期复习（passed → reviewing）——顺序必须 reconcile 在前，roll 才有东西可翻。
             // 两函数 Stage A 已实现且幂等；只在此单入口 roll（scenePhase onChange 不重复，无必要）。
