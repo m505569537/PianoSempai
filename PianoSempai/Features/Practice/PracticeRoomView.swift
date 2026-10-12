@@ -120,7 +120,7 @@ struct PracticeRoomView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showLoopSheet) {
+        .fullScreenCover(isPresented: $showLoopSheet) {
             S12LoopSettingsSheet(
                 session: session,
                 totalMeasures: totalMeasures,
