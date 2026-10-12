@@ -2595,4 +2595,74 @@ final class PracticeCoreTests: XCTestCase {
             "空态回显：默认 LoopConfig 的 targetLoopCount 落在「不限」档"
         )
     }
+
+    // MARK: P12 + C5：错误热点 chip / 专项循环 CTA（数据源 + 进房锁定区间）
+
+    /// 有数据 → 同 pieceId 的最新一条分析的 hotspot（chip 与 CTA 的唯一数据源）
+    func testLatestHotspotMeasuresReturnsNewestAnalysisOfSamePiece() {
+        let piece = UUID()
+        let otherPiece = UUID()
+        let take = Take(entityId: UUID(), pieceId: piece)
+        let otherTake = Take(entityId: UUID(), pieceId: otherPiece)
+        let older = TakeAnalysis(takeId: take.entityId, analyzedAt: Date(timeIntervalSince1970: 100), hotspotMeasures: [1, 4])
+        let newer = TakeAnalysis(takeId: take.entityId, analyzedAt: Date(timeIntervalSince1970: 200), hotspotMeasures: [6])
+        let foreign = TakeAnalysis(takeId: otherTake.entityId, analyzedAt: Date(timeIntervalSince1970: 300), hotspotMeasures: [9])
+
+        XCTAssertEqual(
+            LoopService.latestHotspotMeasures(
+                pieceId: piece, takes: [take, otherTake], analyses: [older, newer, foreign]),
+            [6],
+            "只认同 pieceId 的 take，并取 analyzedAt 最新的一条"
+        )
+    }
+
+    /// 无分析 / 热点为空数组 → []（chip 与 CTA 禁用，不编区间）
+    func testLatestHotspotMeasuresNoAnalysisOrEmptyHotspotsReturnsEmpty() {
+        let piece = UUID()
+        let take = Take(entityId: UUID(), pieceId: piece)
+        XCTAssertEqual(LoopService.latestHotspotMeasures(pieceId: piece, takes: [take], analyses: []), [],
+                       "没有分析行 → 空")
+        let empty = TakeAnalysis(takeId: take.entityId, hotspotMeasures: [])
+        XCTAssertEqual(LoopService.latestHotspotMeasures(pieceId: piece, takes: [take], analyses: [empty]), [],
+                       "分析在但 hotspot 为空数组 → 空（诚实禁用，不拿整曲冒充热点）")
+    }
+
+    /// pieceId 为 nil → []（没建档就谈不上热点）
+    func testLatestHotspotMeasuresNilPieceIdReturnsEmpty() {
+        let take = Take(entityId: UUID(), pieceId: UUID())
+        let analysis = TakeAnalysis(takeId: take.entityId, hotspotMeasures: [0, 3])
+        XCTAssertEqual(LoopService.latestHotspotMeasures(pieceId: nil, takes: [take], analyses: [analysis]), [])
+    }
+
+    /// initialHotspots 非空 → loopConfig 被设为热点区间（CorrectionEngine.initialLoopRange 口径）
+    @MainActor
+    func testInitialHotspotsLocksLoopConfigToHotspotRange() throws {
+        let session = PracticeSession()
+        session.configure(scoreName: "拜厄", expectedPerMeasure: region, startBPM: 72)
+        let total = region.count // 3 小节
+
+        // nil = 普通进房：不锁区间（loopConfig 保持默认）
+        XCTAssertNil(PracticeRoomView.lockedLoopRange(initialHotspots: nil, totalMeasures: total))
+
+        // 非空 = 专项循环进房：0-based [1, 2] → 1-based 2–3 小节
+        let range = try XCTUnwrap(PracticeRoomView.lockedLoopRange(initialHotspots: [1, 2], totalMeasures: total))
+        XCTAssertEqual(range.start, 2)
+        XCTAssertEqual(range.end, 3)
+
+        // 与 PracticeRoomView.load() 同一写入口径：整段写回 loopConfig，且落在合法区间内
+        session.loopConfig.startMeasure = range.start
+        session.loopConfig.endMeasure = range.end
+        XCTAssertEqual(session.loopConfig.startMeasure, 2)
+        XCTAssertEqual(session.loopConfig.endMeasure, 3)
+        XCTAssertTrue(LoopService.isValid(
+            start: session.loopConfig.startMeasure, end: session.loopConfig.endMeasure, totalMeasures: total))
+
+        // 空数组 = 整曲级 → 1…total（ADR-0005 决策二口径）
+        let whole = try XCTUnwrap(PracticeRoomView.lockedLoopRange(initialHotspots: [], totalMeasures: total))
+        XCTAssertEqual(whole.start, 1)
+        XCTAssertEqual(whole.end, total)
+
+        // 总小节不足 2 → 钳制结果不合法 → nil，不把 (1,1) 空区间写进 loopConfig
+        XCTAssertNil(PracticeRoomView.lockedLoopRange(initialHotspots: [0], totalMeasures: 1))
+    }
 }

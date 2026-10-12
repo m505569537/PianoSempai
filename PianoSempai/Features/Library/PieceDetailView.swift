@@ -80,6 +80,10 @@ struct PieceDetailView: View {
     @State private var resolvedPiece: Piece?
     /// 最近 take 行点开的 S13 报告（与 ArchiveView/NotesView 同一 sheet(item:) 口径）
     @State private var selectedTake: Take?
+    /// P12/C5 专项循环进房锁定的错误热点（0-based，同 TakeAnalysis.hotspotMeasures 口径）。
+    /// 与 practiceRoute 成对写入：专项循环路径写热点，普通/自由弹奏路径写 nil（不锁区间）。
+    /// fullScreenCover 在 present 时读当前值传给练习室 initialHotspots。
+    @State private var initialHotspots: [Int]? = nil
 
     private var title: String {
         if let entry { return entry.title }
@@ -210,6 +214,36 @@ struct PieceDetailView: View {
         return false
     }
 
+    /// 错误热点小节（0-based）：该曲目最新一条 TakeAnalysis 的 hotspotMeasures。
+    /// 口径同 S12 循环 sheet chip 与 G3 矫正进房（LoopService.latestHotspotMeasures）：
+    /// 按 pieceId 过滤 take → 取 hotspotMeasures 非空的分析里 analyzedAt 最新的一条，
+    /// 不跨 take 聚合；无分析 / 空数组 → []（调用方据此禁用，不编区间，红线 2）。
+    /// 目录条目走 existingPiece 反查（没练过就没有 Piece 行 → 没有 take → 空）。
+    private var hotspotMeasures: [Int] {
+        LoopService.latestHotspotMeasures(
+            pieceId: existingPiece?.entityId,
+            takes: takes,
+            analyses: analyses
+        )
+    }
+
+    /// 热点区间文案（真实派生：0-based min+1…max+1）。空 → nil，不编小节号。
+    private func hotspotRangeLine(_ hotspots: [Int]) -> String? {
+        guard let first = hotspots.min(), let last = hotspots.max(), first >= 0 else { return nil }
+        return first == last ? "第 \(first + 1) 小节" : "第 \(first + 1)–\(last + 1) 小节"
+    }
+
+    /// P12/C5：错误热点 → 进房即锁定循环区间（chip 与 CTA 共用同一数据源与路由）。
+    /// 取不到热点（无判分数据 / 空数组）→ 不导航，如实保持禁用态（不编造区间，红线 2）。
+    private func startHotspotPractice() {
+        let hotspots = hotspotMeasures
+        guard !hotspots.isEmpty else { return }
+        // 建档/取 Piece（同主 CTA 口径：只建行，状态仍由 CourseEngine 写）
+        resolvedPiece = resolvePracticePiece()
+        initialHotspots = hotspots
+        practiceRoute = .practice
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -222,31 +256,16 @@ struct PieceDetailView: View {
                     noScoreCard.padding(.top, 12)
                     rangeCard.padding(.top, 12)
                     recentTakesCard.padding(.top, 12)
-
-                    // 错误热点练习：TakeAnalysis.hotspotMeasures/measureHeat 已真实落库，
-                    // 但「预选热点小节进练习室」这条路还没接（练习室无热点入参）→ 保持禁用，不放假入口
-                    Button {
-                    } label: {
-                        HStack {
-                            Text("只练错误热点")
-                                .font(.titleMd)
-                            Spacer()
-                            Text("P2 完整判分后提供")
-                                .font(.labelSm)
-                                .foregroundStyle(Color.textMuted)
-                        }
-                        .padding(.horizontal, 16)
-                        .frame(height: 50)
-                    }
-                    .buttonStyle(SecondaryButtonStyle(isEnabled: false, cornerRadius: 8))
-                    .disabled(true)
-                    .padding(.top, 8)
+                    // P12 chip + C5 CTA：同一卡内的两个入口，共用同一数据源与路由
+                    hotspotPracticeCard.padding(.top, 12)
 
                     Button {
                         if isFreePlayEntry {
+                            initialHotspots = nil // 自由弹奏不进循环锁定
                             practiceRoute = .freePlay // 不建档、不判分：只进自由弹奏沙盒
                         } else {
                             resolvedPiece = resolvePracticePiece()
+                            initialHotspots = nil // 普通进房不锁区间
                             practiceRoute = .practice
                         }
                     } label: {
@@ -259,7 +278,7 @@ struct PieceDetailView: View {
                     }
                     .buttonStyle(PrimaryButtonStyle(isEnabled: practiceCTAEnabled, cornerRadius: 12))
                     .disabled(!practiceCTAEnabled)
-                    .padding(.top, 8)
+                    .padding(.top, 12)
                     .padding(.bottom, 24)
                 }
                 .padding(.horizontal, 20)
@@ -279,7 +298,9 @@ struct PieceDetailView: View {
                         piece: resolvedPiece,
                         referenceTempo: referenceTempo,
                         bundledBook: bundledBook,
-                        bundledNumber: bundledNumber
+                        bundledNumber: bundledNumber,
+                        // P12/C5：专项循环进房锁定热点区间；普通进房 nil（不锁）
+                        initialHotspots: initialHotspots
                     )
                 case .freePlay:
                     // S14 自由弹奏（不打分沙盒）：599 无谱条目的唯一入口。保存后只关掉详情页。
@@ -604,6 +625,77 @@ struct PieceDetailView: View {
             }
             .frame(minHeight: 44)
             .padding(.vertical, 10)
+        }
+    }
+
+    /// 错误热点专项卡（P12「只练错误热点」chip + C5「针对问题小节发起专项循环」CTA）。
+    /// 两个入口共用同一数据源（最新一条 TakeAnalysis.hotspotMeasures，见 hotspotMeasures）与
+    /// 同一路由（hotspots → 进房锁定循环区间，见 startHotspotPractice / PracticeRoomView.initialHotspots）。
+    /// 无判分数据（无分析 / hotspot 为空数组）→ 两个入口都禁用，副文案如实写「暂无判分数据」，
+    /// 不编造区间（红线 2）；有数据 → 副文案写「点击只练错误热点」。
+    /// 视觉沿用本屏 S09Card 卡面 + 今日页同款琥珀描边按钮语言，不新建组件。
+    @ViewBuilder
+    private var hotspotPracticeCard: some View {
+        let hotspots = hotspotMeasures
+        let hasData = !hotspots.isEmpty
+        S09Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("专项循环")
+                        .font(.titleMd)
+                        .foregroundStyle(Color.textPrimary)
+                    Spacer()
+                    if let line = hotspotRangeLine(hotspots) {
+                        Text(line)
+                            .font(.labelSm)
+                            .foregroundStyle(Color.amber)
+                            .monospacedDigit()
+                    }
+                }
+                Text("取最近一次判分的易错小节，进房即锁定循环区间")
+                    .font(.labelSm)
+                    .foregroundStyle(Color.textMuted)
+
+                // P12：chip 可用性只看真实数据（禁用态不放假入口）
+                Button {
+                    startHotspotPractice()
+                } label: {
+                    HStack {
+                        Text("只练错误热点")
+                            .font(.titleMd)
+                        Spacer()
+                        Text(hasData ? "点击只练错误热点" : "暂无判分数据")
+                            .font(.labelSm)
+                            .foregroundStyle(Color.textMuted)
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: 50)
+                }
+                .buttonStyle(SecondaryButtonStyle(isEnabled: hasData, cornerRadius: 8))
+                .disabled(!hasData)
+
+                // C5：与 chip 同数据源同路由的琥珀描边 CTA（今日页铺路卡同款按钮语言）
+                Button {
+                    startHotspotPractice()
+                } label: {
+                    Text("针对问题小节发起专项循环")
+                        .font(.system(size: 13, weight: .medium))
+                        .tracking(0.3)
+                        .foregroundStyle(hasData ? Color.amber : Color.textMuted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.amber.opacity(hasData ? 0.12 : 0.05))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .strokeBorder(Color.amber.opacity(hasData ? 0.4 : 0.2), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(!hasData)
+            }
         }
     }
 }

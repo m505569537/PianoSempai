@@ -31,8 +31,9 @@ struct PracticeRoomView: View {
     /// 内置公版谱坐标（拜厄/哈农）：与 scoreFile 二选一，走 BundledScore 定位
     var bundledBook: String? = nil
     var bundledNumber: Int = 0
-    /// G3 Stage B 矫正进房：进房即锁定的 hotspot 循环区间（0-based，同 TakeAnalysis 口径）。
+    /// G3 Stage B 矫正进房 / P12+C5 曲库专项循环：进房即锁定的 hotspot 循环区间（0-based，同 TakeAnalysis 口径）。
     /// nil = 普通进房不锁定；[] = 整曲级（区间回退整曲 1…total）。
+    /// 写入口径见 lockedLoopRange(initialHotspots:totalMeasures:)。
     var initialHotspots: [Int]? = nil
     /// G3 Stage B 矫正进房：初始速度比（CorrectionEngine.initialTempoRatio；nil = 默认 72）。
     var initialTempoRatio: Double? = nil
@@ -349,6 +350,19 @@ struct PracticeRoomView: View {
     static func loopProgressText(completedLoopCount: Int, targetLoopCount: Int) -> String? {
         guard targetLoopCount > 0 else { return nil }
         return "\(completedLoopCount)/\(targetLoopCount)"
+    }
+
+    /// 进房即锁定的循环区间（纯函数，可单测；G3 矫正进房与 P12/C5 曲库「只练错误热点」/
+    /// 「针对问题小节发起专项循环」共用同一条写入口径）。
+    /// initialHotspots = nil → nil：普通进房不锁区间，loopConfig 保持默认（1–8，无谱时再诚实收窄）。
+    /// 非空 → CorrectionEngine.initialLoopRange 包围盒 + 钳制（0-based hotspot → 1-based 区间，
+    /// 空数组 = 整曲级 1…total，同 ADR-0005 决策二）。
+    /// 钳制结果不合法（start ≥ end，只有 totalMeasures < 2 时出现）→ nil：
+    /// 不把 (1,1) 这种空区间写进 loopConfig（谱面只有 1 小节时谈不上循环，诚实不锁）。
+    static func lockedLoopRange(initialHotspots: [Int]?, totalMeasures: Int) -> (start: Int, end: Int)? {
+        guard let hotspots = initialHotspots else { return nil }
+        let range = CorrectionEngine.initialLoopRange(hotspots: hotspots, totalMeasures: totalMeasures)
+        return range.start < range.end ? range : nil
     }
 
     /// 右：关闭钮（真值：28pt 圆、bg white/4、18pt muted X）。
@@ -1268,13 +1282,10 @@ struct PracticeRoomView: View {
                 expectedPerMeasure: expected,
                 startBPM: startBPM
             )
-            // G3 Stage B：矫正进房进房即锁定 hotspot 循环区间（此时 expected 已有，总小节数可锚定）。
+            // G3 Stage B / P12+C5：进房即锁定 hotspot 循环区间（此时 expected 已有，总小节数可锚定）。
             // 直接改 startMeasure/endMeasure → didSet→reconfigureRegion（phase 仍 .idle，正确）。
-            if let hotspots = initialHotspots {
-                let range = CorrectionEngine.initialLoopRange(
-                    hotspots: hotspots,
-                    totalMeasures: expected.count
-                )
+            // 取不到合法区间（无 initialHotspots / 总小节不足）→ 不动 loopConfig，保持默认。
+            if let range = PracticeRoomView.lockedLoopRange(initialHotspots: initialHotspots, totalMeasures: expected.count) {
                 session.loopConfig.startMeasure = range.start
                 session.loopConfig.endMeasure = range.end
             }
