@@ -2,13 +2,6 @@ import Foundation
 import SwiftData
 import SwiftUI
 
-// MARK: - S21 双 Take 对比（降级版）
-// 数据源诚实限制：
-// - 速度：只有 TakeAnalysis.avgBPM 单点，无逐句速度曲线 → 降级为双 take 对比单点
-// - 雷达：沿用 TakeReportView 诚实轴映射（音准/读谱同源，nil 轴只画标签）
-// - 热力：measureHeatJSON（单 take 单行，不跨 take 聚合）
-// - 只读对比，不写 Take/TakeAnalysis/Piece.status
-
 struct S21CompareView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -18,11 +11,15 @@ struct S21CompareView: View {
 
     @State private var takeA: Take?
     @State private var takeB: Take?
-    @State private var showPickerA = false
-    @State private var showPickerB = false
+    @State private var showPicker = false
+    @State private var pickerTargetA = true
 
-    private var pieceA: Piece? { takeA.flatMap { pieces.first { $0.entityId == $0.pieceId } } }
-    private var pieceB: Piece? { takeB.flatMap { pieces.first { $0.entityId == $0.pieceId } } }
+    init(takeA: Take?) {
+        _takeA = State(initialValue: takeA)
+    }
+
+    private var pieceA: Piece? { takeA.flatMap { piece in pieces.first { $0.entityId == piece.pieceId } } }
+    private var pieceB: Piece? { takeB.flatMap { piece in pieces.first { $0.entityId == piece.pieceId } } }
 
     private var analysisA: TakeAnalysis? { takeA.flatMap { analysis(for: $0) } }
     private var analysisB: TakeAnalysis? { takeB.flatMap { analysis(for: $0) } }
@@ -74,31 +71,18 @@ struct S21CompareView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .sheet(item: $takeA) { _ in
-                TakePickerView(
-                    title: "选择 Take A（基准）",
-                    takes: candidateTakes(for: takeA),
-                    selected: takeA
+            .sheet(isPresented: $showPicker) {
+                S21TakePickerView(
+                    title: pickerTargetA ? "选择 Take A（基准）" : "选择 Take B（对比）"
                 ) { selected in
-                    takeA = selected
-                    showPickerA = false
-                }
-            }
-            .sheet(item: $takeB) { _ in
-                TakePickerView(
-                    title: "选择 Take B（对比）",
-                    takes: candidateTakes(for: takeB),
-                    selected: takeB
-                ) { selected in
-                    takeB = selected
-                    showPickerB = false
+                    if pickerTargetA { takeA = selected } else { takeB = selected }
+                    showPicker = false
                 }
             }
         }
         .preferredColorScheme(.dark)
     }
 
-    // 同 piece 且同 measure range 的 takes
     private func candidateTakes(for current: Take?) -> [Take] {
         guard let current else { return allTakes }
         return allTakes.filter {
@@ -109,17 +93,12 @@ struct S21CompareView: View {
         }
     }
 
-    // MARK: 卡1 样本选择
     private var sampleSelectionCard: some View {
         card {
             VStack(alignment: .leading, spacing: 12) {
                 cardHeader("对比样本设置", trailing: canCompare ? "基准: Take A" : nil)
-                sampleRow(label: "Take A", take: takeA, color: .amber) {
-                    showPickerA = true
-                }
-                sampleRow(label: "Take B", take: takeB, color: .bluegrey) {
-                    showPickerB = true
-                }
+                sampleRow(label: "Take A", take: takeA, color: .amber) { pickerTargetA = true; showPicker = true }
+                sampleRow(label: "Take B", take: takeB, color: .compareB) { pickerTargetA = false; showPicker = true }
                 Text("只对比同一首曲目同一小节段")
                     .font(.labelSm)
                     .foregroundStyle(Color.textMuted)
@@ -129,29 +108,17 @@ struct S21CompareView: View {
 
     private func sampleRow(label: String, take: Take?, color: Color, action: @escaping () -> Void) -> some View {
         HStack(spacing: 10) {
-            Text(label)
-                .font(.labelMd)
-                .foregroundStyle(Color.textBody)
+            Text(label).font(.labelMd).foregroundStyle(Color.textBody)
             Spacer()
             if let take = take {
-                Text(takeOrdinalLabel(take))
-                    .font(.labelMono(13))
-                    .foregroundStyle(color)
-                Text("♩=\(take.tempoAvg)")
-                    .font(.labelMono(12))
-                    .foregroundStyle(Color.textMuted)
-                Text(weakTotalLabel(take))
-                    .font(.labelMono(14, weight: .bold))
-                    .foregroundStyle(color)
+                Text(takeOrdinalLabel(take)).font(.labelMono(13)).foregroundStyle(color)
+                Text("♩=\(take.tempoAvg)").font(.labelMono(12)).foregroundStyle(Color.textMuted)
+                Text(weakTotalLabel(take)).font(.labelMono(14, weight: .bold)).foregroundStyle(color)
             } else {
-                Text("未选择")
-                    .font(.labelMd)
-                    .foregroundStyle(Color.textMuted)
+                Text("未选择").font(.labelMd).foregroundStyle(Color.textMuted)
             }
             Button(action: action) {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.textMuted)
+                Image(systemName: "chevron.right").font(.system(size: 14)).foregroundStyle(Color.textMuted)
             }
         }
         .padding(10)
@@ -178,17 +145,15 @@ struct S21CompareView: View {
         return "数据不足"
     }
 
-    // MARK: 卡2 六维雷达
     private func radarCard(_ comp: ComparisonData) -> some View {
         card {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("六维对比")
-                        .font(.system(size: 15, weight: .bold, design: .serif))
+                    Text("六维对比").font(.system(size: 15, weight: .bold, design: .serif))
                     Spacer()
                     HStack(spacing: 12) {
                         legendDot(color: .amber, label: "A 今天")
-                        legendDot(color: .bluegrey, label: "B 周一")
+                        legendDot(color: .compareB, label: "B 周一")
                     }
                 }
                 .font(.labelMd)
@@ -206,55 +171,38 @@ struct S21CompareView: View {
         }
     }
 
-    // MARK: 卡3 速度对比（降级：单点 avgBPM 对比）
     private func tempoCard(_ comp: ComparisonData) -> some View {
         card {
             VStack(alignment: .leading, spacing: 8) {
-                Text("速度对比")
-                    .font(.system(size: 15, weight: .bold, design: .serif))
-                    .foregroundStyle(Color.textBody)
+                Text("速度对比").font(.system(size: 15, weight: .bold, design: .serif)).foregroundStyle(Color.textBody)
                 Text("♩= 参考线 \(comp.referenceTempo > 0 ? "\(comp.referenceTempo)" : "—")")
-                    .font(.labelMono(11))
-                    .foregroundStyle(Color.textMuted)
+                    .font(.labelMono(11)).foregroundStyle(Color.textMuted)
                 if comp.avgBPMA > 0 && comp.avgBPMB > 0 {
                     HStack(alignment: .firstTextBaseline, spacing: 20) {
                         VStack(spacing: 4) {
-                            Text(String(format: "%g", comp.avgBPMA))
-                                .font(.titleLg)
-                                .foregroundStyle(Color.amber)
-                            Text("A")
-                                .font(.labelMono(12))
-                                .foregroundStyle(Color.textMuted)
+                            Text(String(format: "%g", comp.avgBPMA)).font(.titleMd).foregroundStyle(Color.amber)
+                            Text("A").font(.labelMono(12)).foregroundStyle(Color.textMuted)
                         }
                         Spacer()
                         VStack(spacing: 4) {
-                            Text(String(format: "%g", comp.avgBPMB))
-                                .font(.titleLg)
-                                .foregroundStyle(Color.bluegrey)
-                            Text("B")
-                                .font(.labelMono(12))
-                                .foregroundStyle(Color.textMuted)
+                            Text(String(format: "%g", comp.avgBPMB)).font(.titleMd).foregroundStyle(Color.compareB)
+                            Text("B").font(.labelMono(12)).foregroundStyle(Color.textMuted)
                         }
                     }
                     .padding(.horizontal, 8)
                 } else {
-                    Text("速度数据不足")
-                        .font(.bodySm)
-                        .foregroundStyle(Color.textMuted)
+                    Text("速度数据不足").font(.bodySm).foregroundStyle(Color.textMuted)
                 }
             }
         }
     }
 
-    // MARK: 卡4 错音热点对比
     private func heatCompareCard(_ comp: ComparisonData) -> some View {
         card {
             VStack(alignment: .leading, spacing: 12) {
-                Text("错音热点对比")
-                    .font(.system(size: 15, weight: .bold, design: .serif))
-                    .foregroundStyle(Color.textBody)
-                heatRow(label: "A", measures: comp.hotMeasuresA, summary: comp.heatSummaryA, color: .amber)
-                heatRow(label: "B", measures: comp.hotMeasuresB, summary: comp.heatSummaryB, color: .bluegrey)
+                Text("错音热点对比").font(.system(size: 15, weight: .bold, design: .serif)).foregroundStyle(Color.textBody)
+                heatRow(label: "A（这一遍）", measures: comp.hotMeasuresA, summary: comp.heatSummaryA, color: .amber)
+                heatRow(label: "B（上一遍）", measures: comp.hotMeasuresB, summary: comp.heatSummaryB, color: .compareB)
             }
         }
     }
@@ -263,26 +211,17 @@ struct S21CompareView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Circle().fill(color).frame(width: 8, height: 8)
-                Text(label == "A" ? "A（这一遍）" : "B（上一遍）")
-                    .font(.labelMd)
-                    .foregroundStyle(Color.textBody)
+                Text(label).font(.labelMd).foregroundStyle(Color.textBody)
                 Spacer()
-                Text(summary)
-                    .font(.labelMono(12))
-                    .foregroundStyle(color)
+                Text(summary).font(.labelMono(12)).foregroundStyle(color)
             }
             if measures.isEmpty {
-                Text("无热点数据")
-                    .font(.labelSm)
-                    .foregroundStyle(Color.textMuted)
+                Text("无热点数据").font(.labelSm).foregroundStyle(Color.textMuted)
             } else {
                 HStack(spacing: 4) {
                     ForEach(measures.prefix(8), id: \.self) { m in
-                        Text("\(m)")
-                            .font(.labelMono(10))
-                            .foregroundStyle(color)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
+                        Text("\(m)").font(.labelMono(10)).foregroundStyle(color)
+                            .padding(.horizontal, 6).padding(.vertical, 3)
                             .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
                             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(color.opacity(0.3), lineWidth: 1))
                     }
@@ -291,67 +230,48 @@ struct S21CompareView: View {
         }
     }
 
-    // MARK: 卡5 关键指标进阶
     private func deltaCard(_ comp: ComparisonData) -> some View {
         card {
             VStack(alignment: .leading, spacing: 10) {
-                Text("关键指标进阶")
-                    .font(.system(size: 15, weight: .bold, design: .serif))
-                    .foregroundStyle(Color.textBody)
+                Text("关键指标进阶").font(.system(size: 15, weight: .bold, design: .serif)).foregroundStyle(Color.textBody)
                 if let delta = comp.improvementDelta {
                     HStack {
-                        Text("综合提升 +\(delta)分")
-                            .font(.labelMono(12))
-                            .foregroundStyle(Color.amber)
+                        Text("综合提升 +\(delta)分").font(.labelMono(12)).foregroundStyle(Color.amber)
                         Spacer()
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, 8).padding(.vertical, 6)
                     .background(Color.amber.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.amber.opacity(0.2), lineWidth: 1))
                 }
-                deltaRow(label: "错音率", oldValue: comp.wrongRateA, newValue: comp.wrongRateB)
+                deltaRow(label: "错音率", oldValue: comp.wrongRateA.map { String(format: "%.1f%%", $0 * 100) } ?? "—", newValue: comp.wrongRateB.map { String(format: "%.1f%%", $0 * 100) } ?? "—")
                 deltaRow(label: "平均速度", oldValue: comp.avgBPMA > 0 ? "\(Int(comp.avgBPMA)) BPM" : "—", newValue: comp.avgBPMB > 0 ? "\(Int(comp.avgBPMB)) BPM" : "—")
                 deltaRow(label: "弱总分", oldValue: comp.weakTotalA.map { "\($0)分" } ?? "数据不足", newValue: comp.weakTotalB.map { "\($0)分" } ?? "数据不足")
                 Text("对比仅展示，不产生新的过关判定。")
-                    .font(.labelSm)
-                    .foregroundStyle(Color.textMuted)
-                    .padding(.top, 8)
+                    .font(.labelSm).foregroundStyle(Color.textMuted).padding(.top, 8)
             }
         }
     }
 
     private func deltaRow(label: String, oldValue: String, newValue: String) -> some View {
         HStack(spacing: 10) {
-            Text(label)
-                .font(.labelMd)
-                .foregroundStyle(Color.textBody)
+            Text(label).font(.labelMd).foregroundStyle(Color.textBody)
             Spacer()
-            Text(oldValue)
-                .font(.labelMono(13))
-                .foregroundStyle(Color.textMuted)
-            Text("→")
-                .font(.labelSm)
-                .foregroundStyle(Color.textMuted)
-            Text(newValue)
-                .font(.labelMono(13))
-                .foregroundStyle(Color.amber)
+            Text(oldValue).font(.labelMono(13)).foregroundStyle(Color.textMuted)
+            Text("→").font(.labelSm).foregroundStyle(Color.textMuted)
+            Text(newValue).font(.labelMono(13)).foregroundStyle(Color.amber)
         }
         .padding(10)
         .background(Color.canvas.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border.opacity(0.4), lineWidth: 1))
     }
 
-    // MARK: CTA
     private func ctaCard(_ comp: ComparisonData) -> some View {
         let hottest = comp.sharedHotMeasure
         return Button {
-            // 跳转练习室：锁定热点小节（复用 LoopService）
-            // 此处简化：弹提示「请从 Take 报告发起」
+            // TODO: 接入 LoopService 预填热点小节（待 P12 热点锁定能力确认后接入）
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "arrow.trianglehead.clockwise")
-                    .font(.system(size: 16))
+                Image(systemName: "arrow.trianglehead.clockwise").font(.system(size: 16))
                 Text(hottest.map { "针对第\($0)小节发起专项循环" } ?? "选择有热点的 take 发起循环")
             }
             .font(.system(size: 14, weight: .semibold))
@@ -365,7 +285,6 @@ struct S21CompareView: View {
         .padding(.top, 4)
     }
 
-    // MARK: 通用容器
     private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         content()
             .padding(16)
@@ -376,24 +295,16 @@ struct S21CompareView: View {
 
     private func cardHeader(_ title: String, trailing: String? = nil) -> some View {
         HStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(Color.amber)
-                .frame(width: 6, height: 14)
-            Text(title)
-                .font(.system(size: 15, weight: .bold, design: .serif))
-                .tracking(0.4)
-                .foregroundStyle(Color.textPrimary)
+            RoundedRectangle(cornerRadius: 3).fill(Color.amber).frame(width: 6, height: 14)
+            Text(title).font(.system(size: 15, weight: .bold, design: .serif)).tracking(0.4).foregroundStyle(Color.textPrimary)
             Spacer(minLength: 8)
             if let trailing {
-                Text(trailing)
-                    .font(.labelMono(12, weight: .semibold))
-                    .foregroundStyle(Color.amber)
+                Text(trailing).font(.labelMono(12, weight: .semibold)).foregroundStyle(Color.amber)
             }
         }
     }
 }
 
-// MARK: - 对比数据（诚实：只有有数据的字段才渲染）
 private struct ComparisonData {
     let scoresA: [Double?]
     let scoresB: [Double?]
@@ -412,13 +323,13 @@ private struct ComparisonData {
     let sharedHotMeasure: Int?
 
     init(a: TakeAnalysis, b: TakeAnalysis, piece: Piece?) {
-        let stand = ScoringStandards.standards(forBook: piece?.book ?? "")
         func radarScores(for analysis: TakeAnalysis) -> [Double?] {
-            let pitch = analysis.dimensions.first { $0.name == "音高" }?.score.map { Double($0) / 100 }
-            let rhythm = analysis.dimensions.first { $0.name == "节奏" }?.score.map { Double($0) / 100 }
-            let continuity = analysis.dimensions.first { $0.name == "连续性" }?.score.map { Double($0) / 100 }
-            let tempo = analysis.dimensions.first { $0.name == "速度稳定性" }?.score.map { Double($0) / 100 }
-            let hands = analysis.dimensions.first { $0.name == "双手协同" }?.score.map { Double($0) / 100 }
+            let report = TakeReportPresentation.build(analysis: analysis, standards: ScoringStandards.standards(forBook: ""), consecutivePasses: 0)
+            let pitch = report.dimensions.first { $0.name == "音高" }?.score.map { Double($0) / 100 }
+            let rhythm = report.dimensions.first { $0.name == "节奏" }?.score.map { Double($0) / 100 }
+            let continuity = report.dimensions.first { $0.name == "连续性" }?.score.map { Double($0) / 100 }
+            let tempo = report.dimensions.first { $0.name == "速度稳定性" }?.score.map { Double($0) / 100 }
+            let hands = report.dimensions.first { $0.name == "双手协同" }?.score.map { Double($0) / 100 }
             return [pitch, rhythm, continuity, tempo, pitch, hands]
         }
 
@@ -429,8 +340,8 @@ private struct ComparisonData {
         self.referenceTempo = piece?.referenceTempo ?? 0
         self.weakTotalA = a.weakTotal
         self.weakTotalB = b.weakTotal
-        self.improvementDelta = (weakTotalB.map { Double($0) } ?? 0) > 0 && (weakTotalA.map { Double($0) } ?? 0) > 0
-            ? Int((weakTotalB! - weakTotalA!).rounded()) : nil
+        self.improvementDelta = (weakTotalB.map { Double($0) } ?? 0.0) > 0 && (weakTotalA.map { Double($0) } ?? 0.0) > 0
+            ? Int((Double(weakTotalB!) - Double(weakTotalA!)).rounded()) : nil
         self.wrongRateA = a.referenceNoteCount > 0 ? Double(a.wrongPitchCount) / Double(a.referenceNoteCount) : nil
         self.wrongRateB = b.referenceNoteCount > 0 ? Double(b.wrongPitchCount) / Double(b.referenceNoteCount) : nil
 
@@ -446,14 +357,12 @@ private struct ComparisonData {
     }
 }
 
-// MARK: - Take 选择器
-private struct TakePickerView: View {
+private struct S21TakePickerView: View {
     let title: String
-    let takes: [Take]
-    let selected: Take?
     let onSelect: (Take) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Take.startedAt, order: .reverse) private var takes: [Take]
 
     var body: some View {
         NavigationStack {
@@ -464,18 +373,10 @@ private struct TakePickerView: View {
                 } label: {
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(takeOrdinal(take))
-                                .font(.bodyMd)
-                                .foregroundStyle(Color.textPrimary)
-                            Text("♩=\(take.tempoAvg) · \(take.durationSec / 60)分\(take.durationSec % 60)秒")
-                                .font(.labelSm)
-                                .foregroundStyle(Color.textMuted)
+                            Text(takeOrdinal(take)).font(.bodyMd).foregroundStyle(Color.textPrimary)
+                            Text("♩=\(take.tempoAvg) · \(take.durationSec / 60)分\(take.durationSec % 60)秒").font(.labelSm).foregroundStyle(Color.textMuted)
                         }
                         Spacer()
-                        if selected?.entityId == take.entityId {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(Color.amber)
-                        }
                     }
                 }
                 .buttonStyle(.plain)
@@ -501,7 +402,6 @@ private struct TakePickerView: View {
     }
 }
 
-// MARK: - S21 雷达图表（双多边形叠加）
 private struct S21RadarChart: View {
     let scoresA: [Double?]
     let scoresB: [Double?]
@@ -517,7 +417,7 @@ private struct S21RadarChart: View {
     }
 
     private func points(for scores: [Double?]) -> [CGPoint] {
-        scores.enumerated.compactMap { idx, score in
+        Array(scores.enumerated()).compactMap { idx, score in
             guard let s = score else { return nil }
             return vertex(idx, radius: CGFloat(s) * Self.radii.last!)
         }
@@ -525,12 +425,10 @@ private struct S21RadarChart: View {
 
     var body: some View {
         ZStack {
-            // 网格
             ForEach(Self.radii, id: \.self) { radius in
                 S21Hexagon(center: Self.center, radius: radius)
                     .stroke(radius == Self.radii.last! ? Color.border : Color.border.opacity(0.6), style: StrokeStyle(lineWidth: radius == Self.radii.last! ? 1.2 : 0.8, dash: radius == Self.radii.first! ? [2, 2] : []))
             }
-            // 轴线
             ForEach(0..<6, id: \.self) { i in
                 Path { p in
                     p.move(to: Self.center)
@@ -538,15 +436,12 @@ private struct S21RadarChart: View {
                 }
                 .stroke(Color.border, lineWidth: 1)
             }
-            // 数据多边形 B（bluegrey）
             S21RadarPolygon(points: points(for: scoresB))
-                .fill(Color.bluegrey.opacity(0.15))
-                .overlay(S21RadarPolygon(points: points(for: scoresB)).stroke(Color.bluegrey, lineWidth: 2))
-            // 数据多边形 A（amber）
+                .fill(Color.compareB.opacity(0.15))
+                .overlay(S21RadarPolygon(points: points(for: scoresB)).stroke(Color.compareB, lineWidth: 2))
             S21RadarPolygon(points: points(for: scoresA))
                 .fill(Color.amber.opacity(0.22))
                 .overlay(S21RadarPolygon(points: points(for: scoresA)).stroke(Color.amber, lineWidth: 2.2))
-            // 轴标签
             ForEach(Array(Self.axisNames.enumerated()), id: \.offset) { idx, name in
                 Text(name)
                     .font(.system(size: 11, weight: .semibold))

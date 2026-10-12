@@ -39,6 +39,7 @@ struct TakeReportView: View {
     @Query(sort: \Take.startedAt, order: .forward) private var allTakes: [Take]
     @State private var showMarkSheet = false
     @State private var showPractice = false
+    @State private var showCompare = false
     /// S13「问 Neko 这一段」→ S18 对话（带本次 take + 判分上下文）
     @State private var showChat = false
     /// 标记谱错的小节（长按明细行进 S13b；真实小节，不用 first 兜底编）
@@ -303,6 +304,9 @@ struct TakeReportView: View {
                 context: context
             )
         }
+        .fullScreenCover(isPresented: $showCompare) {
+            S21CompareView(takeA: take)
+        }
     }
 
     private func submitMark(type: String, note: String) {
@@ -443,7 +447,7 @@ struct TakeReportView: View {
         }
     }
 
-    // MARK: 顶部导航（真值 §2：✕ 关闭 + serif 标题 + 右侧序位）
+    // MARK: 顶部导航（真值 §2：✕ 关闭 + serif 标题 + 右侧序位 + S21 对比入口）
 
     private var navBar: some View {
         ZStack {
@@ -455,7 +459,23 @@ struct TakeReportView: View {
             HStack(spacing: 8) {
                 closeButton
                 Spacer(minLength: 0)
-                ordinalLabel
+                HStack(spacing: 8) {
+                    if take.pieceId != nil {
+                        Button {
+                            showCompare = true
+                        } label: {
+                            Text("对比")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.amber)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Color.amber.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.amber.opacity(0.2), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    ordinalLabel
+                }
             }
         }
         .frame(height: 48)
