@@ -14,10 +14,13 @@ xcodegen generate
 
 ```bash
 # 1) 模拟器 build 必须 0 error
-xcodebuild -scheme PianoSempai -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+# ⚠️ 用设备 UDID 精确指定：本机装了 iOS 27.0 运行时后，name=iPhone 17 Pro 会被
+# 归一成 OS:latest=27.0 而该机型只有 26.5 运行时，name 匹配直接失败（exit 70）。
+# UDID 用 `xcrun simctl list devices available | grep "iPhone 17 Pro"` 查询。
+xcodebuild -skipMacroValidation -scheme PianoSempai -destination 'platform=iOS Simulator,id=EC2A677A-33E9-4EF7-92AB-12438A662697' build
 
 # 2) 单元测试
-xcodebuild -scheme PianoSempai -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+xcodebuild -skipMacroValidation -scheme PianoSempai -destination 'platform=iOS Simulator,id=EC2A677A-33E9-4EF7-92AB-12438A662697' test
 
 # 3) Swift 语法级严格检查（warnings 当 error；工程设置里 SWIFT_TREAT_WARNINGS_AS_ERRORS=YES）
 swiftc -swift-version 5 -warnings-as-errors $(find PianoSempai -name '*.swift') -parse
@@ -25,6 +28,8 @@ swiftc -swift-version 5 -warnings-as-errors $(find PianoSempai -name '*.swift') 
 
 > 本机 Xcode 26.6 只有 iOS 26.5 运行时（iPhone 17 系列），没有 iPhone 16 Pro 模拟器，
 > 故 build destination 用 `iPhone 17 Pro`。部署目标仍是 iOS 17.0，真机/模拟器不受影响。
+> 2026-10-12 更新：机器现已加装 iOS 27.0 运行时；`name=iPhone 17 Pro` 因 OS:latest 归一失配，
+> 命令统一改用模拟器 UDID（见上方注释）。
 
 ## 目录
 
