@@ -53,7 +53,7 @@
 | L4 | 行 1「拜厄 第44条 / 第45条」命名口径 | S08 | needs-decision | 以 html「第45条」为准，待产品确认。 |
 | L5 | 技术目标元数据（音阶跑动/右手转指/均匀力度 chips） | S09 §3.5 | blocked | Piece/CatalogEntry 无该字段，不编造 chips；需曲目技术标签建模。 |
 | L6 | OP 编号标签（「OP.101」） | S09 §3.5 | blocked | 模型无 opus/opusTag 字段；需曲目元数据。 |
-| L7 | 八格已练小节 / 热点小节进度网格 | S09 §3.6 | blocked | 无逐小节「已练/在练」聚合（measureHeat 仅按 take 存，未按曲目汇总成格）；需 per-piece 小节进度汇总。 |
+| L7 | 八格已练小节 / 热点小节进度网格 | S09 §3.6 | done | 由 `PracticeHeatCell.swift` 统一实现（详情页 8 格 + 报告页热点双条）；`PieceDetailView.practiceProgressCard` + `TakeReportView.heatDeltaSection` 接入 `TakeAnalysis.measureHeatJSON` / `alignmentJSON`；热点行取 `latestHotspotMeasures`；+5 测试，764/0 全绿。2026-10-12 完成。 |
 | L8 | S09 曲目详情 → Take 报告的跳转 | S09 §4 | done | take 行改 Button + chevron，sheet(item:) 开 TakeReportView，与 Archive/Notes/报告内全 app 统一（非 NavigationLink）；仍单 sheet 路由。744/0。 |
 
 已完成（移除）：header 搜索钮 + 按曲名本地搜索（S08 v2）。
