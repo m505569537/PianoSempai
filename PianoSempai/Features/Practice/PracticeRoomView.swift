@@ -835,6 +835,16 @@ struct PracticeRoomView: View {
                 dot: metronomeOn,
                 action: toggleMetronome
             )
+            // P5：预备拍控件格（坞内第 2 格，紧邻节拍器）。逻辑已有（LoopConfig.countIn +
+            // MetronomeService.countInBars），只差 UI  expose。
+            dockCell(
+                icon: "hourglass",
+                label: "预备拍",
+                value: session.loopConfig.countIn ? "ON" : "OFF",
+                valueColor: session.loopConfig.countIn ? Color.amber : Color.textMuted,
+                highlighted: session.loopConfig.countIn,
+                action: { session.loopConfig.countIn.toggle() }
+            )
             tempoCell
             dockCell(
                 icon: "repeat",
