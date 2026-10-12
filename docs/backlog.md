@@ -19,7 +19,7 @@
 | P4 | 纸内谱头 / 页脚（No.45、速度术语、「双手协同」chip、左手提示、Op. 标记） | S11 §4.2/4.4 | open | 现由真实记谱引擎渲染，不画假谱头；待引擎元信息或 App 层叠加方案。 |
 | P5 | 预备拍控件格（hourglass，档显 1 小节） | S11b §6.1 | open | count-in 逻辑已存在，但坞里的「预备拍」控件未建（当前坞为贴 S11 的 5 格，未含预备拍）。 |
 | P8 | S11b 断点坐标细节（「21▾」下拉、「断点已缓存」字样） | S11b §5 | needs-decision | 断点 measureIndex 已用于谱卡遮罩文案；真值的坐标下拉/缓存字样无对应交互，待产品确认。 |
-| P12 | S12 错误热点数据源（解锁「错误热点」chip + 小节条热点标记） | S12 §5.2/5.3 | blocked | 现无逐小节常错统计，chip 禁用、小节条无热点点；需真实 per-measure 错误聚合。 |
+| P12 | S12 错误热点数据源（解锁「错误热点」chip + 小节条热点标记） | S12 §5.2/5.3 | done | 数据源已接：`TakeAnalysis.hotspotMeasures` 单条最新分析不跨 take 聚合；详情页「只练错误热点」chip + C5「针对问题小节发起专项循环」CTA 启用，进房锁定循环区间（同 G3 矫正进房 `CorrectionEngine.initialLoopRange`）。+4 测试，759/0。 |
 | P13 | S12 sheet 传入曲目名（卡1 右注「曲目：xx」） | S12 §5 | done | sheet 加 pieceTitle，右注「曲目：xx · 共 N 小节」，抽出可测 rightCaption；空曲名只显小节，占位「练习」映射回空串。+2 测试，744/0。 |
 | P14 | S12 全屏 sheet vs 底部抽屉形态裁定 | S12 §1 | needs-decision | 真值为 390×844 整屏、现沿用共享底部抽屉；内部规范已对齐，形态待确认。 |
 | P11 | 速度长按连改、速度自适应 toast、时间到自动保存底部条 | S11 §8 | needs-decision | 真值 DOM 未画，旧稿约定，待产品确认后再做。 |
@@ -128,7 +128,7 @@ grep 实证仓库无任何 take 对比代码（无 CompareTake/TakeComparison）
 | C2 | 六维叠加雷达（两次同图叠加） | S21 | blocked | 沿用 S13/S05 诚实轴映射；缺轴（节奏/速度判分、双手）依旧只画真实轴，缺口见 W6 与相机批次。 |
 | C3 | 速度双线（两次 avgBPM/逐句速度） | S21 | open | 仅有 TakeAnalysis.avgBPM 单点；逐句速度曲线需对齐数据，不足则降级单线/占位。 |
 | C4 | 错音热力双条 + 关键 delta 列表 | S21 | blocked | 依赖 per-measure 错误聚合（同 P12）。 |
-| C5 | 「针对问题小节发起专项循环」CTA | S21 | blocked | 循环遍数/过关机制未做（P1）。 |
+| C5 | 「针对问题小节发起专项循环」CTA | S21 | done | 与 P12 同一 card/同一数据源；详情页 CTA + chip 均已启用，进房锁定循环区间。49fa1d4。 |
 
 按开发铁律：绿地功能先 Grill/PRD 多轮 → Stitch → design-to-spec → CC 编码，不在本批直接写。
 

@@ -229,8 +229,49 @@ struct PieceDetailView: View {
 
     /// 热点区间文案（真实派生：0-based min+1…max+1）。空 → nil，不编小节号。
     private func hotspotRangeLine(_ hotspots: [Int]) -> String? {
-        guard let first = hotspots.min(), let last = hotspots.max(), first >= 0 else { return nil }
-        return first == last ? "第 \(first + 1) 小节" : "第 \(first + 1)–\(last + 1) 小节"
+        PracticeHeatHotspot.rangeLine(hotspots)
+    }
+
+    /// 该曲目最新一条带逐小节热度的 TakeAnalysis（L7 练习进度网格数据源）。
+    /// 口径同 LoopService.latestHotspotMeasures / 本屏 hotspotMeasures：按 pieceId 过滤 take →
+    /// 取 analyzedAt 最新的一条，只认 measureHeatJSON 非空的行（没有逐小节热度就不画空图）。
+    /// 目录条目走 existingPiece 反查（没练过就没有 Piece 行 → 没有 take → nil）。
+    private var latestHeatAnalysis: TakeAnalysis? {
+        guard let id = existingPiece?.entityId else { return nil }
+        let takeIds = Set(takes.filter { $0.pieceId == id }.map(\.entityId))
+        return analyses
+            .filter { takeIds.contains($0.takeId) && !$0.measureHeatJSON.isEmpty }
+            .max(by: { $0.analyzedAt < $1.analyzedAt })
+    }
+
+    /// 热度所属 take（取真实小节区间；自由弹奏无区间 → nil）
+    private var latestHeatTake: Take? {
+        guard let analysis = latestHeatAnalysis else { return nil }
+        return takes.first { $0.entityId == analysis.takeId }
+    }
+
+    /// 进度网格的真实区间（1-based measureFrom...measureTo；反向/缺失 → nil，不画网格）。
+    /// 校验与报告页共用一处（PracticeHeatGrid.range）。
+    private var latestHeatRange: ClosedRange<Int>? {
+        PracticeHeatGrid.range(from: latestHeatTake?.measureFrom, to: latestHeatTake?.measureTo)
+    }
+
+    /// 该曲目最新一条分析的逐小节热度（1-based MeasureHeat；无数据 → 空）
+    private var latestMeasureHeat: [MeasureHeat] {
+        guard let analysis = latestHeatAnalysis else { return [] }
+        return TakeReportPresentation.decodeHeat(analysis.measureHeatJSON)
+    }
+
+    /// 小节 → 真实问题音数（同 S13 报告页口径：alignmentJSON 逐音明细按小节统计；
+    /// 无法定位的行不计入任何格）
+    private var latestProblemCountByMeasure: [Int: Int] {
+        guard let analysis = latestHeatAnalysis else { return [:] }
+        var counts: [Int: Int] = [:]
+        for problem in TakeReportPresentation.decodeProblems(analysis.alignmentJSON) {
+            guard let measure = problem.measure else { continue }
+            counts[measure, default: 0] += 1
+        }
+        return counts
     }
 
     /// P12/C5：错误热点 → 进房即锁定循环区间（chip 与 CTA 共用同一数据源与路由）。
@@ -253,6 +294,8 @@ struct PieceDetailView: View {
                     heroCard.padding(.top, 4)
                     sampleNoteCard.padding(.top, 12)
                     passStandardCard.padding(.top, 12)
+                    // L7：最近一次判分的逐小节热度 8 格网格（与「专项循环」卡同数据源）
+                    practiceProgressCard.padding(.top, 12)
                     noScoreCard.padding(.top, 12)
                     rangeCard.padding(.top, 12)
                     recentTakesCard.padding(.top, 12)
@@ -460,10 +503,11 @@ struct PieceDetailView: View {
     }
 
     /// 过关标准卡（阈值来自 ScoringStandards 真值，S09/S13 与 gate 同源）
-    // TODO: backlog — technical-goal metadata / OP tag / measure-heat grid
-    // 真值 §3.5「技术目标」卡（音阶跑动/右手转指/均匀力度 chips + OP.101 tag）与
-    // §3.6「段落与循环」八格已练/热点格：本屏均无建模来源（Piece/CatalogEntry 没有这些字段），
-    // 不编造占位；过关标准暂时留在这张卡里（阈值是真的）。等元数据建模后再按真值拆卡。
+    // TODO: backlog — technical-goal metadata / OP tag
+    // 真值 §3.5「技术目标」卡（音阶跑动/右手转指/均匀力度 chips + OP.101 tag）：本屏无建模来源
+    // （Piece/CatalogEntry 没有这些字段），不编造占位；过关标准暂时留在这张卡里（阈值是真的）。
+    // §3.6 的八格热度/热点格已由 L7 落地为下面的 practiceProgressCard（数据源是最近一次判分的
+    // TakeAnalysis.measureHeat，不再等 per-piece 汇总）；等元数据建模后再按真值拆技术目标卡。
     private var passStandardCard: some View {
         S09Card {
             VStack(alignment: .leading, spacing: 10) {
@@ -493,6 +537,80 @@ struct PieceDetailView: View {
             Text(label).font(.labelMd).foregroundStyle(Color.textBody)
             Spacer()
             Text(value).font(.labelMd).foregroundStyle(Color.textPrimary).monospacedDigit()
+        }
+    }
+
+    /// 练习进度卡（L7）：最近一次判分的逐小节热度 8 格网格 + 重点小节行。
+    /// 数据源与「专项循环」卡同源（该曲目最新一条 TakeAnalysis，见 latestHeatAnalysis）：
+    /// 单 take 单行，不跨 take 聚合、不改存储；无热度数据 → 诚实显「暂无练习数据」，不画空图。
+    /// 格子 / 档位 / 列数 / 截断说明与 S13 报告页共用 PracticeHeatCell + PracticeHeatGrid，
+    /// 不复制第二份实现（改阈值只改共享件一处）。
+    @ViewBuilder
+    private var practiceProgressCard: some View {
+        let heat = latestMeasureHeat
+        S09Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("练习进度")
+                        .font(.titleMd)
+                        .foregroundStyle(Color.textPrimary)
+                    Spacer()
+                    if let range = latestHeatRange, !heat.isEmpty {
+                        Text("第 \(range.lowerBound)–\(range.upperBound) 小节")
+                            .font(.labelSm)
+                            .foregroundStyle(Color.textMuted)
+                            .monospacedDigit()
+                    }
+                }
+                if heat.isEmpty {
+                    // 没练过 / 没判分：如实说没有，不画空网格（红线：不放假数据）
+                    Text(PracticeHeatText.noData)
+                        .font(.bodySm)
+                        .foregroundStyle(Color.textMuted)
+                } else if let range = latestHeatRange {
+                    let shown = PracticeHeatGrid.shownMeasures(range, limit: PracticeHeatGrid.detailCellLimit)
+                    let hotspots = PracticeHeatHotspot.oneBased(hotspotMeasures)
+                    // 重点小节行（真实 hotspotMeasures；无热点 → 整行不渲染）
+                    if let line = PracticeHeatHotspot.labelLine(hotspotMeasures) {
+                        Text(line)
+                            .font(.labelSm)
+                            .foregroundStyle(Color.amber)
+                            .monospacedDigit()
+                    }
+                    LazyVGrid(
+                        columns: PracticeHeatGrid.items,
+                        spacing: 6
+                    ) {
+                        ForEach(shown, id: \.self) { measure in
+                            PracticeHeatCell(
+                                measure: measure,
+                                heat: heat.heatByMeasure[measure] ?? 0,
+                                problemCount: latestProblemCountByMeasure[measure] ?? 0,
+                                isHotspot: hotspots.contains(measure)
+                            )
+                        }
+                    }
+                    .padding(6)
+                    .background(Color.s13HeatWell, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border.opacity(0.6), lineWidth: 1)
+                    )
+                    if let note = PracticeHeatGrid.truncationText(total: range.count, shown: shown.count) {
+                        // 区间比 8 格长时只画前 8 格，并如实说明，不悄悄截断
+                        Text(note)
+                            .font(.labelSm)
+                            .foregroundStyle(Color.textMuted)
+                    }
+                    Text("取自最近一次判分 · 逐格明细见该次的练习报告")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.textMuted)
+                } else {
+                    // 有热度但所属 take 没有小节区间（自由弹奏）→ 不画空网格
+                    Text(PracticeHeatText.noMeasureRange)
+                        .font(.bodySm)
+                        .foregroundStyle(Color.textMuted)
+                }
+            }
         }
     }
 

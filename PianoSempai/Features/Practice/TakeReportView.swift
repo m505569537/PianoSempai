@@ -126,6 +126,16 @@ struct TakeReportView: View {
         return analyses.first { $0.takeId == previous.entityId && $0.weakTotal != nil }?.weakTotal
     }
 
+    /// 上一遍的逐小节热度（C4 双条「上一遍」用）。口径同 previousWeakTotal：同曲目上一条 take 的
+    /// 分析行，只读它自己那一行 decode 出来的 measureHeat——两遍各自单 take 单行，只并排比较，
+    /// 不做任何跨 take 聚合/平均，也不改存储。无上一遍 / 上一遍没落热度 → 空（不画双条）。
+    private var previousMeasureHeat: [MeasureHeat] {
+        guard let index = pieceTakes.firstIndex(where: { $0.entityId == take.entityId }), index > 0 else { return [] }
+        let previous = pieceTakes[index - 1]
+        guard let row = analyses.first(where: { $0.takeId == previous.entityId && !$0.measureHeatJSON.isEmpty }) else { return [] }
+        return TakeReportPresentation.decodeHeat(row.measureHeatJSON)
+    }
+
     /// 相对时间（真实 startedAt 现算；不用真值写死的「刚刚」）
     private var relativeTimeText: String {
         let interval = Date.now.timeIntervalSince(take.startedAt)
@@ -169,10 +179,10 @@ struct TakeReportView: View {
         report.wrongCount + report.missingCount + report.extraCount
     }
 
-    /// 真实小节区间（measureFrom...measureTo；反向/缺失 → nil，不画热力图）
+    /// 真实小节区间（measureFrom...measureTo；反向/缺失 → nil，不画热力图）。
+    /// 校验与详情页共用一处（PracticeHeatGrid.range）。
     private var measureRange: ClosedRange<Int>? {
-        guard let from = take.measureFrom, let to = take.measureTo, from <= to else { return nil }
-        return from...to
+        PracticeHeatGrid.range(from: take.measureFrom, to: take.measureTo)
     }
 
     /// 小节 → 真实问题音数（report.problems 按小节统计；无法定位的行不计入任何格）
@@ -185,9 +195,9 @@ struct TakeReportView: View {
         return counts
     }
 
-    /// 小节 → 热度（report.measureHeat，0...1；无该小节 = 0）
+    /// 小节 → 热度（report.measureHeat，0...1；无该小节 = 0）。查表实现与详情页共用一处。
     private var heatByMeasure: [Int: Double] {
-        Dictionary(uniqueKeysWithValues: report.measureHeat.map { ($0.measure, $0.heat) })
+        report.measureHeat.heatByMeasure
     }
 
     /// 最热小节（真实 heat 最大者；并列取较小小节）；无数据 → nil
@@ -737,6 +747,9 @@ struct TakeReportView: View {
                     .padding(.top, 8)
                 heatSection
                     .padding(.top, 12)
+                // C4：双条 + 关键 delta（这一遍 vs 上一遍；无上一遍则不画）
+                heatDeltaSection
+                    .padding(.top, 12)
                 problemsDetail
                 problemsAction
             }
@@ -744,12 +757,12 @@ struct TakeReportView: View {
     }
 
     /// 热力图：只画真实小节区间；格内数字＝该小节真实问题音数
+    /// 格子本体与档位阈值走共享件 PracticeHeatCell / PracticeHeatTier（详情页同一处，不复制第二份）。
     @ViewBuilder
     private var heatSection: some View {
         if let range = measureRange, !report.measureHeat.isEmpty {
             // 只按需取出前 N 格（区间可能很长，不整体物化）
-            let total = range.count
-            let shown = Array(range.prefix(Self.heatCellLimit))
+            let shown = PracticeHeatGrid.shownMeasures(range, limit: PracticeHeatGrid.reportCellLimit)
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("小节分布 (\(range.lowerBound) - \(range.upperBound))")
@@ -768,11 +781,15 @@ struct TakeReportView: View {
                     }
                 }
                 LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 8),
+                    columns: PracticeHeatGrid.items,
                     spacing: 6
                 ) {
                     ForEach(shown, id: \.self) { measure in
-                        heatCell(measure)
+                        PracticeHeatCell(
+                            measure: measure,
+                            heat: heatByMeasure[measure] ?? 0,
+                            problemCount: problemCountByMeasure[measure] ?? 0
+                        )
                     }
                 }
                 .padding(6)
@@ -780,9 +797,9 @@ struct TakeReportView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border.opacity(0.6), lineWidth: 1)
                 )
-                if total > shown.count {
+                if let note = PracticeHeatGrid.truncationText(total: range.count, shown: shown.count) {
                     // 区间异常长时只画前 N 格，并如实说明，不悄悄截断
-                    Text("…共 \(total) 小节，此处显示前 \(shown.count) 格")
+                    Text(note)
                         .font(.labelSm)
                         .foregroundStyle(Color.textMuted)
                 }
@@ -799,41 +816,102 @@ struct TakeReportView: View {
         }
     }
 
-    /// 单个热力格（真值 34×28pt / r6 / 格与标号间距 4pt）
-    private func heatCell(_ measure: Int) -> some View {
-        let heat = heatByMeasure[measure] ?? 0
-        let count = problemCountByMeasure[measure] ?? 0
-        let tier = S13HeatTier.tier(heat: heat)
-        return VStack(spacing: 4) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(tier.fill)
-                    .frame(height: 28)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6).strokeBorder(tier.border, lineWidth: 1)
-                    )
-                    .shadow(
-                        color: tier == .heavy ? Color.s13AmberDeep.opacity(0.4) : Color.clear,
-                        radius: 4
-                    )
-                switch tier {
-                case .neutral:
-                    Text("✓")
-                        .font(.system(size: 9))
+    // MARK: C4 错音热力双条 + 关键 delta（这一遍 vs 上一遍）
+
+    /// 双条 + 关键 delta：小节数轴并排两条（上＝上一遍、下＝这一遍）+ |delta| 前 3。
+    /// 上一遍取同曲目上一条 take 自己那条分析行（口径同 previousWeakTotal）：
+    /// 两遍各自单 take 单行，只并排比较，不跨 take 聚合、不改存储、不平均。
+    /// 无上一遍 → 不画双条，显「暂无上一遍对比」（首遍练习如实说，不放假对比）。
+    @ViewBuilder
+    private var heatDeltaSection: some View {
+        if let range = measureRange, !report.measureHeat.isEmpty {
+            let bars = PracticeHeatBar.bars(
+                previous: previousMeasureHeat,
+                current: report.measureHeat,
+                measures: PracticeHeatGrid.shownMeasures(range, limit: PracticeHeatGrid.reportCellLimit)
+            )
+            if previousMeasureHeat.isEmpty {
+                Text(PracticeHeatText.noPreviousPass)
+                    .font(.bodySm)
+                    .foregroundStyle(Color.textMuted)
+            } else if bars.isEmpty {
+                Text(PracticeHeatText.noSharedMeasures)
+                    .font(.bodySm)
+                    .foregroundStyle(Color.textMuted)
+            } else {
+                let deltas = PracticeHeatDelta.list(
+                    previous: previousMeasureHeat,
+                    current: report.measureHeat
+                )
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Text("较上一遍")
+                            .font(.labelMono(10))
+                            .foregroundStyle(Color.s13Subtle)
+                        Spacer(minLength: 8)
+                        // 双条方向说明（上条＝上一遍、下条＝这一遍；颜色深浅同热力三档）
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 8))
+                            Text("上一遍")
+                            Image(systemName: "arrow.down")
+                                .font(.system(size: 8))
+                            Text("这一遍")
+                        }
+                        .font(.labelMono(10))
                         .foregroundStyle(Color.s13Subtle)
-                case .mid, .heavy:
-                    // 只显该小节真实问题音数；为 0 时留空，不编数字
-                    if count > 0 {
-                        Text("\(count)")
-                            .font(.labelMono(10, weight: .bold))
-                            .foregroundStyle(tier.textColor)
                     }
+                    LazyVGrid(
+                        columns: PracticeHeatGrid.items,
+                        spacing: 6
+                    ) {
+                        ForEach(bars) { bar in
+                            heatDeltaColumn(bar)
+                        }
+                    }
+                    .padding(6)
+                    .background(Color.s13HeatWell, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border.opacity(0.6), lineWidth: 1)
+                    )
+                    // 关键 delta：|delta| 最大的前 3 个小节（正=这一遍更热=问题更多）
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(deltas) { delta in
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(delta.deltaPercent > 0 ? Color.s13Danger : Color.amber)
+                                    .frame(width: 5, height: 5)
+                                Text(delta.text)
+                                    .font(.labelSm)
+                                    .foregroundStyle(Color.textPrimary)
+                                    .monospacedDigit()
+                            }
+                        }
+                    }
+                    .padding(.top, 2)
                 }
             }
-            Text("\(measure)")
-                .font(.labelMono(10, weight: tier == .heavy ? .bold : .regular))
-                .foregroundStyle(tier.labelColor)
         }
+    }
+
+    /// 双条的一列：上条＝上一遍、下条＝这一遍，底部小节标号与热力格对齐
+    private func heatDeltaColumn(_ bar: PracticeHeatBar) -> some View {
+        VStack(spacing: 2) {
+            heatDeltaBar(heat: bar.previousHeat)
+            heatDeltaBar(heat: bar.currentHeat)
+            Text("\(bar.measure)")
+                .font(.labelMono(10))
+                .foregroundStyle(Color.textMuted)
+        }
+    }
+
+    /// 单条热度（颜色深浅映射 heat，档位与热力格同一处：PracticeHeatTier）
+    private func heatDeltaBar(heat: Double) -> some View {
+        let tier = PracticeHeatTier.tier(heat: heat)
+        return RoundedRectangle(cornerRadius: 3)
+            .fill(tier.fill)
+            .frame(height: 10)
+            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(tier.border, lineWidth: 1))
     }
 
     /// 明细行（真实 report.problems；数量不限，不截断）
@@ -1507,8 +1585,7 @@ struct TakeReportView: View {
         }
     }
 
-    /// 热力格数量上限（区间异常长时只画前 N 格并如实说明，不无限拉长页面）
-    private static let heatCellLimit = 32
+    // 热力格数量上限已随格子一起抽到共享件（PracticeHeatGrid.reportCellLimit，详情页同源）。
 }
 
 // MARK: - 分区卡容器（真值：bg #262220 / r16 / 1pt 边 #332D29 / p16 / 卡间距 14）
@@ -1633,52 +1710,7 @@ private struct S13RadarPolygon: Shape {
     }
 }
 
-// MARK: - 热力格三档（真值：中性格 / amber 35% / #A04523 + 发光）
-
-private enum S13HeatTier {
-    case neutral
-    case mid
-    case heavy
-
-    /// 档位只由真实 heat 决定（0/极低 → 中性；≥0.5 → 最重）
-    static func tier(heat: Double) -> S13HeatTier {
-        if heat >= 0.5 { return .heavy }
-        if heat > 0.02 { return .mid }
-        return .neutral
-    }
-
-    var fill: Color {
-        switch self {
-        case .neutral: Color.s13CellNeutral
-        case .mid: Color.amber.opacity(0.35)
-        case .heavy: Color.s13CellHot
-        }
-    }
-
-    var border: Color {
-        switch self {
-        case .neutral: Color.s13CellNeutralBorder
-        case .mid: Color.amber.opacity(0.4)
-        case .heavy: Color.s13Danger
-        }
-    }
-
-    var textColor: Color {
-        switch self {
-        case .neutral: Color.s13Subtle
-        case .mid: Color.amber
-        case .heavy: Color.s13CellHotText
-        }
-    }
-
-    var labelColor: Color {
-        switch self {
-        case .neutral: Color.textMuted
-        case .mid: Color.amber
-        case .heavy: Color.s13Danger
-        }
-    }
-}
+// 热力格三档已随格子一起抽到共享件（PracticeHeatTier，详情页同源）。
 
 // MARK: - 节奏折线几何（纯函数：给定数据与画布尺寸算像素坐标）
 
@@ -1780,29 +1812,7 @@ private struct S13SubcardStyle: ViewModifier {
     }
 }
 
-// MARK: - 本页字面量色（DesignSystem token 未覆盖的真值 hex）
-
-fileprivate extension Color {
-    /// 深橙 #C86D2B：计数 badge 底、尖峰点
-    static let s13AmberDeep = Color(red: 0xC8 / 255, green: 0x6D / 255, blue: 0x2B / 255)
-    /// 危险红橙 #E07A5F：错音圆点、最热格描边/标号
-    static let s13Danger = Color(red: 0xE0 / 255, green: 0x7A / 255, blue: 0x5F / 255)
-    /// 弱注记 #6A635B
-    static let s13Subtle = Color(red: 0x6A / 255, green: 0x63 / 255, blue: 0x5B / 255)
-    /// 热力图网格容器底 #1F1B19
-    static let s13HeatWell = Color(red: 0x1F / 255, green: 0x1B / 255, blue: 0x19 / 255)
-    /// 中性格底 #2C2724 / 边框 #3A332F
-    static let s13CellNeutral = Color(red: 0x2C / 255, green: 0x27 / 255, blue: 0x24 / 255)
-    static let s13CellNeutralBorder = Color(red: 0x3A / 255, green: 0x33 / 255, blue: 0x2F / 255)
-    /// 最热格底 #A04523 / 格内字 #FFF1EB
-    static let s13CellHot = Color(red: 0xA0 / 255, green: 0x45 / 255, blue: 0x23 / 255)
-    static let s13CellHotText = Color(red: 0xFF / 255, green: 0xF1 / 255, blue: 0xEB / 255)
-    /// 节奏图容器底 #1B1816 / 0 轴 #4A423C
-    static let s13ChartWell = Color(red: 0x1B / 255, green: 0x18 / 255, blue: 0x16 / 255)
-    static let s13AxisZero = Color(red: 0x4A / 255, green: 0x42 / 255, blue: 0x3C / 255)
-    /// 雷达最外环描边 #3F3732
-    static let s13RingOuter = Color(red: 0x3F / 255, green: 0x37 / 255, blue: 0x32 / 255)
-}
+// 本页字面量色（s13* hex）已随热力格一起抽到共享件 PracticeHeatCell.swift（详情页同源）。
 
 // MARK: - Take 列表（hub「最近 take」与档案共用）
 

@@ -2665,4 +2665,111 @@ final class PracticeCoreTests: XCTestCase {
         // 总小节不足 2 → 钳制结果不合法 → nil，不把 (1,1) 空区间写进 loopConfig
         XCTAssertNil(PracticeRoomView.lockedLoopRange(initialHotspots: [0], totalMeasures: 1))
     }
+
+    // MARK: - L7 详情页练习进度网格 / C4 报告页错音热力双条（共享件 PracticeHeat* 纯逻辑）
+
+    /// 有 measureHeat → 网格非空（只画区间前 8 格 + 如实截断说明）；热度查表与三档阈值同源
+    func testPracticeProgressGridShowsCellsWhenHeatExists() {
+        let heat = [
+            MeasureHeat(measure: 1, heat: 0.8),
+            MeasureHeat(measure: 2, heat: 0.2),
+        ]
+        guard let range = PracticeHeatGrid.range(from: 1, to: 16) else {
+            return XCTFail("1…16 是合法区间，不该被判掉")
+        }
+        let shown = PracticeHeatGrid.shownMeasures(range, limit: PracticeHeatGrid.detailCellLimit)
+        XCTAssertEqual(shown, Array(1...8), "详情页只画区间前 8 格")
+        XCTAssertFalse(shown.isEmpty, "有热度就有格，不画空图")
+        XCTAssertEqual(
+            PracticeHeatGrid.truncationText(total: 16, shown: shown.count) ?? "",
+            "…共 16 小节，此处显示前 8 格"
+        )
+        // 区间不比格数长 → 不画截断说明
+        XCTAssertNil(PracticeHeatGrid.truncationText(total: 8, shown: 8))
+
+        // 查表（共享 Array 扩展）：缺的小节回落 0 → 中性格，不编热度
+        let byMeasure = heat.heatByMeasure
+        XCTAssertEqual(byMeasure[1] ?? 0, 0.8, accuracy: 0.001)
+        XCTAssertNil(byMeasure[9], "没有的小节不凭空造")
+        XCTAssertEqual(PracticeHeatTier.tier(heat: byMeasure[1] ?? 0), .heavy)
+        XCTAssertEqual(PracticeHeatTier.tier(heat: byMeasure[2] ?? 0), .mid)
+        XCTAssertEqual(PracticeHeatTier.tier(heat: byMeasure[9] ?? 0), .neutral)
+    }
+
+    /// 无 measureHeat / 无区间 → 网格为空 + 诚实文案（不画空图、不放假数据）
+    func testPracticeProgressHonestWhenNoHeatOrRange() {
+        XCTAssertNil(PracticeHeatGrid.range(from: nil, to: 8), "缺起点不画")
+        XCTAssertNil(PracticeHeatGrid.range(from: 1, to: nil), "缺终点不画")
+        XCTAssertNil(PracticeHeatGrid.range(from: 8, to: 3), "反向区间不画")
+        XCTAssertTrue(PracticeHeatGrid.shownMeasures(1...16, limit: 0).isEmpty, "上限 0 不画格")
+        XCTAssertNil(PracticeHeatGrid.truncationText(total: 0, shown: 0))
+        XCTAssertTrue(PracticeHeatText.noData.contains("暂无练习数据"), "无数据必须显式说没有")
+        XCTAssertFalse(PracticeHeatText.noMeasureRange.isEmpty)
+    }
+
+    /// 热点区间文案（0-based 存储 → 1-based 展示）；空 → nil，不编小节号
+    func testHotspotRangeLineText() {
+        XCTAssertEqual(PracticeHeatHotspot.rangeLine([2, 3, 5]), "第 3–6 小节")
+        XCTAssertEqual(PracticeHeatHotspot.rangeLine([4]), "第 5 小节")
+        XCTAssertNil(PracticeHeatHotspot.rangeLine([]))
+        XCTAssertNil(PracticeHeatHotspot.rangeLine([-1]), "非法下标不编小节号")
+        // 详情页进度网格上的那一行
+        XCTAssertEqual(PracticeHeatHotspot.labelLine([1, 2]), "重点小节：第 2–3 小节")
+        XCTAssertNil(PracticeHeatHotspot.labelLine([]))
+        // 格子标号是 1-based：0-based 热点换算只在一处做
+        XCTAssertEqual(PracticeHeatHotspot.oneBased([0, 3]), Set([1, 4]))
+    }
+
+    /// 双条 delta 计算（这一遍 − 上一遍，四舍五入到整数百分比）+ |delta| 前 3 降序
+    func testHeatDeltaComputationAndTopThreeOrdering() {
+        let previous = [MeasureHeat(measure: 1, heat: 0.2), MeasureHeat(measure: 2, heat: 0.8)]
+        let current = [MeasureHeat(measure: 1, heat: 0.5), MeasureHeat(measure: 2, heat: 0.3)]
+        let deltas = PracticeHeatDelta.list(previous: previous, current: current)
+        XCTAssertEqual(deltas.map(\.measure), [2, 1], "|−50%| > |+30%| → 小节 2 排前")
+        XCTAssertEqual(deltas[0].deltaPercent, -50)
+        XCTAssertEqual(deltas[0].text, "小节 2：热度 -50%")
+        XCTAssertEqual(deltas[1].deltaPercent, 30)
+        XCTAssertEqual(deltas[1].text, "小节 1：热度 +30%")
+
+        // 4 个小节只取 |delta| 前 3，且保持降序（+30 / +20 / +10 / +1）
+        let previous4 = (1...4).map { MeasureHeat(measure: $0, heat: 0.1) }
+        let current4 = [
+            MeasureHeat(measure: 1, heat: 0.4),
+            MeasureHeat(measure: 2, heat: 0.3),
+            MeasureHeat(measure: 3, heat: 0.2),
+            MeasureHeat(measure: 4, heat: 0.11),
+        ]
+        XCTAssertEqual(PracticeHeatDelta.list(previous: previous4, current: current4).map(\.measure), [1, 2, 3])
+        // 默认上限就是 3
+        XCTAssertEqual(PracticeHeatDelta.topCount, 3)
+
+        // 只在这一遍真实出现过的小节上比（上一遍有、这一遍没有 → 不编 delta）
+        let disjoint = PracticeHeatDelta.list(
+            previous: [MeasureHeat(measure: 1, heat: 0.5)],
+            current: [MeasureHeat(measure: 2, heat: 0.5)]
+        )
+        XCTAssertTrue(disjoint.isEmpty, "没有共同小节就没有 delta")
+    }
+
+    /// 无上一遍数据 → 不画双条（bars/delta 都空），诚实显「暂无上一遍对比」
+    func testHeatDeltaAbsentWhenNoPreviousPass() {
+        let current = [MeasureHeat(measure: 1, heat: 0.5), MeasureHeat(measure: 2, heat: 0.3)]
+        XCTAssertTrue(
+            PracticeHeatBar.bars(previous: [], current: current, measures: [1, 2]).isEmpty,
+            "首遍练习没有上一遍，不能画双条"
+        )
+        XCTAssertTrue(PracticeHeatDelta.list(previous: [], current: current).isEmpty)
+        XCTAssertTrue(PracticeHeatText.noPreviousPass.contains("暂无上一遍对比"))
+
+        // 有上一遍 → 双条按小节对齐，上条=上一遍、下条=这一遍
+        let bars = PracticeHeatBar.bars(
+            previous: [MeasureHeat(measure: 1, heat: 0.2), MeasureHeat(measure: 2, heat: 0.8)],
+            current: current,
+            measures: [1, 2]
+        )
+        XCTAssertEqual(bars.count, 2)
+        XCTAssertEqual(bars[0].previousHeat, 0.2, accuracy: 0.001)
+        XCTAssertEqual(bars[0].currentHeat, 0.5, accuracy: 0.001)
+        XCTAssertEqual(bars[1].measure, 2)
+    }
 }
