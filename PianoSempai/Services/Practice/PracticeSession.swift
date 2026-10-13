@@ -331,6 +331,11 @@ final class PracticeSession: ObservableObject {
         tempoState.bpm = min(max(40, tempoState.bpm + delta), tempoState.referenceBpm)
     }
 
+    /// 直接设置速度（点数字输入用；超界自动收进 [40, referenceBpm]，口径同 changeTempo）
+    func setTempo(_ bpm: Int) {
+        tempoState.bpm = min(max(40, bpm), tempoState.referenceBpm)
+    }
+
     // MARK: 落库（Take 元数据；原始 MIDI 已在 handle 中只追加落盘）
 
     @discardableResult

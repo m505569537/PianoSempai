@@ -4,6 +4,17 @@ import SheetMusicLayoutApple
 import SheetMusicUI
 import SwiftUI
 
+/// iOS 26 起关闭 ScrollView 自动滚动边缘渐隐（低版本无此效果，直通）。
+private struct ScrollEdgeEffectHiddenAll: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .all)
+        } else {
+            content
+        }
+    }
+}
+
 /// 练习室谱面滚动视图（问题3 自动滚动 / 问题4 每行小节数 / 问题5 弹性增高）。
 ///
 /// 与旧实现的差别：
@@ -41,6 +52,9 @@ struct PracticeScoreScrollView: View {
                 .onChange(of: cursor) { _, new in
                     scroll(to: new, proxy: scrollProxy)
                 }
+                // iOS 26 ScrollView 默认会给滚动边缘加自动渐隐效果（内容淡入深色底层），
+                // 在纸卡内表现为谱面上下两道灰色阴影带——练习室谱面不需要，全部关掉。
+                .modifier(ScrollEdgeEffectHiddenAll())
                 .onAppear { rebuild(width: proxy.size.width) }
                 .onChange(of: proxy.size.width) { _, w in rebuild(width: w) }
                 .onChange(of: measuresPerLine) { _, _ in rebuild(width: proxy.size.width) }
@@ -80,14 +94,9 @@ struct PracticeScoreScrollView: View {
                     playbackCursor: cursor,
                     playbackCursorColor: Color.amber.opacity(0.25),
                 )
-                // 引擎页面背景硬编码纯白（包红线：不改包源码）。multiply 叠染纸张色：
+                // 引擎页面背景硬编码纯白（包红线：不改包源码）。colorMultiply 确定性叠染：
                 // 白底×纸色=纸色、符头墨黑×纸色≈墨黑，谱面与纸张卡颜色一致、无白块错色。
-                .overlay {
-                    Rectangle()
-                        .fill(Self.paper)
-                        .blendMode(.multiply)
-                        .allowsHitTesting(false)
-                }
+                .colorMultiply(Self.paper)
                 // G7 简谱叠加：与 ScoreView 同处一个 topLeading ZStack，标注坐标即
                 // 文档坐标（文档 (0,0)=ScoreView 左上），与符头天然对齐；自带
                 // allowsHitTesting(false)，不挡谱面手势。
@@ -133,34 +142,36 @@ struct PracticeScoreScrollView: View {
         let width = max(rawWidth, options.staffSize * 4)
         let laid = ScoreLineBreaker.apply(to: score, measuresPerLine: measuresPerLine)
         displayScore = laid
-        var staffSize: CGFloat = 28
-        var doc = LayoutEngine.layout(
-            score: laid,
-            options: Self.makeOptions(staffSize: staffSize),
-            availableWidth: width)
-        // 固定档（N ≥ 2）：可用宽度放不下 N 小节时引擎会按宽度提前折行，
-        // 「每行 N 小节」形同虚设。探测实际每行最多小节数，按比例缩小字号
-        // 重排（最多 3 轮），直到放下 N 小节或不再改善为止。
         if measuresPerLine >= 2 {
-            var attempt = 0
-            while attempt < 3 {
-                let maxPer = doc.systems.map(\.measures.count).max() ?? 0
-                guard maxPer >= 1, maxPer < measuresPerLine else { break }
-                let scaled = max(9, staffSize * CGFloat(maxPer) / CGFloat(measuresPerLine))
-                guard scaled < staffSize - 0.5 else { break }
-                staffSize = scaled
-                let retried = LayoutEngine.layout(
-                    score: laid,
-                    options: Self.makeOptions(staffSize: staffSize),
-                    availableWidth: width)
-                guard retried.systems.count < doc.systems.count else { break }
-                doc = retried
-                attempt += 1
+            // 固定档：可用宽度放不下 N 小节时引擎会按宽度提前折行、每行不齐，
+            // 用 fittingStaffSize 二分出能放下「每行恰 N 小节」的最大字号；
+            // 无满足解回退基础字号（诚实不生效，不错乱）。
+            let fitted = ScoreLineBreaker.fittingStaffSize(
+                score: laid,
+                perLine: measuresPerLine,
+                availableWidth: width
+            ) { size in
+                Self.makeOptions(staffSize: size)
             }
+            document = fitted.document
+        } else {
+            document = LayoutEngine.layout(
+                score: laid,
+                options: Self.makeOptions(staffSize: 28),
+                availableWidth: width)
         }
-        document = doc
         // 换行/档位改变后 system 索引整体重算，强制下一次光标变化重新定位。
         lastScrolledSystem = -1
+    }
+
+    /// 「除最后一行外每行恰 perLine 小节」判定（二分目标；行数为空或某行为 0 视为不满足）。
+    static func breaksRespected(_ doc: LayoutDocument, perLine: Int) -> Bool {
+        let counts = doc.systems.map(\.measures.count)
+        guard !counts.isEmpty, counts.allSatisfy({ $0 > 0 }) else { return false }
+        for (i, c) in counts.enumerated() where i < counts.count - 1 {
+            if c != perLine { return false }
+        }
+        return true
     }
 
     /// 光标变化 → 找它所在的 system；仅当跨 system 时居中滚动。

@@ -62,6 +62,9 @@ struct PracticeRoomView: View {
     @State private var showNekoChat = false
     @State private var lastHandledEventID: UUID?
     @State private var showMarkSheet = false
+    /// 速度直接输入（用户 2026-10-13 反馈：−/＋ 步进改大改小太麻烦）：点速度数字弹输入。
+    @State private var showTempoInput = false
+    @State private var tempoInputText = ""
     /// 「识别中」翠绿呼吸点（真值 §6.2）：1.2s opacity 1↔0.35 往复。
     @State private var recognitionPulse = false
     /// S11b：「未连接」胶囊圆点脉冲（真值 §3）：2s opacity 0.9↔0.45、scale 1↔1.15 往复。
@@ -120,6 +123,16 @@ struct PracticeRoomView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .alert("设置速度（♩/分）", isPresented: $showTempoInput) {
+            TextField("40–\(session.tempoState.referenceBpm)", text: $tempoInputText)
+                .keyboardType(.numberPad)
+            Button("确定") {
+                if let v = Int(tempoInputText) { session.setTempo(v) }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("范围 40–\(session.tempoState.referenceBpm)，超界自动收进范围内")
+        }
         .fullScreenCover(isPresented: $showLoopSheet) {
             S12LoopSettingsSheet(
                 session: session,
@@ -953,12 +966,17 @@ struct PracticeRoomView: View {
                 .foregroundStyle(Color.textMuted)
             HStack(spacing: 3) {
                 tempoStepButton(symbol: "minus") { session.changeTempo(by: -1) }
-                Text("\(session.tempoState.bpm)")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Color.textPrimary)
-                    .monospacedDigit()
-                    .frame(minWidth: 13)
-                    .minimumScaleFactor(0.7)
+                // 点数字直接输入（用户反馈）；−/＋ 步进保留
+                Button {
+                    tempoInputText = "\(session.tempoState.bpm)"
+                    showTempoInput = true
+                } label: {
+                    Text("\(session.tempoState.bpm)")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.textPrimary)
+                        .monospacedDigit()
+                }
+                .buttonStyle(.plain)
                 tempoStepButton(symbol: "plus") { session.changeTempo(by: 1) }
             }
             Text("♩ 拍/分")
