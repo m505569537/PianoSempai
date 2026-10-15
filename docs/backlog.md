@@ -47,7 +47,7 @@
 
 | # | 需求 | 来源 | 状态 | 说明 / 阻塞 |
 |---|---|---|---|---|
-| L1 | 按状态筛选曲目（「已拿下 / 练习中 / 未开始」chips 的过滤行为） | S08 | blocked | CourseEngine.catalogStatus 只产出 练习中/未开始/未解锁，「已拿下」不可达；依赖过关判定。绿 pill 代码保留但不可达。 |
+| L1 | 按状态筛选曲目（「已拿下 / 练习中 / 未开始」chips 的过滤行为） | S08 | done | CatalogService 新增 catalogStatus(pieceStatus:...) 重载；LibraryView/PieceDetailView 优先读 Piece.status（passed/practicing/notStarted/locked），退回 number/current 推断。绿 pill「已拿下」可达。41e2677，2026-10-15 完成。 |
 | L2 | 教材 chip 切换的 120ms 淡入 | S08 | done | chip 取消筛选已实现，补 `withAnimation(.easeIn(0.12))`；搜索/segment 行为不动。744/0。 |
 | L3 | 「全部导入」段文件类型图标与导入时间列表 | S08 | done | 产品确认：维持现状，只保留「全部导入」入口。2026-10-12 确认。 |
 | L4 | 行 1「拜厄 第44条 / 第45条」命名口径 | S08 | done | 产品确认：以「第45条」为准。2026-10-12 确认。 |
