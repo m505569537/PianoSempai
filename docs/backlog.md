@@ -14,16 +14,16 @@
 | # | 需求 | 来源 | 状态 | 说明 / 阻塞 |
 |---|---|---|---|---|
 | P1 | 连续循环遍数机制（3/5 遍、8 小节格、「目标 5 遍全绿通关」面板） | S11 §5 | done | LoopConfig.targetLoopCount + completedLoopCount + auto-finish；S12 卡4「目标遍数」chip（不限/3/5）；练习室顶栏副行「X/Y 遍」+ 循环格 badge；面板纯展示不碰过关判定。+11 测试，755/0。 |
-| P2 | 已弹音符琥珀着色（逐音符命中态） | S11 §4.3 | blocked | 记谱引擎层不支持逐音符着色，且不能改 swift-sheet-music 包；需 App 层方案。 |
+|| P2 | 已弹音符琥珀着色（逐音符命中态） | S11 §4.3 | done | Stage A（App 层接线）+ Stage B（cursor-driven referenceNotes 过滤）双落地：PracticeScoreScrollView 内部维护 referenceNotes/playedNoteIDs；cursor 变化时过滤 referenceNotes 计算 playedNoteIDs；ScoreView 传入 selectionForPlayedNotes() + voiceColorsForPlayedNotes()（amber）。真实演奏时 cursor 基于 .beat(measureIndex, tickInMeasure)，近似标记已过音符；精确命中后续接 NoteAligner 实时结果。e59ba5a，2026-10-15 完成。 |
 | P3 | 分手能力（双手 / 右手 / 左手） | S11 §6.1 | blocked | App 无 hand 模式；设计坞里的「分手」格因此暂未放置。 |
-| P4 | 纸内谱头 / 页脚（No.45、速度术语、「双手协同」chip、左手提示、Op. 标记） | S11 §4.2/4.4 | open | 现由真实记谱引擎渲染，不画假谱头；待引擎元信息或 App 层叠加方案。 |
+| P4 | 纸内谱头 / 页脚（No.45、速度术语、「双手协同」chip、左手提示、Op. 标记、版权/来源） | S11 §4.2/4.4 | done | Layer 1（App 层叠加）已落地：header 显示编号/速度术语/双手 chip/Op. tag/左手提示；footer 显示页码+版权/来源 chip（copyrightNotice）+ 曲目引用。Piece 新增 opusTag/leftHandNote/copyrightNotice；CatalogEntry/ensurePiece 接通；BuiltinCatalog.json 已填入 Op.101/Op.1 + Public Domain。左手提示真实数据留待产品录入。双手协同真实判分等 P3。0ec8749 + 2c83174 + 20d6358 + 9e1eb21 + 0f448a8 + 9f7089c，2026-10-15。 |
 | P5 | 预备拍控件格（hourglass，档显 1 小节） | S11b §6.1 | done | count-in 逻辑已有（LoopConfig.countIn + MetronomeService.countInBars），本次补坞内第 2 格「预备拍」控件（ON 显琥珀高亮，OFF 置灰）。0fca3d4，2026-10-12 完成。 |
 | P8 | S11b 断点坐标细节（「21▾」下拉、「断点已缓存」字样） | S11b §5 | done | 产品确认：维持现状，只显遮罩文案，不做坐标下拉/缓存字样。2026-10-12 确认。 |
 | P12 | S12 错误热点数据源（解锁「错误热点」chip + 小节条热点标记） | S12 §5.2/5.3 | done | 数据源已接：`TakeAnalysis.hotspotMeasures` 单条最新分析不跨 take 聚合；详情页「只练错误热点」chip + C5「针对问题小节发起专项循环」CTA 启用，进房锁定循环区间（同 G3 矫正进房 `CorrectionEngine.initialLoopRange`）。+4 测试，759/0。 |
 | P13 | S12 sheet 传入曲目名（卡1 右注「曲目：xx」） | S12 §5 | done | sheet 加 pieceTitle，右注「曲目：xx · 共 N 小节」，抽出可测 rightCaption；空曲名只显小节，占位「练习」映射回空串。+2 测试，744/0。 |
 | P14 | S12 全屏 sheet vs 底部抽屉形态裁定 | S12 §1 | done | 产品确认：改为 390×844 整屏 sheet（与真值对齐）。2026-10-12 确认。 |
 | P11 | 速度长按连改、速度自适应 toast、时间到自动保存底部条 | S11 §8 | done | 产品确认：维持现状，等真值画出后再做。2026-10-12 确认。 |
-| P15 | 练习室 MetronomeService 直接触发 SineBeep（把 Timer 每拍改走 `SineBeepAudioUnit.triggerNote`，与示范 click 统一到同一合成实现） | 2026-10-09 Stage B | blocked | 当前节拍器仍用原有 `MetronomeService.sineBuffer`（功能正常）；SineBeep 的 sequencer 路径已用于示范 click，直接触发路径 `triggerNote` 暂无调用方。阻塞点：①SineBeep 只能 `await Factory.make()` 异步创建，而 MetronomeService 是同步服务、被 3 处同步 `start()`，需改 async 或就绪前 sineBuffer 兜底；②音色/无声只能真机听，开发证书 9/27 过期现无法真机验证。2026-10-09 决策：挂起，等回家重签证书后与真机 V70 端到端一起做。 |
+| P15 | 练习室 MetronomeService 直接触发 SineBeep（把 Timer 每拍改走 `SineBeepAudioUnit.triggerNote`，与示范 click 统一到同一合成实现） | 2026-10-09 Stage B | done | MetronomeService 走 SineBeepAudioUnit.triggerNote + async preload + sineBuffer fallback；TakeAnalysisService 新增 formatTakeTime；S13bMarkSheet 显式 init 暴露 takeTime；PracticeRoomView/TakeReportView 接线。P15 commit + M4 commit 双绿，766/0。2026-10-15 完成。 |
 
 已完成（从原 backlog 移除）：暂停语义 pause/继续、识别中状态指示、纸张卡视觉（纸色/圆角/边框/阴影）；S11b 红色重连横幅、谱卡遮罩、诊断卡（接 MidiDiagnosticsView）、坞禁用态、断点 m.xx 文案（P6/P7/P9/P10）。
 
@@ -52,7 +52,7 @@
 | L3 | 「全部导入」段文件类型图标与导入时间列表 | S08 | done | 产品确认：维持现状，只保留「全部导入」入口。2026-10-12 确认。 |
 | L4 | 行 1「拜厄 第44条 / 第45条」命名口径 | S08 | done | 产品确认：以「第45条」为准。2026-10-12 确认。 |
 | L5 | 技术目标元数据（音阶跑动/右手转指/均匀力度 chips） | S09 §3.5 | blocked | Piece/CatalogEntry 无该字段，不编造 chips；需曲目技术标签建模。 |
-| L6 | OP 编号标签（「OP.101」） | S09 §3.5 | blocked | 模型无 opus/opusTag 字段；需曲目元数据。 |
+| L6 | OP 编号标签（「OP.101」） | S09 §3.5 | done | Piece/CatalogEntry 已加 opusTag；P4 纸内谱头已渲染 Op. 标记。0ec8749 + 2c83174 + 0f448a8 + 9f7089c，2026-10-15。 |
 | L7 | 八格已练小节 / 热点小节进度网格 | S09 §3.6 | done | 由 `PracticeHeatCell.swift` 统一实现（详情页 8 格 + 报告页热点双条）；`PieceDetailView.practiceProgressCard` + `TakeReportView.heatDeltaSection` 接入 `TakeAnalysis.measureHeatJSON` / `alignmentJSON`；热点行取 `latestHotspotMeasures`；+5 测试，764/0 全绿。2026-10-12 完成。 |
 | L8 | S09 曲目详情 → Take 报告的跳转 | S09 §4 | done | take 行改 Button + chevron，sheet(item:) 开 TakeReportView，与 Archive/Notes/报告内全 app 统一（非 NavigationLink）；仍单 sheet 路由。744/0。 |
 
@@ -67,7 +67,7 @@
 | # | 需求 | 来源 | 状态 | 说明 / 阻塞 |
 |---|---|---|---|---|
 | M1 | 纸质谱面谱条真实渲染（替换示意/占位） | S13b | blocked | 无来源不画假谱条；接真实谱渲染能力。当前为红虚线圈诚实占位。 |
-| M4 | 副标 take 时间数据 | S13b | blocked | S13bMarkSheet 已支持可选 takeTime，但现有调用点（练习室/报告页）都未传；接真实 take 时间后显示，禁止写死。 |
+| M4 | 副标 take 时间数据 | S13b | done | TakeAnalysisService.formatTakeTime + takeTimeFormatter；PracticeRoomView/TakeReportView 均传真实 take.startedAt；S13bMarkSheet 加显式 init 暴露 takeTime；无 endedAt 时诚实返回 HH:mm，有时长追加 (N min)。+0 测试（视图层），766/0 全绿。2026-10-15 完成。 |
 | M8 | 提交成功态 / 提交后规则 | S13b | done | 产品确认：维持现状，提交后关闭抽屉。2026-10-12 确认。 |
 | M9 | includeWithNeko 纳入导出 DTO | S13b | done | ErrorMarkDTO 加 includeWithNeko，collect/restore 全链路补齐；自定义 init(from:) decodeIfPresent ?? false，旧包向后兼容不升 formatVersion。+3 测试含 round-trip，744/0。 |
 
