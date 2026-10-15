@@ -4,12 +4,25 @@ import Foundation
 // 节拍器（M1 Q3=A：iPhone 本机出声，节拍音不进 take 数据）。
 // AVAudioEngine + 播放节点，PCM 正弦短音：重音 1500Hz / 常拍 1000Hz，30ms。
 // 预备拍 1 小节（S12 countIn 默认开）。
+//
+// P15：节拍音优先走 SineBeepAudioUnit.triggerNote——与示范 click 同一合成实现
+// （常拍 1000Hz/30ms、重拍 1500Hz/35ms、线性衰减包络）。单元创建是异步的
+// （AVAudioUnit.instantiate 无同步 API），init 即开始预热；start 时已就绪则接进
+// 音频图走 triggerNote，未就绪/失败则回退原 PCM sineBuffer 路径（功能不变，不丢拍）。
+// 不做全局共享 preload：AVAudioNode 一生只能挂在一个引擎上，练习室/自由弹奏各有
+// MetronomeService（各一个引擎），共享单元必有一方回退 PCM；每实例一个单元与
+// SamplerSynthBackend（DemoPlayback click）的做法一致。
 
 final class MetronomeService {
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
     private var normalBuffer: AVAudioPCMBuffer?
     private var accentBuffer: AVAudioPCMBuffer?
+    /// P15：预热的 SineBeep 单元（nil = 未就绪/创建失败 → PCM 回退）。
+    /// 异步 make() 完成前 start 已跑起来时，本轮走 PCM，下次 start 换轨。
+    private var beepUnit: AVAudioUnit?
+    /// SineBeep 是否已连进本引擎的音频图（每次 start 幂等重连，同 playerConnected 语义）
+    private var beepConnected = false
     private var beatTimer: Timer?
     private(set) var bpm: Int = 72
     private(set) var isRunning = false
@@ -29,6 +42,12 @@ final class MetronomeService {
         observeInterruptions()
         observeRouteChanges()
         // format 在 start 时按 engine 输出连接
+        // P15：构造（= 进房）即异步预热 SineBeep 单元。绝不同步等待（start 是同步 API，
+        // 主线程 await 会卡 UI）；失败静默——PCM 回退路径本就完备，不丢拍。
+        Task { [weak self] in
+            guard let unit = try? await SineBeepAudioUnitFactory.make() else { return }
+            self?.beepUnit = unit
+        }
     }
 
     deinit {
@@ -106,6 +125,19 @@ final class MetronomeService {
         playerConnected = true
     }
 
+    /// P15：把预热的 SineBeep 单元接进音频图（每次 start 幂等重连）。
+    /// format: nil → 引擎按单元自身 outputBus 格式（44.1k 立体声）连接，mainMixer 负责采样率
+    /// 转换——与 SamplerSynthBackend 挂 click 单元的接法一致。单元未就绪时安全跳过（走 PCM）。
+    private func connectBeepUnit() {
+        guard let beepUnit, beepUnit.engine == nil || beepUnit.engine === engine else { return }
+        if beepUnit.engine == nil {
+            engine.attach(beepUnit)
+        }
+        engine.disconnectNodeOutput(beepUnit) // 重连前摘掉旧连接，避免重复连接
+        engine.connect(beepUnit, to: engine.mainMixerNode, format: nil)
+        beepConnected = true
+    }
+
     private func ensureBuffers() {
         guard normalBuffer == nil else { return }
         let format = engine.outputNode.outputFormat(forBus: 0)
@@ -135,6 +167,7 @@ final class MetronomeService {
         // "player started when in a disconnected state"——真机同样会炸）
         connectPlayer()
         ensureBuffers()
+        connectBeepUnit() // P15：SineBeep 就绪则接图；未就绪静默跳过（下方 PCM 回退）
         self.bpm = bpm
         beatIndex = 0
         countInBeatsRemaining = countInBars * 4
@@ -172,7 +205,18 @@ final class MetronomeService {
         if !player.isPlaying { player.play() }
         let interval = 60.0 / Double(max(30, bpm))
         let wasCountIn = countInBeatsRemaining > 0
-        play(beatIndex % 4 == 0 && !wasCountIn ? accentBuffer : normalBuffer)
+        let isAccent = beatIndex % 4 == 0 && !wasCountIn
+        if beepConnected, let beepUnit {
+            // P15：节拍音与示范 click 同一合成路径。note/力度对齐 click 约定
+            // （SineBeepAudioUnit.spec）：重拍 76/100、常拍 77/80，
+            // 振幅 = 0.5 × 线性衰减包络 × min(1, vel/100)。
+            // NSLog 为 P15 验收打点（确认节拍真走 triggerNote），真机音色 parity 验证后可删。
+            NSLog("[Metronome] SineBeep triggerNote accent=\(isAccent)")
+            beepUnit.triggerNote(isAccent ? 76 : 77, velocity: isAccent ? 100 : 80)
+        } else {
+            // PCM 回退：preload 未完成/失败——音色旧一点，节拍一拍不丢
+            play(isAccent ? accentBuffer : normalBuffer)
+        }
         onBeat?()
         if wasCountIn {
             countInBeatsRemaining -= 1
