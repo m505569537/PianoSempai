@@ -690,13 +690,14 @@ struct PracticeRoomView: View {
                     score: loadedScore,
                     measuresPerLine: measuresPerLine,
                     cursor: cursor,
-                    // P4 纸内谱头元数据
+                    // P4 纸内谱头/页脚元数据
                     pieceTitle: piece?.title ?? pieceTitle,
                     pieceBook: piece?.book ?? "",
                     pieceNumber: piece?.number ?? 0,
                     referenceTempo: piece?.referenceTempo ?? 0,
                     opusTag: piece?.opusTag,
-                    leftHandNote: piece?.leftHandNote
+                    leftHandNote: piece?.leftHandNote,
+                    copyrightNotice: piece?.copyrightNotice
                 )
                 // 弹性高度：谱区填满底部控件以上的全部可用空间（问题5），
                 // 不再写死屏高 0.42；外层 VStack 的 Spacer 让位给这里。

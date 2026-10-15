@@ -28,13 +28,14 @@ struct PracticeScoreScrollView: View {
     let score: Score
     let measuresPerLine: Int
     let cursor: ScoreCursor?
-    /// P4 纸内谱头元数据
+    /// P4 纸内谱头/页脚元数据
     let pieceTitle: String
     let pieceBook: String
     let pieceNumber: Int
     let referenceTempo: Int
     let opusTag: String?
     let leftHandNote: String?
+    let copyrightNotice: String?
 
     /// 转换后（已重排换行）的谱，供 ScoreView 与光标定位共用。
     @State private var displayScore: Score?
@@ -211,6 +212,15 @@ struct PracticeScoreScrollView: View {
                     .font(.system(size: 10, weight: .medium, design: .serif))
                     .foregroundStyle(Color.textMuted)
                 Spacer()
+                if let notice = copyrightNotice, !notice.isEmpty {
+                    Text(notice)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.textMuted)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color.card, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Color.border, lineWidth: 1))
+                }
                 Text("共 \(totalPages) 页")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Color.textMuted)
