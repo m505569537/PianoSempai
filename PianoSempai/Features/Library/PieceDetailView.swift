@@ -95,17 +95,18 @@ struct PieceDetailView: View {
     }
 
     private var statusText: String {
+        if let piece {
+            switch piece.status {
+            case "practicing": return "练习中"
+            case "passed": return "已拿下"
+            default: return "未开始"
+            }
+        }
         if let entry {
             let state = CourseEngine.catalogStatus(book: entry.book, number: entry.number, pathState: CoursePathState())
             return state == .practicing ? "练习中" : state == .locked ? "未开始" : "未开始"
         }
-        return piece.map { p in
-            switch p.status {
-            case "practicing": "练习中"
-            case "passed": "已拿下"
-            default: "未开始"
-            }
-        } ?? ""
+        return ""
     }
 
     private var scoreName: String {
@@ -114,6 +115,7 @@ struct PieceDetailView: View {
 
     /// 锁定条目：详情可看（S07b 契约），练习 CTA 禁用并引导
     private var isLocked: Bool {
+        if let piece { return piece.status == "locked" }
         guard let entry else { return false }
         return CourseEngine.catalogStatus(book: entry.book, number: entry.number, pathState: CoursePathState()) == .locked
     }

@@ -295,12 +295,14 @@ struct LibraryView: View {
         var layout = CatalogLayout()
         var n = 0
         let path = pathState ?? CoursePathState()
+        // L1「已拿下」筛选：优先读 Piece 实际状态，而非 number/current 推断。
+        let pieceStatusMap = Dictionary(uniqueKeysWithValues: allPieces.map { ("\($0.book)-\($0.number)", $0.status) })
         for entry in catalog {
             guard !entry.isSample else { continue }
             n += 1
             layout.order[entry.id] = n
             if layout.focusId == nil,
-               CourseEngine.catalogStatus(book: entry.book, number: entry.number, pathState: path) == .practicing {
+               CourseEngine.catalogStatus(book: entry.book, number: entry.number, pathState: path, pieceStatus: pieceStatusMap[entry.id]) == .practicing {
                 layout.focusId = entry.id
             }
         }
@@ -348,9 +350,11 @@ struct LibraryView: View {
     ///   - isFocus: 是否当前主练条目（同一时刻仅一条，享竖条/发光/脉动点/旋转）
     private func catalogRow(_ entry: CatalogEntry, index: Int, isFocus: Bool) -> some View {
         let path = pathState ?? CoursePathState()
+        // L1「已拿下」筛选：优先读 Piece 实际状态，而非 number/current 推断。
+        let pieceStatusMap = Dictionary(uniqueKeysWithValues: allPieces.map { ("\($0.book)-\($0.number)", $0.status) })
         let status = CourseEngine.catalogStatus(
             book: entry.book, number: entry.number,
-            pathState: path
+            pathState: path, pieceStatus: pieceStatusMap[entry.id]
         )
         let projected = CourseEngine.projected599WeeksLabel(pathState: path)
         // 谱可用性四态（M5a 纯决策；M5b 诚实呈现）：内置教材条目有公版谱时可判分，无谱时不冒充样例谱

@@ -94,6 +94,21 @@ extension CourseEngine {
         }
     }
 
+    /// 带 Piece 实际状态重载（L1「已拿下」筛选）：优先读 piece.status，否则退回 number/current 推断。
+    static func catalogStatus(book: String, number: Int, pathState: CoursePathState, pieceStatus: String?) -> PieceStatus {
+        if let pieceStatus {
+            switch pieceStatus {
+            case "passed": return .passed
+            case "practicing": return .practicing
+            case "notStarted": return .notStarted
+            case "locked": return .locked
+            case "waived": return .notStarted // 定级跳过归入 notStarted（绿 pill 不可达）
+            default: break
+            }
+        }
+        return catalogStatus(book: book, number: number, pathState: pathState)
+    }
+
     private static func statusAgainstCurrent(_ number: Int, current: Int) -> PieceStatus {
         if number == current { return .practicing }
         return number < current ? .notStarted : .locked
