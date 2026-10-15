@@ -15,7 +15,7 @@
 |---|---|---|---|---|
 | P1 | 连续循环遍数机制（3/5 遍、8 小节格、「目标 5 遍全绿通关」面板） | S11 §5 | done | LoopConfig.targetLoopCount + completedLoopCount + auto-finish；S12 卡4「目标遍数」chip（不限/3/5）；练习室顶栏副行「X/Y 遍」+ 循环格 badge；面板纯展示不碰过关判定。+11 测试，755/0。 |
 || P2 | 已弹音符琥珀着色（逐音符命中态） | S11 §4.3 | done | Stage A（App 层接线）+ Stage B（cursor-driven referenceNotes 过滤）双落地：PracticeScoreScrollView 内部维护 referenceNotes/playedNoteIDs；cursor 变化时过滤 referenceNotes 计算 playedNoteIDs；ScoreView 传入 selectionForPlayedNotes() + voiceColorsForPlayedNotes()（amber）。真实演奏时 cursor 基于 .beat(measureIndex, tickInMeasure)，近似标记已过音符；精确命中后续接 NoteAligner 实时结果。e59ba5a，2026-10-15 完成。 |
-| P3 | 分手能力（双手 / 右手 / 左手） | S11 §6.1 | blocked | App 无 hand 模式；设计坞里的「分手」格因此暂未放置。 |
+| P3 | 分手能力（双手 / 右手 / 左手） | S11 §6.1 | done | 练习室顶栏新增 hand mode chip group（双手 / 右手 / 左手）；PracticeScoreScrollView 接收 HandMode 并按 voice→hand 映射着色：非激活 hand 整组变灰（gray/30%），激活 hand 内已弹音符琥珀（P2 复用）。HandMode 枚举落地 ScoringModels.swift；设计坞「分手」格可接入。75a1a3b，2026-10-15 完成。 |
 | P4 | 纸内谱头 / 页脚（No.45、速度术语、「双手协同」chip、左手提示、Op. 标记、版权/来源） | S11 §4.2/4.4 | done | Layer 1（App 层叠加）已落地：header 显示编号/速度术语/双手 chip/Op. tag/左手提示；footer 显示页码+版权/来源 chip（copyrightNotice）+ 曲目引用。Piece 新增 opusTag/leftHandNote/copyrightNotice；CatalogEntry/ensurePiece 接通；BuiltinCatalog.json 已填入 Op.101/Op.1 + Public Domain。左手提示真实数据留待产品录入。双手协同真实判分等 P3。0ec8749 + 2c83174 + 20d6358 + 9e1eb21 + 0f448a8 + 9f7089c，2026-10-15。 |
 | P5 | 预备拍控件格（hourglass，档显 1 小节） | S11b §6.1 | done | count-in 逻辑已有（LoopConfig.countIn + MetronomeService.countInBars），本次补坞内第 2 格「预备拍」控件（ON 显琥珀高亮，OFF 置灰）。0fca3d4，2026-10-12 完成。 |
 | P8 | S11b 断点坐标细节（「21▾」下拉、「断点已缓存」字样） | S11b §5 | done | 产品确认：维持现状，只显遮罩文案，不做坐标下拉/缓存字样。2026-10-12 确认。 |
