@@ -17,6 +17,8 @@ enum Hand: String, Codable, Equatable, Sendable {
 struct ReferenceNote: Equatable, Identifiable, Sendable {
     /// 提取顺序稳定 id（最终排序后顺序赋值）
     let id: Int
+    /// 命中音符在谱面中的唯一标识（P2 逐音符着色用；nil = 无法定位）
+    var noteID: NoteID?
     /// MIDI 0...127
     let pitch: UInt8
     /// 相对评分区间起点的拍数（累计，含跨小节；区间起点归零/rebased）
@@ -29,6 +31,28 @@ struct ReferenceNote: Equatable, Identifiable, Sendable {
     let hand: Hand
     /// 倚音/装饰音：true 时不进判分分母（§6）
     let isGrace: Bool
+
+    init(
+        id: Int,
+        noteID: NoteID? = nil,
+        pitch: UInt8,
+        onsetBeat: Double,
+        durationBeats: Double,
+        measureIndex: Int,
+        beatInMeasure: Double,
+        hand: Hand,
+        isGrace: Bool
+    ) {
+        self.id = id
+        self.noteID = noteID
+        self.pitch = pitch
+        self.onsetBeat = onsetBeat
+        self.durationBeats = durationBeats
+        self.measureIndex = measureIndex
+        self.beatInMeasure = beatInMeasure
+        self.hand = hand
+        self.isGrace = isGrace
+    }
 }
 
 /// 演奏音符（从 MIDI jsonl 解析，踏板修正后）
@@ -54,6 +78,8 @@ struct AlignedNote: Codable, Equatable, Sendable {
     let refBeatInMeasure: Double?
     let refPitch: UInt8?
     let playedPitch: UInt8?
+    /// 命中音符在谱面中的唯一标识（P2 逐音符着色用；nil = 无法定位）
+    let noteID: NoteID?
     /// 实测 onset 相对节奏图预测 onset，正=拖拍/负=抢拍
     let deltaMs: Double?
     let cls: NoteMatchClass
@@ -61,6 +87,64 @@ struct AlignedNote: Codable, Equatable, Sendable {
     /// 真实演奏 onset（秒；M4 gate 返修 2：速度/连续性维直接消费，不走节奏图反推）。
     /// correct/wrongPitch/extra 有值；missing = nil。默认 nil 便于测试构造。
     var playedOnsetSec: Double? = nil
+
+    enum CodingKeys: String, CodingKey {
+        case refID, refMeasureIndex, refBeatInMeasure, refPitch, playedPitch
+        case noteID, deltaMs, cls, hand, playedOnsetSec
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        refID = try c.decodeIfPresent(Int.self, forKey: .refID)
+        refMeasureIndex = try c.decodeIfPresent(Int.self, forKey: .refMeasureIndex)
+        refBeatInMeasure = try c.decodeIfPresent(Double.self, forKey: .refBeatInMeasure)
+        refPitch = try c.decodeIfPresent(UInt8.self, forKey: .refPitch)
+        playedPitch = try c.decodeIfPresent(UInt8.self, forKey: .playedPitch)
+        deltaMs = try c.decodeIfPresent(Double.self, forKey: .deltaMs)
+        cls = try c.decode(NoteMatchClass.self, forKey: .cls)
+        hand = try c.decode(Hand.self, forKey: .hand)
+        playedOnsetSec = try c.decodeIfPresent(Double.self, forKey: .playedOnsetSec)
+        // NoteID 不可直接 Codable；序列化时降级为 nil，避免破坏持久化格式
+        noteID = nil
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(refID, forKey: .refID)
+        try c.encodeIfPresent(refMeasureIndex, forKey: .refMeasureIndex)
+        try c.encodeIfPresent(refBeatInMeasure, forKey: .refBeatInMeasure)
+        try c.encodeIfPresent(refPitch, forKey: .refPitch)
+        try c.encodeIfPresent(playedPitch, forKey: .playedPitch)
+        try c.encodeIfPresent(deltaMs, forKey: .deltaMs)
+        try c.encode(cls, forKey: .cls)
+        try c.encode(hand, forKey: .hand)
+        try c.encodeIfPresent(playedOnsetSec, forKey: .playedOnsetSec)
+        // noteID 不参与编解码（NoteID 不可 Codable）
+    }
+
+    init(
+        refID: Int? = nil,
+        refMeasureIndex: Int? = nil,
+        refBeatInMeasure: Double? = nil,
+        refPitch: UInt8? = nil,
+        playedPitch: UInt8? = nil,
+        noteID: NoteID? = nil,
+        deltaMs: Double? = nil,
+        cls: NoteMatchClass,
+        hand: Hand,
+        playedOnsetSec: Double? = nil
+    ) {
+        self.refID = refID
+        self.refMeasureIndex = refMeasureIndex
+        self.refBeatInMeasure = refBeatInMeasure
+        self.refPitch = refPitch
+        self.playedPitch = playedPitch
+        self.noteID = noteID
+        self.deltaMs = deltaMs
+        self.cls = cls
+        self.hand = hand
+        self.playedOnsetSec = playedOnsetSec
+    }
 }
 
 /// tempoMap 摘要（M3 NoteAligner 产出；M2 仅定义结构）

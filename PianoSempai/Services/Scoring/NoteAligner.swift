@@ -265,6 +265,7 @@ enum NoteAligner {
                     refBeatInMeasure: ref.beatInMeasure,
                     refPitch: ref.pitch,
                     playedPitch: p.pitch,
+                    noteID: ref.noteID,
                     deltaMs: (p.onsetSec - predicted) * 1000,
                     cls: p.pitch == ref.pitch ? .correct : .wrongPitch,
                     hand: ref.hand,
@@ -387,6 +388,7 @@ enum NoteAligner {
                     refBeatInMeasure: ref.beatInMeasure,
                     refPitch: ref.pitch,
                     playedPitch: p.pitch,
+                    noteID: ref.noteID,
                     deltaMs: (p.onsetSec - predicted) * 1000,
                     cls: p.pitch == ref.pitch ? .correct : .wrongPitch,
                     hand: ref.hand,
@@ -583,7 +585,7 @@ enum NoteAligner {
                 aligned.append(AlignedNote(
                     refID: nil,
                     refMeasureIndex: nil, refBeatInMeasure: nil, refPitch: nil,
-                    playedPitch: p.pitch, deltaMs: nil, cls: .extra, hand: .unknown,
+                    playedPitch: p.pitch, noteID: nil, deltaMs: nil, cls: .extra, hand: .unknown,
                     playedOnsetSec: p.onsetSec
                 ))
             }
@@ -658,7 +660,7 @@ enum NoteAligner {
                 aligned.append(AlignedNote(
                     refID: nil,
                     refMeasureIndex: nil, refBeatInMeasure: nil, refPitch: nil,
-                    playedPitch: p.pitch, deltaMs: nil, cls: .extra, hand: .unknown,
+                    playedPitch: p.pitch, noteID: nil, deltaMs: nil, cls: .extra, hand: .unknown,
                     playedOnsetSec: p.onsetSec
                 ))
                 j -= 1
@@ -678,7 +680,7 @@ enum NoteAligner {
         AlignedNote(
             refID: ref.id,
             refMeasureIndex: ref.measureIndex, refBeatInMeasure: ref.beatInMeasure,
-            refPitch: ref.pitch, playedPitch: nil, deltaMs: nil, cls: .missing, hand: ref.hand,
+            refPitch: ref.pitch, playedPitch: nil, noteID: ref.noteID, deltaMs: nil, cls: .missing, hand: ref.hand,
             playedOnsetSec: nil
         )
     }
@@ -700,6 +702,7 @@ enum NoteAligner {
                     refBeatInMeasure: grace.beatInMeasure,
                     refPitch: grace.pitch,
                     playedPitch: playedPitch,
+                    noteID: grace.noteID,
                     deltaMs: note.deltaMs,
                     cls: .correct,
                     hand: grace.hand,

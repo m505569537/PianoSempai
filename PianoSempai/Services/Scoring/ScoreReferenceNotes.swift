@@ -67,9 +67,9 @@ enum ScoreReferenceNotes {
                     : Fraction(numerator: 4, denominator: 4)
                 let measureDurationTicks = measureDuration.ticks(division: div)
 
-                for voice in staff.measures[m].voices {
+                for (voiceIndex, voice) in staff.measures[m].voices.enumerated() {
                     var tickInMeasure = 0
-                    for element in voice.elements {
+                    for (elementIndex, element) in voice.elements.enumerated() {
                         switch element {
                         case let .chord(chord):
                             let resolved = chord.duration.resolved(in: measureDuration)
@@ -91,9 +91,16 @@ enum ScoreReferenceNotes {
                                         ))
                                     }
                                 }
-                                for note in chord.notes {
+                                for (noteIndexInChord, note) in chord.notes.enumerated() {
                                     result.append(ReferenceNote(
                                         id: 0,
+                                        noteID: NoteID(
+                                            staff: StaffAddress(partIndex: 0, staffIndexInPart: staffIdx),
+                                            measureIndex: m,
+                                            voiceIndex: voiceIndex,
+                                            elementIndex: elementIndex,
+                                            noteIndexInChord: noteIndexInChord
+                                        ),
                                         pitch: UInt8(max(0, min(127, note.pitch))),
                                         onsetBeat: onsetBeat,
                                         durationBeats: durationBeats,
@@ -137,7 +144,7 @@ enum ScoreReferenceNotes {
         }
         let withIDs = sorted.enumerated().map { idx, note in
             ReferenceNote(
-                id: idx, pitch: note.pitch, onsetBeat: note.onsetBeat,
+                id: idx, noteID: note.noteID, pitch: note.pitch, onsetBeat: note.onsetBeat,
                 durationBeats: note.durationBeats, measureIndex: note.measureIndex,
                 beatInMeasure: note.beatInMeasure, hand: note.hand, isGrace: note.isGrace
             )

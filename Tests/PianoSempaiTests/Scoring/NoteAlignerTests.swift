@@ -54,7 +54,7 @@ final class NoteAlignerTests: XCTestCase {
         let refs = try decode([FixtureRef].self, url: fixtureURL(caseDir: caseDir, file: "reference"))
             .map { r in
                 ReferenceNote(
-                    id: r.id, pitch: UInt8(max(0, min(127, r.pitch))),
+                    id: r.id, noteID: nil, pitch: UInt8(max(0, min(127, r.pitch))),
                     onsetBeat: r.onsetBeat, durationBeats: r.durationBeats,
                     measureIndex: r.measureIndex, beatInMeasure: r.beatInMeasure,
                     hand: Hand(rawValue: r.hand) ?? .unknown, isGrace: r.isGrace
@@ -108,7 +108,7 @@ final class NoteAlignerTests: XCTestCase {
         var refs: [ReferenceNote] = []
         for beat in 0..<12 {
             refs.append(ReferenceNote(
-                id: beat, pitch: UInt8(60 + beat % 5), onsetBeat: Double(beat),
+                id: beat, noteID: nil, pitch: UInt8(60 + beat % 5), onsetBeat: Double(beat),
                 durationBeats: 1, measureIndex: beat / 4, beatInMeasure: Double(beat % 4),
                 hand: .right, isGrace: false
             ))
@@ -153,9 +153,9 @@ final class NoteAlignerTests: XCTestCase {
 
     func testChordNotesPairWithoutForcingOrder() {
         let refs = [
-            ReferenceNote(id: 0, pitch: 60, onsetBeat: 0, durationBeats: 1, measureIndex: 0, beatInMeasure: 0, hand: .right, isGrace: false),
-            ReferenceNote(id: 1, pitch: 64, onsetBeat: 0, durationBeats: 1, measureIndex: 0, beatInMeasure: 0, hand: .right, isGrace: false),
-            ReferenceNote(id: 2, pitch: 67, onsetBeat: 1, durationBeats: 1, measureIndex: 0, beatInMeasure: 1, hand: .right, isGrace: false),
+            ReferenceNote(id: 0, noteID: nil, pitch: 60, onsetBeat: 0, durationBeats: 1, measureIndex: 0, beatInMeasure: 0, hand: .right, isGrace: false),
+            ReferenceNote(id: 1, noteID: nil, pitch: 64, onsetBeat: 0, durationBeats: 1, measureIndex: 0, beatInMeasure: 0, hand: .right, isGrace: false),
+            ReferenceNote(id: 2, noteID: nil, pitch: 67, onsetBeat: 1, durationBeats: 1, measureIndex: 0, beatInMeasure: 1, hand: .right, isGrace: false),
         ]
         // 演奏顺序与参考序相反（同刻和弦内不强制顺序，按 pitch 最近配对）
         let played = [

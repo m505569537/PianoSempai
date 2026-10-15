@@ -11,7 +11,7 @@ final class ScoringOrchestratorTests: XCTestCase {
 
     private func makeRefs(count: Int = 8) -> [ReferenceNote] {
         (0..<count).map { beat in
-            ReferenceNote(id: beat, pitch: UInt8(60 + beat), onsetBeat: Double(beat),
+            ReferenceNote(id: beat, noteID: nil, pitch: UInt8(60 + beat), onsetBeat: Double(beat),
                           durationBeats: 1, measureIndex: beat / 4, beatInMeasure: Double(beat % 4),
                           hand: .right, isGrace: false)
         }
@@ -219,7 +219,7 @@ final class ScoringOrchestratorTests: XCTestCase {
 
     func testTwoStaffReferencesYieldHandsScore() {
         let refs: [ReferenceNote] = (0..<8).map { beat in
-            ReferenceNote(id: beat, pitch: UInt8(60 + beat), onsetBeat: Double(beat),
+            ReferenceNote(id: beat, noteID: nil, pitch: UInt8(60 + beat), onsetBeat: Double(beat),
                           durationBeats: 1, measureIndex: beat / 4, beatInMeasure: Double(beat % 4),
                           hand: beat < 4 ? .right : .left, isGrace: false)
         }
