@@ -360,4 +360,26 @@ enum TakeReportPresentation {
         return raw.map { MeasureHeat(measure: $0.key + 1, heat: $0.value) }
             .sorted { $0.measure < $1.measure }
     }
+
+    // MARK: - Take time formatting
+
+    static let takeTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        f.locale = Locale(identifier: "zh_CN")
+        return f
+    }()
+
+    /// 把 Take 的开始/结束时间格式化成 `HH:mm` 或 `HH:mm (N min)`。
+    /// 没有 startedAt 返回 nil；没有 endedAt 只返回起始时间。
+    static func formatTakeTime(_ take: Take) -> String? {
+        let startedAt = take.startedAt
+        let start = takeTimeFormatter.string(from: startedAt)
+        guard let endedAt = take.endedAt,
+              let duration = Calendar.current.dateComponents([.minute], from: startedAt, to: endedAt).minute,
+              duration > 0 else {
+            return start
+        }
+        return "\(start) (\(duration) min)"
+    }
 }

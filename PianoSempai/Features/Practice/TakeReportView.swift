@@ -281,10 +281,12 @@ struct TakeReportView: View {
         .sheet(isPresented: $showMarkSheet) {
             S13bMarkSheet(
                 scoreName: title,
-                measure: markSheetMeasure
-            ) { type, note, _ in
-                submitMark(type: type, note: note)
-            }
+                measure: markSheetMeasure,
+                takeTime: TakeReportPresentation.formatTakeTime(take),
+                onSubmit: { type, note, _ in
+                    submitMark(type: type, note: note)
+                }
+            )
         }
         .fullScreenCover(isPresented: $showPractice) {
             // 再练一遍：沿用同曲目/同一份谱 + 示例曲标记（不退回拿样例谱冒充）

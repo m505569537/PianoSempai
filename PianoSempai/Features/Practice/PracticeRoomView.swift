@@ -156,7 +156,8 @@ struct PracticeRoomView: View {
         .sheet(isPresented: $showMarkSheet) {
             S13bMarkSheet(
                 scoreName: displayTitle,
-                measure: session.followState.measureIndex + 1
+                measure: session.followState.measureIndex + 1,
+                takeTime: session.startedAt.map { TakeReportPresentation.takeTimeFormatter.string(from: $0) }
             ) { type, note, includeWithNeko in
                 context.insert(ScoreErrorMark(
                     scoreName: displayTitle,

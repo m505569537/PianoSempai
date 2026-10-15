@@ -11,10 +11,17 @@ struct S13bMarkSheet: View {
     let scoreName: String
     let measure: Int
     /// 真实 take 时间文案（如「今天 20:31 的 take」）。没有真实值就不渲染，不编造时间。
-    let takeTime: String? = nil
+    let takeTime: String?
     /// 提交回调（视图层负责落库）；第三参 = 「同时在下次问 Neko 时带上这个标记」的勾选态
     let onSubmit: (_ type: String, _ note: String, _ includeWithNeko: Bool) -> Void
     @Environment(\.dismiss) private var dismiss
+
+    init(scoreName: String, measure: Int, takeTime: String? = nil, onSubmit: @escaping (_ type: String, _ note: String, _ includeWithNeko: Bool) -> Void) {
+        self.scoreName = scoreName
+        self.measure = measure
+        self.takeTime = takeTime
+        self.onSubmit = onSubmit
+    }
 
     enum MarkType: String, CaseIterable {
         case note = "note"
