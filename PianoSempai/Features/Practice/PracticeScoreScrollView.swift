@@ -36,13 +36,12 @@ struct PracticeScoreScrollView: View {
     let opusTag: String?
     let leftHandNote: String?
     let copyrightNotice: String?
-    /// P2 已弹音符命中着色（S11 §4.3）：selection 高亮命中音符，voiceColors 决定高亮色
-    let selection: ScoreSelection
-    let voiceColors: [Int: Color]
 
     /// 转换后（已重排换行）的谱，供 ScoreView 与光标定位共用。
     @State private var displayScore: Score?
     @State private var document: LayoutDocument?
+    @State private var referenceNotes: [ReferenceNote] = []
+    @State private var playedNoteIDs: Set<NoteID> = []
     /// 上一次已居中滚动到的 system 索引；只在光标「跨 system」时才滚，
     /// 避免同一行内每拍都重复触发滚动动画造成抖动。-1 = 尚未定位。
     @State private var lastScrolledSystem: Int = -1
@@ -62,6 +61,7 @@ struct PracticeScoreScrollView: View {
                 }
                 .onChange(of: cursor) { _, new in
                     scroll(to: new, proxy: scrollProxy)
+                    updatePlayedNoteIDs(upTo: new)
                 }
                 // iOS 26 ScrollView 默认会给滚动边缘加自动渐隐效果（内容淡入深色底层），
                 // 在纸卡内表现为谱面上下两道灰色阴影带——练习室谱面不需要，全部关掉。
@@ -102,8 +102,8 @@ struct PracticeScoreScrollView: View {
                     document: document,
                     score: displayScore,
                     options: options,
-                    selection: selection,
-                    voiceColors: voiceColors,
+                    selection: selectionForPlayedNotes(),
+                    voiceColors: voiceColorsForPlayedNotes(),
                     playbackCursor: cursor,
                     playbackCursorColor: Color.amber.opacity(0.25),
                 )
@@ -279,6 +279,40 @@ struct PracticeScoreScrollView: View {
         }
         // 换行/档位改变后 system 索引整体重算，强制下一次光标变化重新定位。
         lastScrolledSystem = -1
+        rebuildReferenceNotes()
+    }
+
+    private func rebuildReferenceNotes() {
+        guard let displayScore = displayScore else { return }
+        referenceNotes = ScoreReferenceNotes.extract(score: displayScore).notes
+    }
+
+    private func updatePlayedNoteIDs(upTo cursor: ScoreCursor?) {
+        guard let cursor = cursor,
+              let displayScore = displayScore,
+              case .beat(let measureIndex, let tickInMeasure) = cursor else {
+            playedNoteIDs = []
+            return
+        }
+        let currentBeat = Double(tickInMeasure) / Double(displayScore.division)
+        playedNoteIDs = Set(referenceNotes.filter { note in
+            if note.measureIndex < measureIndex { return true }
+            if note.measureIndex == measureIndex && note.beatInMeasure <= currentBeat { return true }
+            return false
+        }.compactMap(\.noteID))
+    }
+
+    private func selectionForPlayedNotes() -> ScoreSelection {
+        guard !playedNoteIDs.isEmpty else { return .none }
+        return .multi(Set(playedNoteIDs.map(ScoreItemID.note)))
+    }
+
+    private func voiceColorsForPlayedNotes() -> [Int: Color] {
+        var map: [Int: Color] = [:]
+        for id in playedNoteIDs {
+            map[id.voiceIndex] = Color.amber
+        }
+        return map
     }
 
     /// 「除最后一行外每行恰 perLine 小节」判定（二分目标；行数为空或某行为 0 视为不满足）。
