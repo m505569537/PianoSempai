@@ -36,6 +36,8 @@ struct PracticeScoreScrollView: View {
     let opusTag: String?
     let leftHandNote: String?
     let copyrightNotice: String?
+    /// P3 分手模式
+    let handMode: HandMode
 
     /// 转换后（已重排换行）的谱，供 ScoreView 与光标定位共用。
     @State private var displayScore: Score?
@@ -308,9 +310,24 @@ struct PracticeScoreScrollView: View {
     }
 
     private func voiceColorsForPlayedNotes() -> [Int: Color] {
+        // P3 hand 模式 + P2 已弹着色合并：非激活 hand 整组变灰，激活 hand 内已弹音符琥珀。
+        var voiceHandMap: [Int: Hand] = [:]
+        for note in referenceNotes {
+            guard let voiceIndex = note.noteID?.voiceIndex else { continue }
+            voiceHandMap[voiceIndex] = note.hand
+        }
         var map: [Int: Color] = [:]
-        for id in playedNoteIDs {
-            map[id.voiceIndex] = Color.amber
+        for (voiceIndex, hand) in voiceHandMap {
+            let handActive: Bool = switch handMode {
+            case .both: true
+            case .right: hand == .right
+            case .left: hand == .left
+            }
+            if !handActive {
+                map[voiceIndex] = Color.gray.opacity(0.3)
+            } else if playedNoteIDs.contains(where: { $0.voiceIndex == voiceIndex }) {
+                map[voiceIndex] = Color.amber
+            }
         }
         return map
     }

@@ -13,6 +13,13 @@ enum Hand: String, Codable, Equatable, Sendable {
     case right, left, unknown
 }
 
+/// 练习室 hand 模式（P3 分手能力）
+enum HandMode: String, Codable, Equatable, Sendable {
+    case both      // 双手
+    case right     // 仅右手
+    case left      // 仅左手
+}
+
 /// 参考音符（从谱面提取，全局按小节/拍定位）
 struct ReferenceNote: Equatable, Identifiable, Sendable {
     /// 提取顺序稳定 id（最终排序后顺序赋值）
@@ -659,5 +666,17 @@ enum RewardDifficulty {
     /// 归一到 0...1（上限做除法后钳制；负值输入视作 0）
     private static func clamp01(_ value: Double) -> Double {
         min(max(value, 0), 1)
+    }
+}
+
+// MARK: - HandMode UI
+
+extension HandMode {
+    var title: String {
+        switch self {
+        case .both: "双手"
+        case .right: "右手"
+        case .left: "左手"
+        }
     }
 }

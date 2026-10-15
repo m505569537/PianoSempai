@@ -62,6 +62,8 @@ struct PracticeRoomView: View {
     @State private var showNekoChat = false
     @State private var lastHandledEventID: UUID?
     @State private var showMarkSheet = false
+    /// P3 分手模式：both / right / left（默认 both）
+    @State private var handMode: HandMode = .both
     /// 速度直接输入（用户 2026-10-13 反馈：−/＋ 步进改大改小太麻烦）：点速度数字弹输入。
     @State private var showTempoInput = false
     @State private var tempoInputText = ""
@@ -250,6 +252,7 @@ struct PracticeRoomView: View {
         HStack(spacing: 8) {
             nekoPill
             midiPill
+            handModePicker
             Spacer(minLength: 8)
             headerTitle
             Spacer(minLength: 8)
@@ -306,6 +309,29 @@ struct PracticeRoomView: View {
         .padding(.vertical, 4)
         .background(Color.card, in: Capsule())
         .overlay(Capsule().strokeBorder(Color.amber.opacity(0.25), lineWidth: 1))
+    }
+
+    /// P3 分手模式 chip 组：双手 / 右手 / 左手
+    private var handModePicker: some View {
+        HStack(spacing: 4) {
+            ForEach([HandMode.both, .right, .left], id: \.self) { mode in
+                let isActive = handMode == mode
+                Button {
+                    handMode = mode
+                } label: {
+                    Text(mode.title)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(isActive ? Color.amber : Color.textPrimary.opacity(0.7))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(isActive ? Color.white.opacity(0.10) : Color.clear, in: Capsule())
+                        .overlay(
+                            Capsule().strokeBorder(isActive ? Color.amber.opacity(0.30) : Color.white.opacity(0.10), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     /// 中：serif 14pt semibold 曲名（tracking wide）+ 10pt muted 真实数据副行。
@@ -697,7 +723,9 @@ struct PracticeRoomView: View {
                     referenceTempo: piece?.referenceTempo ?? 0,
                     opusTag: piece?.opusTag,
                     leftHandNote: piece?.leftHandNote,
-                    copyrightNotice: piece?.copyrightNotice
+                    copyrightNotice: piece?.copyrightNotice,
+                    // P3 分手模式
+                    handMode: handMode
                 )
                 // 弹性高度：谱区填满底部控件以上的全部可用空间（问题5），
                 // 不再写死屏高 0.42；外层 VStack 的 Spacer 让位给这里。
