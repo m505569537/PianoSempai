@@ -697,7 +697,10 @@ struct PracticeRoomView: View {
                     referenceTempo: piece?.referenceTempo ?? 0,
                     opusTag: piece?.opusTag,
                     leftHandNote: piece?.leftHandNote,
-                    copyrightNotice: piece?.copyrightNotice
+                    copyrightNotice: piece?.copyrightNotice,
+                    // P2 已弹音符命中着色（Stage A 先传空集合，NoteID 映射后续补齐）
+                    selection: .none,
+                    voiceColors: [:]
                 )
                 // 弹性高度：谱区填满底部控件以上的全部可用空间（问题5），
                 // 不再写死屏高 0.42；外层 VStack 的 Spacer 让位给这里。

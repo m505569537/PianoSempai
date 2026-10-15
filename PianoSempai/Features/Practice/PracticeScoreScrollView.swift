@@ -36,6 +36,9 @@ struct PracticeScoreScrollView: View {
     let opusTag: String?
     let leftHandNote: String?
     let copyrightNotice: String?
+    /// P2 已弹音符命中着色（S11 §4.3）：selection 高亮命中音符，voiceColors 决定高亮色
+    let selection: ScoreSelection
+    let voiceColors: [Int: Color]
 
     /// 转换后（已重排换行）的谱，供 ScoreView 与光标定位共用。
     @State private var displayScore: Score?
@@ -99,6 +102,8 @@ struct PracticeScoreScrollView: View {
                     document: document,
                     score: displayScore,
                     options: options,
+                    selection: selection,
+                    voiceColors: voiceColors,
                     playbackCursor: cursor,
                     playbackCursorColor: Color.amber.opacity(0.25),
                 )
