@@ -28,6 +28,11 @@ struct PracticeScoreScrollView: View {
     let score: Score
     let measuresPerLine: Int
     let cursor: ScoreCursor?
+    /// P4 纸内谱头元数据
+    let pieceTitle: String
+    let pieceBook: String
+    let pieceNumber: Int
+    let referenceTempo: Int
 
     /// 转换后（已重排换行）的谱，供 ScoreView 与光标定位共用。
     @State private var displayScore: Score?
@@ -97,6 +102,8 @@ struct PracticeScoreScrollView: View {
                 // 引擎页面背景硬编码纯白（包红线：不改包源码）。colorMultiply 确定性叠染：
                 // 白底×纸色=纸色、符头墨黑×纸色≈墨黑，谱面与纸张卡颜色一致、无白块错色。
                 .colorMultiply(Self.paper)
+                // P4 纸内谱头：与 ScoreView 同处 topLeading ZStack，坐标即文档坐标；不挡手势。
+                scoreHeaderOverlay(for: displayScore)
                 // G7 简谱叠加：与 ScoreView 同处一个 topLeading ZStack，标注坐标即
                 // 文档坐标（文档 (0,0)=ScoreView 左上），与符头天然对齐；自带
                 // allowsHitTesting(false)，不挡谱面手势。
@@ -122,6 +129,54 @@ struct PracticeScoreScrollView: View {
         var options = ScoreViewOptions(staffSize: staffSize, wrapToViewWidth: true, breakPolicy: .honor)
         options.breakIndicatorVisibility = .none
         return options
+    }
+
+    // MARK: - P4 纸内谱头叠加
+
+    @ViewBuilder
+    private func scoreHeaderOverlay(for score: Score?) -> some View {
+        if let score {
+            let totalStaves = score.parts.values.reduce(0) { $0 + $1.staves.count }
+            let isTwoHand = totalStaves >= 2
+            HStack(alignment: .center, spacing: 8) {
+                Text("\(pieceBook) 第\(pieceNumber)条")
+                    .font(.system(size: 11, weight: .medium, design: .serif))
+                    .foregroundStyle(Color.textMuted)
+                Spacer()
+                if let term = Self.tempoTerm(for: referenceTempo) {
+                    Text("♩=\(referenceTempo) \(term)")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.textMuted)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color.amber.opacity(0.1), in: Capsule())
+                }
+                if isTwoHand {
+                    Text("双手")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.amber)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color.amber.opacity(0.15), in: Capsule())
+                        .overlay(Capsule().strokeBorder(Color.amber.opacity(0.3), lineWidth: 1))
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+        } else {
+            Color.clear
+        }
+    }
+
+    private static func tempoTerm(for bpm: Int) -> String? {
+        switch bpm {
+        case ..<40:  return "广板"
+        case 40..<70: return "慢板"
+        case 70..<100: return "行板"
+        case 100..<130: return "快板"
+        case 130..<170: return "急板"
+        default: return bpm > 0 ? "极快" : nil
+        }
     }
 
     /// 第 idx 个锚点槽位的高度：从本 system 的 origin 到下一个 system 的 origin；
