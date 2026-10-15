@@ -33,6 +33,8 @@ struct PracticeScoreScrollView: View {
     let pieceBook: String
     let pieceNumber: Int
     let referenceTempo: Int
+    let opusTag: String?
+    let leftHandNote: String?
 
     /// 转换后（已重排换行）的谱，供 ScoreView 与光标定位共用。
     @State private var displayScore: Score?
@@ -139,7 +141,7 @@ struct PracticeScoreScrollView: View {
             let totalStaves = score.parts.values.reduce(0) { $0 + $1.staves.count }
             let isTwoHand = totalStaves >= 2
             HStack(alignment: .center, spacing: 8) {
-                Text("\(pieceBook) 第\(pieceNumber)条")
+                Text(headerLeftText)
                     .font(.system(size: 11, weight: .medium, design: .serif))
                     .foregroundStyle(Color.textMuted)
                 Spacer()
@@ -150,6 +152,15 @@ struct PracticeScoreScrollView: View {
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(Color.amber.opacity(0.1), in: Capsule())
+                }
+                if let note = leftHandNote, !note.isEmpty {
+                    Text("左手：\(note)")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.textMuted)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color.card, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Color.border, lineWidth: 1))
                 }
                 if isTwoHand {
                     Text("双手")
@@ -166,6 +177,14 @@ struct PracticeScoreScrollView: View {
         } else {
             Color.clear
         }
+    }
+
+    private var headerLeftText: String {
+        var text = "\(pieceBook) 第\(pieceNumber)条"
+        if let opusTag, !opusTag.isEmpty {
+            text += " · Op.\(opusTag)"
+        }
+        return text
     }
 
     private static func tempoTerm(for bpm: Int) -> String? {

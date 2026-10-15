@@ -416,10 +416,13 @@ final class Piece {
     var nextReviewAt: Date? = nil
     /// 复习间隔档位下标（ADR-0003 Q8/Q14：reviewIntervalDays[stage]，到 14 天档后循环不毕业）
     var intervalStage: Int = 0
+    /// 曲目元数据（P4 纸内谱头/页脚；nil = 无来源不编造）
+    var opusTag: String? = nil
+    var leftHandNote: String? = nil
     var importedAt: Date = Date()
 
     /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
-    init(entityId: UUID = UUID(), title: String = "", book: String = "", number: Int = 0, totalMeasures: Int = 0, status: String = "notStarted", referenceTempo: Int = 0, sourceScoreId: UUID? = nil, suspectedErrorCount: Int = 0, passedRulesVersion: String? = nil, nextReviewAt: Date? = nil, intervalStage: Int = 0, importedAt: Date = Date()) {
+    init(entityId: UUID = UUID(), title: String = "", book: String = "", number: Int = 0, totalMeasures: Int = 0, status: String = "notStarted", referenceTempo: Int = 0, sourceScoreId: UUID? = nil, suspectedErrorCount: Int = 0, passedRulesVersion: String? = nil, nextReviewAt: Date? = nil, intervalStage: Int = 0, opusTag: String? = nil, leftHandNote: String? = nil, importedAt: Date = Date()) {
         self.entityId = entityId
         self.title = title
         self.book = book
@@ -432,6 +435,8 @@ final class Piece {
         self.passedRulesVersion = passedRulesVersion
         self.nextReviewAt = nextReviewAt
         self.intervalStage = intervalStage
+        self.opusTag = opusTag
+        self.leftHandNote = leftHandNote
         self.importedAt = importedAt
     }
 }
