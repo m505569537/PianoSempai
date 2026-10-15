@@ -7,6 +7,10 @@ struct CatalogEntry: Identifiable, Equatable, Hashable {
     let book: String
     let number: Int
     let referenceTempo: Int
+    /// P4 纸内谱头/页脚元数据（nil = 无来源不编造）
+    let opusTag: String?
+    let leftHandNote: String?
+    let copyrightNotice: String?
     /// 显式示例曲标记（P2 M5a）：book="示例"，标题含「示例」，不伪装成拜厄/哈农/599
     var isSample: Bool = false
 
@@ -19,7 +23,7 @@ struct CatalogEntry: Identifiable, Equatable, Hashable {
 extension CatalogEntry {
     /// 示例曲（演示用）：可跟弹可评分，但不冒充任何教材条目（SPEC §10）
     static let spikeSample = CatalogEntry(
-        book: "示例", number: 0, referenceTempo: 72, isSample: true
+        book: "示例", number: 0, referenceTempo: 72, opusTag: nil, leftHandNote: nil, copyrightNotice: nil, isSample: true
     )
 }
 
@@ -32,6 +36,23 @@ enum CatalogLoader {
             let book: String
             let number: Int
             let referenceTempo: Int
+            let opusTag: String?
+            let leftHandNote: String?
+            let copyrightNotice: String?
+
+            init(from decoder: Decoder) throws {
+                let c = try decoder.container(keyedBy: CodingKeys.self)
+                book = try c.decode(String.self, forKey: .book)
+                number = try c.decode(Int.self, forKey: .number)
+                referenceTempo = try c.decode(Int.self, forKey: .referenceTempo)
+                opusTag = try c.decodeIfPresent(String.self, forKey: .opusTag)
+                leftHandNote = try c.decodeIfPresent(String.self, forKey: .leftHandNote)
+                copyrightNotice = try c.decodeIfPresent(String.self, forKey: .copyrightNotice)
+            }
+
+            enum CodingKeys: String, CodingKey {
+                case book, number, referenceTempo, opusTag, leftHandNote, copyrightNotice
+            }
         }
     }
 
@@ -42,7 +63,7 @@ enum CatalogLoader {
             return [CatalogEntry.spikeSample]
         }
         // 示例曲显式追加在目录尾部（SPEC §10：端到端可演示，不冒充教材）
-        return file.entries.map { CatalogEntry(book: $0.book, number: $0.number, referenceTempo: $0.referenceTempo) }
+        return file.entries.map { CatalogEntry(book: $0.book, number: $0.number, referenceTempo: $0.referenceTempo, opusTag: $0.opusTag, leftHandNote: $0.leftHandNote, copyrightNotice: $0.copyrightNotice) }
             + [CatalogEntry.spikeSample]
     }
 }

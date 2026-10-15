@@ -66,7 +66,7 @@ final class LibraryServiceTests: XCTestCase {
     func testBuiltinCatalogLoads() {
         let entries = CatalogLoader.loadBuiltin()
         XCTAssertGreaterThanOrEqual(entries.count, 130, "拜厄 106 + 哈农 20 + 599 占位")
-        XCTAssertTrue(entries.contains(CatalogEntry(book: "拜厄", number: 45, referenceTempo: 76)))
+        XCTAssertTrue(entries.contains(CatalogEntry(book: "拜厄", number: 45, referenceTempo: 76, opusTag: nil, leftHandNote: nil, copyrightNotice: nil)))
         XCTAssertTrue(entries.contains { $0.book == "车尔尼599" && $0.number == 1 })
     }
 

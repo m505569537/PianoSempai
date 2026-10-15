@@ -84,8 +84,8 @@ final class PracticeCTATests: XCTestCase {
     /// 拜厄/哈农行为不变：未到达条目仍禁用 + 解锁引导；已到达条目正常练习
     func testBeyerAndHanonEntriesUnchanged() {
         let fresh = CoursePathState(currentBeyer: 1, currentHanon: 1)
-        let locked = CatalogEntry(book: "拜厄", number: 5, referenceTempo: 72)
-        let practicing = CatalogEntry(book: "哈农", number: 1, referenceTempo: 60)
+        let locked = CatalogEntry(book: "拜厄", number: 5, referenceTempo: 72, opusTag: nil, leftHandNote: nil, copyrightNotice: nil)
+        let practicing = CatalogEntry(book: "哈农", number: 1, referenceTempo: 60, opusTag: nil, leftHandNote: nil, copyrightNotice: nil)
 
         for (entry, pathState) in [(locked, fresh), (practicing, fresh)] {
             let isLocked = CourseEngine.catalogStatus(

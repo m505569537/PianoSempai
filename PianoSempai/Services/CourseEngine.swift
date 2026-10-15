@@ -219,7 +219,10 @@ enum CourseEngine {
             book: entry.book,
             number: entry.number,
             status: "notStarted",
-            referenceTempo: entry.referenceTempo
+            referenceTempo: entry.referenceTempo,
+            opusTag: entry.opusTag,
+            leftHandNote: entry.leftHandNote,
+            copyrightNotice: entry.copyrightNotice
         )
         context.insert(piece)
         return piece
