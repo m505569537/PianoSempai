@@ -114,6 +114,8 @@ struct PracticeScoreScrollView: View {
                         annotations: NumberedAnnotationBuilder.build(score: displayScore, document: document),
                         sp: document.metrics.sp)
                 }
+                // P4 纸内页脚：bottomTrailing，页码 + 来源
+                scoreFooterOverlay(for: displayScore, document: document)
             }
             .padding(.vertical, 8)
         } else {
@@ -195,6 +197,32 @@ struct PracticeScoreScrollView: View {
         case 100..<130: return "快板"
         case 130..<170: return "急板"
         default: return bpm > 0 ? "极快" : nil
+        }
+    }
+
+    // MARK: - P4 纸内页脚叠加
+
+    @ViewBuilder
+    private func scoreFooterOverlay(for score: Score?, document: LayoutDocument?) -> some View {
+        if let document {
+            let totalPages = max(1, document.systems.count)
+            HStack(alignment: .center, spacing: 8) {
+                Text("\(pieceBook) 第\(pieceNumber)条")
+                    .font(.system(size: 10, weight: .medium, design: .serif))
+                    .foregroundStyle(Color.textMuted)
+                Spacer()
+                Text("共 \(totalPages) 页")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color.textMuted)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.card, in: Capsule())
+                    .overlay(Capsule().strokeBorder(Color.border, lineWidth: 1))
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 8)
+        } else {
+            Color.clear
         }
     }
 
