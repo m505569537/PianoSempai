@@ -2,6 +2,19 @@
 
 本文件是 PianoSempai 唯一的「往后挪 / 待补」需求登记本。新增推迟项一律追加到这里，不再散落在临时审计文件里。
 
+## 本轮完成总结（2026-10-15 ~ 2026-10-16）
+
+- **P2**（已弹音符琥珀着色）done：Stage A 接线 + Stage B cursor-driven referenceNotes 过滤双落地。
+- **P3**（分手能力）done：顶栏 hand mode chip（双手/右手/左手）+ PracticeScoreScrollView 非激活 hand 灰显。
+- **P4**（纸内谱头/页脚）done：header（编号/速度术语/双手 chip/Op. tag/左手提示）+ footer（页码/版权 chip/曲目引用）+ 模型 + BuiltinCatalog 数据。
+- **L1**（按状态筛选曲目）done：CatalogService 新增 pieceStatus 重载，LibraryView/PieceDetailView 优先读 Piece.status，绿 pill「已拿下」可达。
+- **T1**（三统计卡真实数据）done：TodayView statsRow 接入 weekStreak/本周时长/距 599 真实数据。
+- **T2**（真实热身剩余分钟）done：warmupElapsedMin 聚合当日 warmup take，S07c 正文恢复「还差 N 分钟」，次按钮追加分钟后缀。
+
+测试：766/0 全绿。
+
+---
+
 - 建表：2026-09-23。来源：S07/S08/S11/S13b 对齐 Stitch 真值（code.html）后的偏差审计。
 - 每条标注：来源屏 / 推迟原因（能力缺口 or 待产品确认）。
 - 无真实数据来源的条目：在能力补齐前不渲染，禁止写死或造假。
