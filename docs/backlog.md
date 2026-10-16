@@ -80,7 +80,7 @@
 | # | 需求 | 来源 | 状态 | 说明 / 阻塞 |
 |---|---|---|---|---|
 | T1 | 三统计卡真实数据（本周 streak / 本周时长 / 距 599） | S07b §3.3 | done | TodayView.statsRow 接入真实数据：streak 来自 TodayPlanService.weekStreak(takes:today:)（周一起始，>=10min 算达标）；时长 = minutesPerDay 求和；距 599 = CourseEngine.projected599WeeksLabel(pathState:)（约 N 周后 / 无数据时诚实显示「—」）。b239dfb，2026-10-16 完成。 |
-| T2 | 真实热身剩余分钟（恢复正文「还差 N 分钟」、补热身钮分钟后缀） | S07c §3.3 | blocked | 无热身进度数据源，当前用不写死分钟的诚实文案 + TODO；需记录热身已练时长。 |
+| T2 | 真实热身剩余分钟（恢复正文「还差 N 分钟」、补热身钮分钟后缀） | S07c §3.3 | done | TodayPlanService.warmupElapsedMin(takes:today:) 聚合当日 warmup take 已练分钟；GateService.checkMainAccess 新增 warmupElapsedMin 参数，remaining = max(0, 10 - elapsed)；S07cOverrideModal 正文动态拼接「还差 N 分钟」，次按钮追加「（N 分钟）」。9221430，2026-10-16 完成。 |
 | T3 | 未连 MIDI 时主按钮仍可点（自评不需琴，视奏步再引导连接） | S07b | done | 产品确认：维持现状，主钮始终可点，不硬拦。2026-10-12 确认。 |
 | T4 | 逛曲库为只读浏览，未解锁教材详情 CTA 引导先定级 | S07b | done | 产品确认：维持现状，不做只读限制。2026-10-12 确认。 |
 | T5 | 强开原因「未选即 disabled」规则 | S07c §3.4 | done | 产品确认：维持现状，默认预选第一项，确认钮默认可点。2026-10-12 确认。 |
