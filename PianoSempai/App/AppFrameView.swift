@@ -38,6 +38,7 @@ final class WarmupOverridePresenter: ObservableObject {
     struct Config {
         let plan: DailyPlan?
         let allEvents: [GateEvent]
+        let warmupMinutesRemaining: Int?
         let onGoWarmup: () -> Void
         let onConfirmOverride: (_ reasonTag: String, _ note: String) -> Void
     }
@@ -121,6 +122,7 @@ struct AppFrameView: View {
                 S07cOverrideModal(
                     plan: cfg.plan,
                     allEvents: cfg.allEvents,
+                    warmupMinutesRemaining: cfg.warmupMinutesRemaining,
                     onGoWarmup: cfg.onGoWarmup,
                     onConfirmOverride: cfg.onConfirmOverride,
                     onCancel: { overridePresenter.dismiss() }

@@ -26,14 +26,16 @@ enum WarmupGate {
         warmupCompletedAt: Date?,
         today: Date,
         calendar: Calendar = .current,
-        overrides: [GateEvent]
+        overrides: [GateEvent],
+        warmupElapsedMin: Int? = nil
     ) -> Decision {
         if warmupCompletedAt != nil { return .allowed }
         // 当日已强开过 → 放行，不再弹层
         if overrides.contains(where: { isSameDay($0.date, today, calendar: calendar) }) {
             return .allowed
         }
-        return .blocked(warmupMinutesRemaining: warmupMinutesRemaining)
+        let remaining: Int? = warmupElapsedMin.map { max(0, 10 - $0) } ?? 10
+        return .blocked(warmupMinutesRemaining: remaining)
     }
 
     /// S07c 文案用：热身建议 8–12 分钟，未开始时按 10 分钟口径陈述（纯文案，非判分）

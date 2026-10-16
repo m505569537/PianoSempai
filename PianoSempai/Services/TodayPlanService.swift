@@ -61,6 +61,15 @@ enum TodayPlanService {
         )
     }
 
+    /// 今日热身已练分钟（T2：从 Take.taskType="warmup" 聚合 durationSec；无热身 take = 0）。
+    static func warmupElapsedMin(takes: [Take], today: Date, calendar: Calendar = .current) -> Int {
+        let dayStart = calendar.startOfDay(for: today)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+        return takes
+            .filter { $0.taskType == "warmup" && $0.startedAt >= dayStart && $0.startedAt < dayEnd }
+            .reduce(0) { $0 + $1.durationSec / 60 }
+    }
+
     // MARK: - 连续达标周（G8 轻激励；ADR-0007）
 
     struct WeeklyGoalStreak: Equatable {

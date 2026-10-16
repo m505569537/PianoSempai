@@ -883,19 +883,22 @@ struct TodayView: View {
 
     /// 热身硬门禁入口：未完成且未强开 → S07c（不静默放行，红线 6）
     private func handleMainStart(warmupDone: Bool) {
+        let warmupElapsed = TodayPlanService.warmupElapsedMin(takes: takes, today: now)
         let decision = WarmupGate.checkMainAccess(
             warmupCompletedAt: warmupDone ? Date() : nil,
             today: now,
-            overrides: gateEvents
+            overrides: gateEvents,
+            warmupElapsedMin: warmupElapsed
         )
         switch decision {
         case .allowed:
             practiceRoute = .init(id: "main")
-        case .blocked:
+        case .blocked(let warmupMinutesRemaining):
             // 提升到 AppFrameView 顶层呈现：整屏 scrim 需遮住 tab bar 与问 Neko FAB
             overridePresenter.present(.init(
                 plan: plan,
                 allEvents: gateEvents,
+                warmupMinutesRemaining: warmupMinutesRemaining,
                 onGoWarmup: {
                     overridePresenter.dismiss()
                     practiceRoute = .init(id: "warmup")
@@ -1515,6 +1518,7 @@ private struct S07bEmptyState: View {
 struct S07cOverrideModal: View {
     let plan: DailyPlan?
     let allEvents: [GateEvent]
+    let warmupMinutesRemaining: Int?
     let onGoWarmup: () -> Void
     let onConfirmOverride: (_ reasonTag: String, _ note: String) -> Void
     /// 真值无 ✕、点外部不关（硬拦截），没有第三条退出路径；属性保留不删，当前无调用点
@@ -1587,10 +1591,9 @@ struct S07cOverrideModal: View {
                     }
                     .padding(.bottom, 8)
 
-                    // §3.3 正文：13pt muted，leading-relaxed。诚实措辞：无真实热身进度来源，
-                    // 不写死真值的「还差 5 分钟」（GateService 只有未开始的名义值）。
-                    // TODO: 接真实热身剩余分钟后，恢复真值「今天的热身还差 N 分钟」
-                    Text("今天的热身还没完成。热身是为了保护手，规则上不能直接进入主菜。你仍然可以手动强开，但这会被记录在月报里。")
+                    // §3.3 正文：13pt muted，leading-relaxed。真实热身剩余分钟（T2）。
+                    let remainingText = warmupMinutesRemaining.map { "还差 \($0) 分钟" } ?? "还没完成"
+                    Text("今天的热身\(remainingText)。热身是为了保护手，规则上不能直接进入主菜。你仍然可以手动强开，但这会被记录在月报里。")
                         .font(.system(size: 13))
                         .leading(21, fontSize: 13) // 真值 leading-relaxed（1.625）
                         .foregroundStyle(Color.textMuted)
@@ -1658,7 +1661,8 @@ struct S07cOverrideModal: View {
                         .disabled(!canConfirm)
 
                         Button(action: onGoWarmup) {
-                            Text("去补完热身")
+                            let suffix = warmupMinutesRemaining.map { "（\($0) 分钟）" } ?? ""
+                            Text("去补完热身\(suffix)")
                         }
                         .buttonStyle(S07cSecondaryButtonStyle())
                     }
