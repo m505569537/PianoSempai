@@ -1156,6 +1156,8 @@ private struct StreakRow: View {
 private struct S07bEmptyState: View {
     @Environment(\.modelContext) private var context
     @Query private var settingsList: [AppSettings]
+    @Query private var takes: [Take]
+    @Query private var pathStates: [CoursePathState]
     /// 真实 MIDI 状态：头部绿色胶囊的唯一数据来源（文案仍整套走 `MIDIDeviceLabel`，红线 2）
     @ObservedObject var midi: MIDIHub
     /// 今天：问候语 + 日期标题的真实来源（不写死「9月18日 周五」）
@@ -1191,7 +1193,7 @@ private struct S07bEmptyState: View {
                     .frame(maxWidth: 320, alignment: .leading)
                     .padding(.top, 10)
 
-                statsRow
+                statsRow()
                     .padding(.top, 24)
 
                 Button(action: onStartPlacement) {
@@ -1286,24 +1288,29 @@ private struct S07bEmptyState: View {
 
     // MARK: 三占位卡（真值 §3.3：无真实数据来源，值恒「—」，禁止编造）
 
-    private var statsRow: some View {
-        HStack(spacing: 10) {
-            statCard("本周 streak")
-            statCard("本周时长")
-            statCard("距 599")
+    private func statsRow() -> some View {
+        let streak = TodayPlanService.weekStreak(takes: self.takes, today: now)
+        let path = pathStates.first ?? CoursePathState()
+        let totalMinutes = streak.minutesPerDay.reduce(0, +)
+        let streakDays = streak.litDays.filter { $0 }.count
+        let weeksTo599 = CourseEngine.projected599WeeksLabel(pathState: path)
+        return HStack(spacing: 10) {
+            statCard(label: "本周 streak", value: "\(streakDays)/7 天")
+            statCard(label: "本周时长", value: "\(totalMinutes) min")
+            statCard(label: "距 599", value: weeksTo599.map { "约 \($0) 周后" } ?? "—")
         }
     }
 
-    private func statCard(_ label: String) -> some View {
+    private func statCard(label: String, value: String) -> some View {
         VStack(spacing: 2) {
             Text(label)
                 .font(.system(size: 11))
                 .foregroundStyle(Color.textMuted)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7) // 单行放不下时缩字，不换行
-            Text("—")
+            Text(value)
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
-                .foregroundStyle(Color.textMuted)
+                .foregroundStyle(Color.textPrimary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
