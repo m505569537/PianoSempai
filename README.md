@@ -10,6 +10,18 @@
 xcodegen generate
 ```
 
+### 音源（首次 clone 必做）
+
+示范/试听用的 `MuseScore_General.sf2`（约 206MB）不入 git（超过 GitHub 单文件上限），
+首次 clone 后先取回：
+
+```bash
+Scripts/fetch_soundfont.sh
+```
+
+脚本从 MuseScore 官方源下载并做 sha256 校验。缺文件时 build 仍通过，只是示范播放会
+安全禁用（ADR-0002）。
+
 ### 校验脚本
 
 ```bash

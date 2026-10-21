@@ -17,6 +17,9 @@ BOTTOM-UP 实证，包内已具备完整的 app 内播放能力，无需自研�
 
 ### 一、音源：随包 MuseScore General（SF2，MIT）
 - 文件 `PianoSempai/Resources/SoundFonts/MuseScore_General.sf2`，215,614,036 字节（约 206MB）。
+  **不入 git**：超过 GitHub 100MB 单文件上限（历史里存在也会让 push 整体被拒）。
+  首次 clone/换机后跑 `Scripts/fetch_soundfont.sh`（官方源 + sha256 校验）取回；
+  缺文件时 build 仍通过，示范播放走 `.unavailable` 安全禁用（见下「硬性安全约束」）。
 - MIT 授权。署名义务：Frank Wen（FluidR3 GM 基础）、Michael Cowgill（GeneralUser GS 修正）、
   S. Christian Collins 等及 MuseScore 社区。授权全文随包
   `MuseScore_General_License.md`，并在 设置 → 关于 → 示范音源署名（B11）可达。
