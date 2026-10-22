@@ -2,7 +2,19 @@
 
 本文件是 PianoSempai 唯一的「往后挪 / 待补」需求登记本。新增推迟项一律追加到这里，不再散落在临时审计文件里。
 
-## 本轮完成总结（2026-10-15 ~ 2026-10-16）
+## 本轮完成总结（2026-10-22 · 文档收敛 + 相机录像闭环 V1+V2）
+
+- **D 文档收敛**：vault 独有资产迁入仓库（48 张 `docs/design-reference/samples/`、Stitch 登记 `screens-registry.md`）；vault 侧重复 PRD/spec/契约归档到 `_archive/2026-10-22-pre-convergence/`，只留 `progress.md` + `README.md` 指针。提交 `3212a4d`。
+- **A 相机录像闭环（ADR-0010）**：用户五项口径全拍板 → ADR-0010 + PRD §M8b（`0665dcb`/`78b098f`）→ Stage A 核心层（`651ca8e`）→ Stage B 界面与接线（`3477c18`）。
+  - 新增：`VideoStore` / `VideoRecording`（AVFoundationVideoRecorder）/ `VideoAttachmentStore` / `PhotoLibraryWriter` / `S15CameraCalibrationView` / `S16VideoReviewView` / `VideoUIFormatting`。
+  - 判分链修正：此前 `isPassEligible` 只写不读、`pieceTakeHistory` 只读 `analysis.canEvaluate`，录像会话会污染过关连续计数；现以 `Take.isRecordingSession` 为硬开关，分析回写、CourseEngine、处方 scoping、连续计数四处统一排除。
+  - 顺带修复 V9：设置页视频保留规则只存 `@State`、退页即丢 → 落库 `AppSettings.videoRetentionMode`。
+- **测试**：766 → 788（Stage A +15，Stage B +7），Hermes 独立全量 `xcodebuild test` 788/0 TEST SUCCEEDED。
+- **待办**：V10 真机验收（相机路径模拟器无法执行）。
+
+---
+
+## 上轮完成总结（2026-10-15 ~ 2026-10-16）
 
 - **P2**（已弹音符琥珀着色）done：Stage A 接线 + Stage B cursor-driven referenceNotes 过滤双落地。
 - **P3**（分手能力）done：顶栏 hand mode chip（双手/右手/左手）+ PracticeScoreScrollView 非激活 hand 灰显。
@@ -119,17 +131,18 @@
 
 | # | 需求 | 来源 | 状态 | 说明 / 阻塞 |
 |---|---|---|---|---|
-| V1 | S15 机位校准向导（侧拍/整机位、向导步骤、校准确认） | S15 | in-progress | ADR-0010：本批做真实相机预览 + 静态取景框 + 提示/免责卡 + 4 步流程（摆放/取景/试录/完成）；**不画 MediaPipe 骨架与检测 chips**（见 V8），无数据源不造假。 |
-| V2 | S16 视频回看（take 视频列表/回放/选段预览） | S16 | in-progress | ADR-0010：AVPlayer + scrubber + 时码 + 「重新校准」；卡②手型观察与骨架不渲染（V8）；「问 Neko」按钮本批隐藏（V3 未做，不留死按钮）。 |
+| V1 | S15 机位校准向导（侧拍/整机位、向导步骤、校准确认） | S15 | done | ADR-0010，2026-10-22 代码落地（Stage B `3477c18`）：真实相机预览 + 静态取景框 + 提示/免责卡 + 4 步流程 + 5 秒试录回放；相机不可用/权限拒绝走诚实卡。**不画 MediaPipe 骨架与检测 chips**（见 V8）。真机路径待验。 |
+| V2 | S16 视频回看（take 视频列表/回放/选段预览） | S16 | done | ADR-0010，2026-10-22 代码落地：AVPlayer + scrubber + 时码 +「重新校准」/「删除这段录像」；档案与 take 报告有视频角标/入口。卡②手型观察与骨架不渲染（V8）；「问 Neko」隐藏（V3 未做）。真机待验。 |
 | V3 | S18b 视频裁切并发送给 Neko（近全高 sheet：胶片轨双手柄/区间 badge/预设 chips/提问上下文/服务商披露/删除开关/CTA） | S18b | blocked | 无视频源、无裁切（AVAsset trim）、无视频上传链路，sheet 整体不能建。 |
 | V4 | S18b 服务商命中名实时显示（真值写死「火山方舟（字节跳动）」） | S18b §3.6 | done | 产品确认：维持现状，保持写死/隐藏，等发送链路再做。2026-10-12 确认。 |
 | V5 | S18b 上传中/可取消/失败重试/完成后「云端片段已删除」视觉 | S18b §4 | done | 产品确认：维持现状，先不画，等上传能力。2026-10-12 确认。 |
 | V6 | S18b 最小裁切时长 2s 报错、开关 OFF「云端保留」态、下滑关闭/播放头可拖 | S18b §4/§5 | done | 产品确认：维持现状，先不画，等上传能力。2026-10-12 确认。 |
 | V7 | S17 月度录像导入（从系统相册挑尼康 Zf 视频复制本机永久归档，不上传/不判分/不自动分析手型；sticky 底部操作区） | S17 | blocked | 下一批（V1+V2 之后）。数据归属已定：复用 Take（`taskType="zfImport"`、`hasMidi=false`、挂视频附件、不进判分但进档案时间线与月报）。实现需 PhotoKit/PhotosPicker + NSPhotoLibrary 相关键（当前均无）。 |
 | V8 | MediaPipe 21 点骨架与手型检测（S15 校准页实时骨架、S16 回看页卡②「这一段的观察」3 条带置信度） | S15/S16 · PRD M6/P4 | blocked | 2026-10-22 用户拍板本批不含：SDK 接入 + 端上推理 + 检测项标定成本高，且与采集/回看不是同一批可交付物。骨架层、检测 chips、观察卡在能力落地前不渲染（无数据源禁止造假）。 |
-| V9 | 视频保留规则持久化（设置页「每曲最近 8 条 / 不自动清理」） | S23 | in-progress | 真缺口实证：`RetentionRuleSheet` 只用 `@State`，选完退页即丢。随 ADR-0010 本批修：`AppSettings.videoRetentionMode`（lru8/never）+ 保存视频后按 pieceId 分组执行 `VideoRetentionService` 淘汰。 |
+| V9 | 视频保留规则持久化（设置页「每曲最近 8 条 / 不自动清理」） | S23 | done | `RetentionRuleSheet` 原先只用 `@State`，退页即丢。2026-10-22 已修：`AppSettings.videoRetentionMode` 落库 + 行文案读真实设置；保存视频后按 pieceId 分组执行 `VideoRetentionService` 淘汰（`651ca8e`）。 |
+| V10 | 录像闭环真机验收（相机预览/校准四步/录制随练习/MIDI 配对/相册写回/档案角标与回看/删除与 LRU） | ADR-0010 | open | 代码与单测已绿（788/0），但相机路径在模拟器无法执行。需真机走一遍：见 vault `progress.md`「真机验收清单」。验收前不要对外宣称该批次已验收。 |
 
-本批执行顺序：V1 采集+V2 回看（进行中）→ V3 发送闸口 → V7 Zf 导入；V8 手型单独成批（需先评估 MediaPipe SDK 体积与真机性能）。
+本批执行顺序：V1 采集+V2 回看（2026-10-22 代码完成，待真机验收 V10）→ V3 发送闸口 → V7 Zf 导入；V8 手型单独成批（需先评估 MediaPipe SDK 体积与真机性能）。
 
 ---
 
