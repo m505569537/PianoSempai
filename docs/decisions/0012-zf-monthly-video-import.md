@@ -22,6 +22,10 @@
 ## 技术形态
 
 - **选片**：SwiftUI `PhotosPicker(selection:matching: .videos, maxSelectionCount: 10)`；每个 item 用 `loadTransferable` 写到临时文件（带 Progress，可取消）。
+  - **候选列表口径（2026-10-22 补充，S17 真值要求直接列出候选）**：S17 真值没有「选择视频」按钮，直接列出 4 行候选 → 需要**完整相册读权限**才能枚举最近视频（`PHAsset.fetchAssets(.video, sortBy creationDate desc)`，取最近 30 条）。因此：
+    - 用户授权 `.authorized` → 列出最近 30 条视频作为候选（默认只勾选最近一次导入之后的新视频）；
+    - 用户只给 `.limited` → **不伪造候选列表**，改为显示「选择视频」按钮走 `PhotosPicker`，列表只含用户所选条目，并如实说明「仅能访问你勾选的照片」；
+    - 拒绝权限 → 空态 + 去系统设置。
 - **元数据**：`PHAsset.fetchAssets(withLocalIdentifiers:)`（受限访问下只对已选 item 有效）取 `creationDate`、`duration`、`pixelWidth/pixelHeight`；大小取临时文件字节数。**取不到拍摄日期时该条标为「无法读取日期」并禁用勾选**（不猜日期）。
 - **落盘**：`Documents/videos/zf/yyyy/MM/<assetIdentifier 短哈希>.mov`，与普通录像 `videos/yyyy/MM/` 分开；复制后校验字节数一致才删临时文件。
 - **数据**：新建 `Take(taskType:"zfImport", hasMidi:false, isFreePlay:false, isPassEligible:false, isRecordingSession:false, startedAt: creationDate, videoFileURL, videoDurationSec, pieceId?/title)`；`Take` 新增 `sourceAssetIdentifier: String?` 用于去重（已导入过的候选标「已导入」并禁用）。
