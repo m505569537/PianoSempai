@@ -13,3 +13,5 @@ xcuserdata/
 # 首次 clone 后跑 Scripts/fetch_soundfont.sh 取回（ADR-0002）。
 PianoSempai/Resources/SoundFonts/*.sf2
 
+# 真机构建产物（xcodebuild -derivedDataPath build/device）
+build/
