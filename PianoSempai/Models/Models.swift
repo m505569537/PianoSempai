@@ -277,9 +277,11 @@ final class Take {
     var videoDurationSec: Int = 0
     /// 视频起录相对 Take.startedAt 的偏移（秒，通常 0）
     var videoStartedAtOffset: Double = 0
+    /// Zf 相册来源的资产标识（去重用；普通录像/练习 take 为 nil）
+    var sourceAssetIdentifier: String? = nil
 
     /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
-    init(entityId: UUID = UUID(), startedAt: Date = Date(), endedAt: Date? = nil, durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false, midiFileURL: String = "", measureFrom: Int? = nil, measureTo: Int? = nil, tempoAvg: Int = 0, noteCount: Int = 0, wrongNoteCount: Int = 0, pedalEventCount: Int = 0, midiEventCount: Int = 0, interruptionRanges: [Int] = [], wrongNoteRecords: [String] = [], pieceId: UUID? = nil, scoreFileId: UUID? = nil, analysisId: UUID? = nil, isPassEligible: Bool = false, title: String = "", videoFileURL: String? = nil, videoDurationSec: Int = 0, videoStartedAtOffset: Double = 0, isRecordingSession: Bool = false) {
+    init(entityId: UUID = UUID(), startedAt: Date = Date(), endedAt: Date? = nil, durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false, midiFileURL: String = "", measureFrom: Int? = nil, measureTo: Int? = nil, tempoAvg: Int = 0, noteCount: Int = 0, wrongNoteCount: Int = 0, pedalEventCount: Int = 0, midiEventCount: Int = 0, interruptionRanges: [Int] = [], wrongNoteRecords: [String] = [], pieceId: UUID? = nil, scoreFileId: UUID? = nil, analysisId: UUID? = nil, isPassEligible: Bool = false, title: String = "", videoFileURL: String? = nil, videoDurationSec: Int = 0, videoStartedAtOffset: Double = 0, isRecordingSession: Bool = false, sourceAssetIdentifier: String? = nil) {
         self.entityId = entityId
         self.startedAt = startedAt
         self.endedAt = endedAt
@@ -306,6 +308,7 @@ final class Take {
         self.videoDurationSec = videoDurationSec
         self.videoStartedAtOffset = videoStartedAtOffset
         self.isRecordingSession = isRecordingSession
+        self.sourceAssetIdentifier = sourceAssetIdentifier
     }
 }
 

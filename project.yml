@@ -68,6 +68,7 @@ targets:
         NSCameraUsageDescription: 只有你主动点「录给 AI 看」时才会启动。日常练习全程不录像、不录音。
         NSMicrophoneUsageDescription: 只有你主动点「录给 AI 看」时才会启动。日常练习全程不录像、不录音。
         NSPhotoLibraryAddUsageDescription: 只有你主动保存录像副本时才写入相册；不读取你的相册。
+        NSPhotoLibraryUsageDescription: 只有你主动导入 Zf 月度录像时才读取你选中的视频（用于按拍摄日期归档）；不浏览、不上传。
         # GarageBand 验证按钮仅在可用时显示（S03 spec）；无此 scheme 声明 canOpenURL 恒 false
         LSApplicationQueriesSchemes:
           - garageband

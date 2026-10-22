@@ -1,0 +1,223 @@
+import Foundation
+import Photos
+
+// 相册「读」能力（ADR-0012 / S17）：只在你主动导入 Zf 月度录像时读取。
+// 与 PhotoLibraryWriter（add-only 写回）相反：这里请求 .readWrite（含受限访问），
+// 不请求 .addOnly；不枚举整库、不上传、不修改相册。
+
+/// 相册资产元数据（只读快照；缺失字段保持 nil / 0，由上层决定是否禁用）
+struct ZFAssetMetadata: Equatable, Sendable {
+    let assetIdentifier: String
+    let creationDate: Date?
+    let durationSec: Double
+    let pixelWidth: Int
+    let pixelHeight: Int
+}
+
+enum PhotoLibraryError: Error, Equatable {
+    case denied
+    case notFound
+    case iCloudUnavailable
+    case exportFailed(String)
+    case cancelled
+}
+
+protocol PhotoLibraryAccessing: AnyObject {
+    /// 请求「读」权限（.readWrite 会弹受限访问）；返回是否可用于读取
+    func requestReadAccess() async -> Bool
+    /// 已选资产的元数据（creationDate/duration/分辨率）；受限访问下只对已选 asset 有效
+    func metadata(forIdentifiers ids: [String]) async -> [String: ZFAssetMetadata]
+    /// 把原片导出到临时目录（触发 iCloud 下载），progress 0...1，支持取消
+    func exportOriginal(identifier: String,
+                        to directory: URL,
+                        progress: (@Sendable (Double) -> Void)?) async throws -> URL
+}
+
+final class PhotoLibraryService: PhotoLibraryAccessing {
+
+    /// `.authorized` 与 `.limited` 都可用于读取；`.addOnly` 永不请求（ADR-0012 红线）
+    func requestReadAccess() async -> Bool {
+        let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+        return status == .authorized || status == .limited
+    }
+
+    /// 批量取元数据；取不到的 asset 不出现在结果里（调用方按「无法读取」处理）
+    func metadata(forIdentifiers ids: [String]) async -> [String: ZFAssetMetadata] {
+        guard !ids.isEmpty else { return [:] }
+        let assets = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
+        var result: [String: ZFAssetMetadata] = [:]
+        result.reserveCapacity(assets.count)
+        assets.enumerateObjects { asset, _, _ in
+            result[asset.localIdentifier] = ZFAssetMetadata(
+                assetIdentifier: asset.localIdentifier,
+                creationDate: asset.creationDate,
+                durationSec: asset.duration,
+                pixelWidth: asset.pixelWidth,
+                pixelHeight: asset.pixelHeight
+            )
+        }
+        return result
+    }
+
+    /// 原片字节复制（不转码）：优先 .fullSizeVideo（编辑过的原片），否则 .video。
+    /// iCloud 未下载的项以 networkAccessAllowed 触发下载并回报进度。
+    func exportOriginal(identifier: String,
+                        to directory: URL,
+                        progress: (@Sendable (Double) -> Void)?) async throws -> URL {
+        guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil).firstObject else {
+            throw PhotoLibraryError.notFound
+        }
+        guard let resource = Self.originalVideoResource(for: asset) else {
+            throw PhotoLibraryError.notFound
+        }
+
+        let fileManager = FileManager.default
+        do {
+            try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        } catch {
+            throw PhotoLibraryError.exportFailed(error.localizedDescription)
+        }
+
+        let ext = (resource.originalFilename as NSString).pathExtension
+        let destination = directory.appendingPathComponent(
+            "zf-export-\(UUID().uuidString).\(ext.isEmpty ? "mov" : ext)"
+        )
+
+        let state = ExportRequestState()
+        do {
+            try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    state.attach(continuation)
+
+                    let options = PHAssetResourceRequestOptions()
+                    options.isNetworkAccessAllowed = true // iCloud 未下载项自动下载（ADR-0012 第 5 条）
+                    options.progressHandler = { fraction in
+                        progress?(fraction)
+                        // writeData 不返回 request id（SDK 只能 cancel requestData），
+                        // 取消由 withTaskCancellationHandler 统一处理；这里只负责尽快收尾。
+                        if state.isCancelled {
+                            state.fail(.cancelled)
+                        }
+                    }
+
+                    PHAssetResourceManager.default().writeData(
+                        for: resource,
+                        toFile: destination,
+                        options: options
+                    ) { error in
+                        if state.isCancelled {
+                            state.fail(.cancelled)
+                        } else if let error {
+                            state.fail(Self.mapExportError(error))
+                        } else {
+                            state.succeed()
+                        }
+                        // 取消后迟到的完成回调：再清一次可能被重建的半成品
+                        if state.isCancelled {
+                            try? FileManager.default.removeItem(at: destination)
+                        }
+                    }
+                }
+            } onCancel: {
+                state.cancel()
+            }
+        } catch {
+            try? fileManager.removeItem(at: destination)
+            throw error
+        }
+
+        progress?(1.0)
+        return destination
+    }
+
+    // MARK: - 私有
+
+    /// 原片资源：.fullSizeVideo（有编辑时保留原始画面）优先，其次 .video
+    private static func originalVideoResource(for asset: PHAsset) -> PHAssetResource? {
+        let resources = PHAssetResource.assetResources(for: asset)
+        return resources.first { $0.type == .fullSizeVideo }
+            ?? resources.first { $0.type == .video }
+    }
+
+    private static func mapExportError(_ error: Error) -> PhotoLibraryError {
+        let nsError = error as NSError
+        if nsError.domain == PHPhotosErrorDomain {
+            switch PHPhotosError.Code(rawValue: nsError.code) {
+            case .networkAccessRequired, .networkError, .libraryVolumeOffline:
+                return .iCloudUnavailable
+            case .userCancelled:
+                return .cancelled
+            case .identifierNotFound, .missingResource:
+                return .notFound
+            default:
+                return .exportFailed(nsError.localizedDescription)
+            }
+        }
+        if nsError.domain == NSURLErrorDomain {
+            return .iCloudUnavailable
+        }
+        return .exportFailed(nsError.localizedDescription)
+    }
+}
+
+/// PHAssetResourceManager.writeData 的完成/取消状态（回调在任意串行队列，用锁保护；
+/// continuation 只允许 resume 一次）。
+private final class ExportRequestState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Error>?
+    private var finished = false
+    private var cancelled = false
+
+    var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+
+    func attach(_ continuation: CheckedContinuation<Void, Error>) {
+        lock.lock()
+        if cancelled {
+            finished = true
+            lock.unlock()
+            continuation.resume(throwing: PhotoLibraryError.cancelled)
+            return
+        }
+        self.continuation = continuation
+        lock.unlock()
+    }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        guard !finished else {
+            lock.unlock()
+            return
+        }
+        finished = true
+        let continuation = self.continuation
+        self.continuation = nil
+        lock.unlock()
+        continuation?.resume(throwing: PhotoLibraryError.cancelled)
+    }
+
+    func succeed() { finish(nil) }
+
+    func fail(_ error: PhotoLibraryError) { finish(error) }
+
+    private func finish(_ error: PhotoLibraryError?) {
+        lock.lock()
+        guard !finished else {
+            lock.unlock()
+            return
+        }
+        finished = true
+        let continuation = self.continuation
+        self.continuation = nil
+        lock.unlock()
+        if let error {
+            continuation?.resume(throwing: error)
+        } else {
+            continuation?.resume()
+        }
+    }
+}

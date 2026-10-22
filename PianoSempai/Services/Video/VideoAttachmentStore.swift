@@ -37,7 +37,8 @@ enum VideoAttachmentStore {
                 VideoRetentionService.VideoItem(
                     id: $0.entityId,
                     createdAt: $0.startedAt,
-                    isPermanent: false
+                    // Zf 月度录像永久保留（ADR-0012）：不参与「每曲 8 条」LRU
+                    isPermanent: $0.taskType == "zfImport"
                 )
             }
             let ids = Set(VideoRetentionService.evictionCandidates(items, rule: rule))
