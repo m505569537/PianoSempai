@@ -67,6 +67,7 @@ targets:
         NSBluetoothAlwaysUsageDescription: 接收特伦斯 V70 的琴键、力度和踏板信号。这是判分的唯一依据。
         NSCameraUsageDescription: 只有你主动点「录给 AI 看」时才会启动。日常练习全程不录像、不录音。
         NSMicrophoneUsageDescription: 只有你主动点「录给 AI 看」时才会启动。日常练习全程不录像、不录音。
+        NSPhotoLibraryAddUsageDescription: 只有你主动保存录像副本时才写入相册；不读取你的相册。
         # GarageBand 验证按钮仅在可用时显示（S03 spec）；无此 scheme 声明 canOpenURL 恒 false
         LSApplicationQueriesSchemes:
           - garageband

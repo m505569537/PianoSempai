@@ -18,10 +18,12 @@ final class AppSettings {
     var notificationConfigured: Bool = false
     /// M7.2 周报本地通知总开关（PRD 主动性 Q2=A 已认可；默认开，用户可在「通知」页全关）
     var weeklyDigestEnabled: Bool = true
+    /// 视频保留规则："lru8"（每曲最近 8 条，默认）/ "never"
+    var videoRetentionMode: String = "lru8"
     var createdAt: Date = Date()
 
     /// 显式 init（@Model 宏对此类的 init 综合失败，原因未明；显式提供绕过）
-    init(onboardingCompleted: Bool = false, onboardingStage: String = OnboardingStage.welcome.rawValue, onboardingDismissed: Bool = false, placementStartedAt: Date? = nil, weeklyGoal: Int = 3, notificationConfigured: Bool = false, weeklyDigestEnabled: Bool = true, createdAt: Date = Date()) {
+    init(onboardingCompleted: Bool = false, onboardingStage: String = OnboardingStage.welcome.rawValue, onboardingDismissed: Bool = false, placementStartedAt: Date? = nil, weeklyGoal: Int = 3, notificationConfigured: Bool = false, weeklyDigestEnabled: Bool = true, videoRetentionMode: String = "lru8", createdAt: Date = Date()) {
         self.onboardingCompleted = onboardingCompleted
         self.onboardingStage = onboardingStage
         self.onboardingDismissed = onboardingDismissed
@@ -29,6 +31,7 @@ final class AppSettings {
         self.weeklyGoal = weeklyGoal
         self.notificationConfigured = notificationConfigured
         self.weeklyDigestEnabled = weeklyDigestEnabled
+        self.videoRetentionMode = videoRetentionMode
         self.createdAt = createdAt
     }
 
@@ -266,9 +269,15 @@ final class Take {
     var isPassEligible: Bool = false
     /// 自由弹奏一句话 / take 标题
     var title: String = ""
+    /// 视频附件相对路径（Documents 下，如 videos/2026/10/video-<uuid>.mov）；nil = 无视频
+    var videoFileURL: String? = nil
+    /// 视频时长（秒）
+    var videoDurationSec: Int = 0
+    /// 视频起录相对 Take.startedAt 的偏移（秒，通常 0）
+    var videoStartedAtOffset: Double = 0
 
     /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
-    init(entityId: UUID = UUID(), startedAt: Date = Date(), endedAt: Date? = nil, durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false, midiFileURL: String = "", measureFrom: Int? = nil, measureTo: Int? = nil, tempoAvg: Int = 0, noteCount: Int = 0, wrongNoteCount: Int = 0, pedalEventCount: Int = 0, midiEventCount: Int = 0, interruptionRanges: [Int] = [], wrongNoteRecords: [String] = [], pieceId: UUID? = nil, scoreFileId: UUID? = nil, analysisId: UUID? = nil, isPassEligible: Bool = false, title: String = "") {
+    init(entityId: UUID = UUID(), startedAt: Date = Date(), endedAt: Date? = nil, durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false, midiFileURL: String = "", measureFrom: Int? = nil, measureTo: Int? = nil, tempoAvg: Int = 0, noteCount: Int = 0, wrongNoteCount: Int = 0, pedalEventCount: Int = 0, midiEventCount: Int = 0, interruptionRanges: [Int] = [], wrongNoteRecords: [String] = [], pieceId: UUID? = nil, scoreFileId: UUID? = nil, analysisId: UUID? = nil, isPassEligible: Bool = false, title: String = "", videoFileURL: String? = nil, videoDurationSec: Int = 0, videoStartedAtOffset: Double = 0) {
         self.entityId = entityId
         self.startedAt = startedAt
         self.endedAt = endedAt
@@ -291,6 +300,9 @@ final class Take {
         self.analysisId = analysisId
         self.isPassEligible = isPassEligible
         self.title = title
+        self.videoFileURL = videoFileURL
+        self.videoDurationSec = videoDurationSec
+        self.videoStartedAtOffset = videoStartedAtOffset
     }
 }
 
