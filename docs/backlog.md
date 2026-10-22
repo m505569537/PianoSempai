@@ -140,7 +140,8 @@
 | V4 | S18b 服务商命中名实时显示（真值写死「火山方舟（字节跳动）」） | S18b §3.6 | done | 已改为运行时 `AIProvider.displayName`（`firstVideoCapableName` 选链上第一个支持视频的服务商，附「失败时按链转移」），无写死名；发送后气泡显示实际命中 `providerModel`。 |
 | V5 | S18b 上传中/可取消/失败重试/完成后「云端片段已删除」视觉 | S18b §4 | done | 上传中可取消（取消即删临时片段并撤回消息）、失败可重试（不重新裁切）、删除结果如实回填 `cloudFileDeleted`（失败不谎称已删；气泡暂不显示删除成功文案，等产品确认）。 |
 | V6 | S18b 最小裁切时长 2s 报错、开关 OFF「云端保留」态、下滑关闭/播放头可拖 | S18b §4/§5 | done | <2s 行内红字并禁用 CTA；开关 OFF 显示「云端文件会保留至过期」；播放头可拖；scrim 不关闭（真值），✕/取消关闭。 |
-| V7 | S17 月度录像导入（从系统相册挑尼康 Zf 视频复制本机永久归档，不上传/不判分/不自动分析手型；sticky 底部操作区） | S17 | blocked | 下一批（V1+V2 之后）。数据归属已定：复用 Take（`taskType="zfImport"`、`hasMidi=false`、挂视频附件、不进判分但进档案时间线与月报）。实现需 PhotoKit/PhotosPicker + NSPhotoLibrary 相关键（当前均无）。 |
+| V7 | S17 月度录像导入（从系统相册挑尼康 Zf 视频复制本机永久归档，不上传/不判分/不自动分析手型；sticky 底部操作区） | S17 | in-progress | ADR-0012（2026-10-22 五口径全拍）：按拍摄日期归月（PHAsset creationDate + 受限访问）、可挂曲目可跳过、导入前空间预检（单文件 ≤2GB）、失败回滚、`sourceAssetIdentifier` 去重、`taskType=zfImport` 视为永久不参与 LRU、缩略图全屏播放、iCloud 自动下载可取消。 |
+| V12 | V7 真机相册验收（受限权限、iCloud 下载、2GB 边界、失败回滚、Zf 永不被 LRU 删除） | ADR-0012 | open | 相册/PhotoKit 只能在真机验证；模拟器相册为空。需用户准备若干 Zf 视频（含一条 iCloud-only）。 |
 | V8 | MediaPipe 21 点骨架与手型检测（S15 校准页实时骨架、S16 回看页卡②「这一段的观察」3 条带置信度） | S15/S16 · PRD M6/P4 | blocked | 2026-10-22 用户拍板本批不含：SDK 接入 + 端上推理 + 检测项标定成本高，且与采集/回看不是同一批可交付物。骨架层、检测 chips、观察卡在能力落地前不渲染（无数据源禁止造假）。 |
 | V9 | 视频保留规则持久化（设置页「每曲最近 8 条 / 不自动清理」） | S23 | done | `RetentionRuleSheet` 原先只用 `@State`，退页即丢。2026-10-22 已修：`AppSettings.videoRetentionMode` 落库 + 行文案读真实设置；保存视频后按 pieceId 分组执行 `VideoRetentionService` 淘汰（`651ca8e`）。 |
 | V10 | 录像闭环真机验收（相机预览/校准四步/录制随练习/MIDI 配对/相册写回/档案角标与回看/删除与 LRU） | ADR-0010 | open | 代码与单测已绿（788/0），但相机路径在模拟器无法执行。需真机走一遍：见 vault `progress.md`「真机验收清单」。验收前不要对外宣称该批次已验收。 |
