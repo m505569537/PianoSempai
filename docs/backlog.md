@@ -143,11 +143,11 @@
 | V5 | S18b 上传中/可取消/失败重试/完成后「云端片段已删除」视觉 | S18b §4 | done | 上传中可取消（取消即删临时片段并撤回消息）、失败可重试（不重新裁切）、删除结果如实回填 `cloudFileDeleted`（失败不谎称已删；气泡暂不显示删除成功文案，等产品确认）。 |
 | V6 | S18b 最小裁切时长 2s 报错、开关 OFF「云端保留」态、下滑关闭/播放头可拖 | S18b §4/§5 | done | <2s 行内红字并禁用 CTA；开关 OFF 显示「云端文件会保留至过期」；播放头可拖；scrim 不关闭（真值），✕/取消关闭。 |
 | V7 | S17 月度录像导入（从系统相册挑尼康 Zf 视频复制本机永久归档，不上传/不判分/不自动分析手型；sticky 底部操作区） | S17 | done | ADR-0012，2026-10-22 代码落地（Stage A `f50bd15` / Stage B 见当前 HEAD）：完整读权限列最近 30 条候选、limited 走 picker 不伪造列表、按拍摄日期归月、可选挂曲目、空间预检（≤2GB）、失败/取消回滚、`sourceAssetIdentifier` 去重、`taskType=zfImport` 永久保留、抽帧缩略图 + 全屏预览。**真机验收待 V12**。 |
-| V12 | V7 真机相册验收（受限权限、iCloud 下载、2GB 边界、失败回滚、Zf 永不被 LRU 删除） | ADR-0012 | open | 相册/PhotoKit 只能在真机验证；模拟器相册为空。需用户准备若干 Zf 视频（含一条 iCloud-only）。 |
+| V12 | V7 真机相册验收（受限权限、iCloud 下载、2GB 边界、失败回滚、Zf 永不被 LRU 删除） | ADR-0012 | open | 相册/PhotoKit 只能在真机验证；模拟器相册为空。需用户准备若干 Zf 视频（含一条 iCloud-only）。**步骤见 `docs/acceptance/2026-10-22-device-acceptance.md` §3（V12-1…10）**。 |
 | V8 | MediaPipe 21 点骨架与手型检测（S15 校准页实时骨架、S16 回看页卡②「这一段的观察」3 条带置信度） | S15/S16 · PRD M6/P4 | blocked | 2026-10-22 用户拍板本批不含：SDK 接入 + 端上推理 + 检测项标定成本高，且与采集/回看不是同一批可交付物。骨架层、检测 chips、观察卡在能力落地前不渲染（无数据源禁止造假）。 |
 | V9 | 视频保留规则持久化（设置页「每曲最近 8 条 / 不自动清理」） | S23 | done | `RetentionRuleSheet` 原先只用 `@State`，退页即丢。2026-10-22 已修：`AppSettings.videoRetentionMode` 落库 + 行文案读真实设置；保存视频后按 pieceId 分组执行 `VideoRetentionService` 淘汰（`651ca8e`）。 |
-| V10 | 录像闭环真机验收（相机预览/校准四步/录制随练习/MIDI 配对/相册写回/档案角标与回看/删除与 LRU） | ADR-0010 | open | 代码与单测已绿（788/0），但相机路径在模拟器无法执行。需真机走一遍：见 vault `progress.md`「真机验收清单」。验收前不要对外宣称该批次已验收。 |
-| V11 | V3 真 key 端到端（Files API 上传→file_id→回答→DELETE；失败转移；删除开关 OFF 行为） | ADR-0011 | open | 单测可覆盖请求构造与状态机（注入假 URLSession），但真实账号/模型开通状态只能在用户配置 key 的真机上验证。需先在方舟控制台开通 `doubao-seed-2-1-pro` 并确认 key 有效。 |
+| V10 | 录像闭环真机验收（相机预览/校准四步/录制随练习/MIDI 配对/相册写回/档案角标与回看/删除与 LRU） | ADR-0010 | open | 代码与单测已绿（851/0），但相机路径在模拟器无法执行。**步骤见 `docs/acceptance/2026-10-22-device-acceptance.md` §1（V10-1…8）**；验收前不要对外宣称该批次已验收。 |
+| V11 | V3 真 key 端到端（Files API 上传→file_id→回答→DELETE；失败转移；删除开关 OFF 行为） | ADR-0011 | open | 单测可覆盖请求构造与状态机（注入假 URLSession），但真实账号/模型开通状态只能在用户配置 key 的真机上验证。需先在方舟控制台开通 `doubao-seed-2-1-pro` 并确认 key 有效。**步骤见 `docs/acceptance/2026-10-22-device-acceptance.md` §2（V11-1…9）**。 |
 
 本批执行顺序：V1 采集+V2 回看（2026-10-22 代码完成，待真机验收 V10）→ V3 发送闸口 → V7 Zf 导入；V8 手型单独成批（需先评估 MediaPipe SDK 体积与真机性能）。
 
