@@ -4,8 +4,8 @@ import SwiftUI
 
 // MARK: - S16 侧拍回看
 // 真值：docs/design-reference/screens/S16-video-review/spec.md。
-// 本批只有播放器 + 头部 + 动作：骨架叠加、观察卡（含置信度）、「问 Neko」一律不画
-// （视频上传链路未做、也无手型数据源；ADR-0010 明确禁止造假）。
+// 播放器 + 头部 + 动作；骨架叠加与观察卡（无手型数据源，ADR-0010 禁止造假）不画。
+// V3：新增「问这段」→ S18b 裁切确认 → S18 对话（ADR-0011）。只发送用户确认的那一段。
 // 本页不产生任何过关/分数写入。
 
 struct S16VideoReviewView: View {
@@ -17,6 +17,9 @@ struct S16VideoReviewView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Query(sort: \TakeAnalysis.analyzedAt, order: .reverse) private var analyses: [TakeAnalysis]
+    @Query private var pieces: [Piece]
+    @Query private var providers: [AIProvider]
 
     @State private var player: AVPlayer?
     @State private var timeObserver: Any?
@@ -26,9 +29,29 @@ struct S16VideoReviewView: View {
     @State private var isPlaying = false
     @State private var playbackError = false
     @State private var showDeleteConfirm = false
+    /// 「问这段」：草稿非 nil → 打开 S18 对话，ChatView 随后自动叠 S18b
+    @State private var videoChatDraft: VideoSendDraft?
 
     private var headerTitle: String {
         displayTitle.isEmpty ? "录像回看" : displayTitle
+    }
+
+    /// 该 take 的最新判分行（热点来源；无判分 → nil，热点预设置灰）
+    private var scoringAnalysis: TakeAnalysis? {
+        if let id = take.analysisId, let row = analyses.first(where: { $0.entityId == id }) { return row }
+        return analyses.first { $0.takeId == take.entityId && $0.engineVersion == ScoringOrchestrator.engineVersion }
+    }
+
+    private var piece: Piece? {
+        guard let id = take.pieceId else { return nil }
+        return pieces.first { $0.entityId == id }
+    }
+
+    /// 真的有可读的录像文件才给「问这段」（无视频 = 不出现入口）
+    private var canAskAboutVideo: Bool {
+        guard let path = take.videoFileURL, !path.isEmpty,
+              let url = VideoStore.absoluteURL(for: path) else { return false }
+        return FileManager.default.fileExists(atPath: url.path)
     }
 
     private var subtitle: String {
@@ -65,6 +88,13 @@ struct S16VideoReviewView: View {
             Button("取消", role: .cancel) {}
         } message: {
             Text("只删视频文件；这条 take、MIDI 和报告都会保留。")
+        }
+        .fullScreenCover(item: $videoChatDraft) { draft in
+            ChatView(
+                mode: .take(take, analysis: scoringAnalysis, pieceTitle: piece?.title),
+                context: context,
+                videoDraft: draft
+            )
         }
     }
 
@@ -203,41 +233,78 @@ struct S16VideoReviewView: View {
     // MARK: 底部动作
 
     private var actionsBar: some View {
-        HStack(spacing: 10) {
-            Button {
-                recalibrate()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "tune")
-                        .font(.system(size: 13))
-                    Text("重新校准")
-                        .font(.system(size: 13, weight: .medium))
+        VStack(spacing: 8) {
+            // 「问这段」：主行动。只有文件真的可读才出现（无视频 = 没有入口）。
+            if canAskAboutVideo {
+                Button {
+                    openVideoChat()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "text.bubble")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("问这段")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundStyle(Color.canvas)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(Color.amber, in: RoundedRectangle(cornerRadius: 12))
                 }
-                .foregroundStyle(Color.amber)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 11)
-                .background(Color.amber.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.amber.opacity(0.35), lineWidth: 1))
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
-            Button {
-                showDeleteConfirm = true
-            } label: {
-                Text("删除这段录像")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color.danger)
+            HStack(spacing: 10) {
+                Button {
+                    recalibrate()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "tune")
+                            .font(.system(size: 13))
+                        Text("重新校准")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .foregroundStyle(Color.amber)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 11)
-                    .background(Color.clear, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.danger.opacity(0.4), lineWidth: 1))
+                    .background(Color.amber.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.amber.opacity(0.35), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    showDeleteConfirm = true
+                } label: {
+                    Text("删除这段录像")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.danger)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(Color.clear, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.danger.opacity(0.4), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 8)
         .background(Color.canvas)
+    }
+
+    /// 组装真实草稿：视频路径、热点、拍号/速度、链上第一个视频服务商。
+    /// 任何一项算不出就如实缺省（热点 chip 置灰、无服务商 → CTA 禁用），不编数据。
+    private func openVideoChat() {
+        guard videoChatDraft == nil,
+              let draft = VideoSendDraft.make(
+                  take: take,
+                  analysis: scoringAnalysis,
+                  piece: piece,
+                  providers: providers,
+                  defaultQuestion: "这段的手型有什么问题？"
+              ) else { return }
+        player?.pause()
+        isPlaying = false
+        videoChatDraft = draft
     }
 
     // MARK: 行为

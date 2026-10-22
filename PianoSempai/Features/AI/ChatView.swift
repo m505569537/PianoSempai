@@ -9,22 +9,29 @@ import SwiftUI
 // 附件/摄像机钮与视频气泡在真值里存在但功能 blocked（S18b / backlog V 系列）→ 本 Stage 不画死元素。
 //
 // 边界（红线 3）：AI 输出只渲染、只作建议。回答里若出现动作建议，只渲染为文字，
-// 本 Stage 不提供任何执行入口——不改课程/判分/设置状态。M7.1 纯文字：无附件/视频/TTS。
+// 本 Stage 不提供任何执行入口——不改课程/判分/设置状态。纯文字输入走原有链路；
+// 视频提问只经 S18b 闸口（ADR-0011），气泡里只显示真实区间，不声称「已删除」。
 // 无证据/低置信如实呈现（ContextBuilder.degradations 直显），不编造（红线 2）。
-// 一个视图只挂一个呈现层级：本页不再弹任何 sheet/cover，错误重试在原位完成。
+// 从 S16 / 报告页带视频进入时，本页在转场结束后自动叠上 S18b（唯一的 sheet/cover）。
 
 struct ChatView: View {
     let mode: ChatMode
+    /// 从 S16 / 报告页带入的视频草稿（nil = 普通文字对话）
+    let incomingVideo: VideoSendDraft?
     @Environment(\.dismiss) private var dismiss
     @State private var store: ChatStore
     @State private var draft = ""
+    /// 当前叠在本页上的 S18b 草稿（发送成功由 sheet 自己收起）
+    @State private var activeVideoDraft: VideoSendDraft?
     /// 输入框聚焦态（真值：focus-within 输入框边框转琥珀 70%）。
     /// 必须走 @FocusState：.focused() 修饰符在 TextField 上不可靠。
     @FocusState private var inputFocused: Bool
 
-    init(mode: ChatMode, context: ModelContext) {
+    init(mode: ChatMode, context: ModelContext, videoDraft: VideoSendDraft? = nil) {
         self.mode = mode
+        self.incomingVideo = videoDraft
         _store = State(initialValue: ChatStore(mode: mode, context: context))
+        _activeVideoDraft = State(initialValue: nil)
     }
 
     /// 有空文本 + 链路可用 + 不在发送中才允许发送（发送中禁用防重复）
@@ -44,6 +51,18 @@ struct ChatView: View {
         }
         .background(Color.canvas.ignoresSafeArea())
         .onAppear { store.refreshAvailability() }
+        .task {
+            guard let incomingVideo, activeVideoDraft == nil else { return }
+            // ChatView 自己也常由 fullScreenCover 呈现：等它的转场落地再叠 S18b，
+            // 否则同一帧连续呈现两个 cover 会被系统丢弃（S18b 永远不出来）。
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            activeVideoDraft = incomingVideo
+        }
+        .fullScreenCover(item: $activeVideoDraft) { videoDraft in
+            S18bVideoSendSheet(draft: videoDraft, store: store)
+                .preferredColorScheme(.dark)
+        }
     }
 
     // MARK: 顶部（sheet 式：grab handle + 头像/标题 + ✕）
@@ -194,14 +213,27 @@ struct ChatView: View {
             GeometryReader { proxy in
                 HStack {
                     Spacer(minLength: 0)
-                    Text(message.text)
-                        .font(.bodyMd)
-                        .foregroundStyle(Color.textPrimary)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(Color.s18UserBubble, in: userBubbleShape)
-                        .overlay(userBubbleShape.strokeBorder(Color.s18UserBubbleBorder, lineWidth: 1))
-                        .frame(maxWidth: proxy.size.width * 0.85, alignment: .trailing)
+                    VStack(alignment: .leading, spacing: 6) {
+                        // 视频提问：只在气泡里显示真实区间（不回放、不写「已删除」）
+                        if let attachment = message.videoAttachments.first {
+                            HStack(spacing: 4) {
+                                Image(systemName: "video.fill")
+                                    .font(.system(size: 10))
+                                Text(VideoSendText.attachmentChip(attachment))
+                                    .font(.labelMono(10))
+                                    .monospacedDigit()
+                            }
+                            .foregroundStyle(Color.amber.opacity(0.9))
+                        }
+                        Text(message.text)
+                            .font(.bodyMd)
+                            .foregroundStyle(Color.textPrimary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Color.s18UserBubble, in: userBubbleShape)
+                    .overlay(userBubbleShape.strokeBorder(Color.s18UserBubbleBorder, lineWidth: 1))
+                    .frame(maxWidth: proxy.size.width * 0.85, alignment: .trailing)
                 }
             }
         } else {

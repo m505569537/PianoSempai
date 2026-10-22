@@ -15,6 +15,18 @@ import SwiftData
 /// ProviderChainRunner 天然满足本协议（见文末 extension）。
 protocol ChatChainRunning: AnyObject {
     func run(providers: [AIProvider], input: ChainInput) async throws -> ChainResult
+    /// 视频提问（S18b 确认后才调用；纯文字调用走上面两参入口）
+    func run(providers: [AIProvider], input: ChainInput, video: ChainVideoRequest?) async throws -> ChainResult
+}
+
+extension ChatChainRunning {
+    /// 旧假 runner 只实现两参入口：视频请求明确报错，而不是静默丢掉附件。
+    func run(providers: [AIProvider], input: ChainInput, video: ChainVideoRequest?) async throws -> ChainResult {
+        guard video == nil else {
+            throw AIProviderError.invalidRequest("该 runner 不支持视频提问")
+        }
+        return try await run(providers: providers, input: input)
+    }
 }
 
 /// 服务商列表来源（视图侧注入 SwiftData 读取；单测注入假值）。
@@ -60,7 +72,25 @@ extension ChatMessage {
         AIJSON.decode([EvidenceRef].self, from: evidenceRefsJSON) ?? []
     }
 
+    /// 视频附件描述（attachmentsJSON 不存视频本体，只存区间与服务商结果）
+    var videoAttachments: [ChatVideoAttachment] {
+        AIJSON.decode([ChatVideoAttachment].self, from: attachmentsJSON) ?? []
+    }
+
     var isUser: Bool { role == ChatMessageRole.user.rawValue }
+}
+
+// MARK: - 视频发送阶段（S18b 进度 / 取消 / 重试）
+
+/// 视频发送只对「当前这一次提问」生效；纯文字提问从不进入这些阶段。
+enum VideoSendPhase: Equatable, Sendable {
+    case idle
+    /// 本地裁切转码中（S18b 调 exportClip；此阶段还没上传任何字节）
+    case exporting
+    /// 上传 + 等待云端处理 + 等回答
+    case uploading
+    /// 失败原因短句（导出失败或全链失败；不吞错）
+    case failed(String)
 }
 
 // MARK: - 纯文案（可单测；算不出就不显示，不编造）
@@ -167,6 +197,27 @@ final class ChatStore {
     /// 全链失败后待重试的用户输入：重发它时不重复落 user 消息
     private var pendingQuestion: String?
 
+    // MARK: 视频发送（S18b）
+
+    /// 视频发送阶段（S18b 观察；纯文字恒 idle）
+    private(set) var videoSendPhase: VideoSendPhase = .idle
+    /// 当前视频发送是否可取消（上传中有可取消的 Task）
+    private(set) var canCancelVideoSend = false
+    /// 当前视频发送任务（测试可 await；用户取消走 cancelVideoSend）
+    private(set) var videoSendTask: Task<Void, Never>?
+
+    /// 待重试的视频提问（失败后保留同一临时片段，重试不重新裁切）
+    private var pendingVideo: PendingVideo?
+    /// 本次视频提问落下的 user 消息（成功后回填真实 providerModel/删除结果）
+    private var appendedVideoMessage: ChatMessage?
+
+    private struct PendingVideo {
+        var question: String
+        var attachment: ChatVideoAttachment
+        var clip: VideoClipPayload
+        var deleteCloudFile: Bool
+    }
+
     init(
         mode: ChatMode,
         context: ModelContext,
@@ -222,8 +273,73 @@ final class ChatStore {
 
     // MARK: 发送
 
-    /// 用户点发送才触发。全链失败后重发同一输入 = 重试：复用已落的 user 消息，不重复插。
+    /// 纯文字发送（旧入口；行为与 M7.1 完全一致）。
     func send(text raw: String) {
+        send(text: raw, attachment: nil, clip: nil)
+    }
+
+    /// 发送入口（S18b 视频提问复用）。
+    /// - Parameters:
+    ///   - attachment: nil = 纯文字；非 nil = 视频提问（必过 S18b 闸口）
+    ///   - clip: 已裁切转码的 720p 临时片段；nil + exportError == nil 表示正在导出
+    ///   - exportError: 本地导出失败原因（不发起上传，直接进失败态）
+    ///   - deleteCloudFile: 「分析后删除云端视频」开关（默认 ON）
+    func send(
+        text raw: String,
+        attachment: ChatVideoAttachment?,
+        clip: VideoClipPayload?,
+        exportError: String? = nil,
+        deleteCloudFile: Bool = true
+    ) {
+        guard let attachment else {
+            sendText(raw)
+            return
+        }
+
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !isSending, hasAvailableProvider else { return }
+
+        // 导出失败：如实进失败态，不发明「正在上传」
+        if let exportError {
+            videoSendPhase = .failed(exportError)
+            canCancelVideoSend = false
+            return
+        }
+
+        // 导出中：S18b 随后带着 clip 再调一次（此阶段不落消息、不上传）
+        guard let clip else {
+            videoSendPhase = .exporting
+            canCancelVideoSend = false
+            return
+        }
+
+        // 开始上传/提问
+        ensureThread()
+        let userMessage = append(
+            role: .user,
+            text: text,
+            evidenceRefs: [],
+            providerModel: "",
+            attachments: [attachment]
+        )
+        appendedVideoMessage = userMessage
+        pendingVideo = PendingVideo(
+            question: text,
+            attachment: attachment,
+            clip: clip,
+            deleteCloudFile: deleteCloudFile
+        )
+        failure = nil
+        videoSendPhase = .uploading
+        canCancelVideoSend = true
+        isSending = true
+        let output = buildContext()
+        contextOutput = output
+        videoSendTask = Task { await runVideo(question: text, output: output) }
+    }
+
+    /// 纯文字发送（原 M7.1 逻辑逐行保留）。
+    private func sendText(_ raw: String) {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isSending, hasAvailableProvider else { return }
 
@@ -239,10 +355,41 @@ final class ChatStore {
         Task { await run(question: text, output: output) }
     }
 
-    /// 全链失败后的「重试」：重发同一条用户输入
+    /// 全链失败后的「重试」：纯文字重发原问题；视频重发同一临时片段（不重新裁切）。
     func retry() {
+        if let pending = pendingVideo {
+            guard !isSending, hasAvailableProvider,
+                  FileManager.default.fileExists(atPath: pending.clip.fileURL.path) else { return }
+            failure = nil
+            videoSendPhase = .uploading
+            canCancelVideoSend = true
+            isSending = true
+            let output = buildContext()
+            contextOutput = output
+            videoSendTask = Task { await runVideo(question: pending.question, output: output) }
+            return
+        }
         guard let question = pendingQuestion else { return }
         send(text: question)
+    }
+
+    /// 取消本次视频发送：停任务、删临时片段、撤回尚未发出的 user 消息，回到 idle。
+    func cancelVideoSend() {
+        videoSendTask?.cancel()
+        videoSendTask = nil
+        if let pending = pendingVideo {
+            deleteTempClip(pending.clip)
+        }
+        if let message = appendedVideoMessage {
+            context.delete(message)
+            messages.removeAll { $0.entityId == message.entityId }
+            try? context.save()
+        }
+        pendingVideo = nil
+        appendedVideoMessage = nil
+        videoSendPhase = .idle
+        canCancelVideoSend = false
+        isSending = false
     }
 
     private func run(question: String, output: ContextBuilder.Output) async {
@@ -275,6 +422,78 @@ final class ChatStore {
         refreshAvailability()
     }
 
+    /// 视频提问：导出完成后的上传 + 等待回答。
+    /// 成功：回填 user 消息的真实附件结果、删临时片段；失败：保留消息/片段供重试。
+    private func runVideo(question: String, output: ContextBuilder.Output) async {
+        guard let pending = pendingVideo else { return }
+        do {
+            let result = try await runner.run(
+                providers: providerSource.currentProviders(),
+                input: ChainInput(
+                    question: question,
+                    systemPrompt: output.systemPrompt,
+                    contextBlock: output.contextBlock,
+                    evidenceRefs: output.evidenceRefs
+                ),
+                video: ChainVideoRequest(
+                    payload: pending.clip,
+                    deleteCloudFile: pending.deleteCloudFile
+                )
+            )
+            guard !Task.isCancelled else { return }
+
+            // user 消息落实际命中的服务商·模型与云端删除结果（不谎称已删）
+            if let message = appendedVideoMessage {
+                message.attachmentsJSON = AIJSON.encode([result.videoAttachment ?? pending.attachment])
+                try? context.save()
+            }
+            append(role: .neko, text: result.text, evidenceRefs: output.evidenceRefs, providerModel: result.providerModel)
+            deleteTempClip(pending.clip)
+            pendingVideo = nil
+            appendedVideoMessage = nil
+            pendingQuestion = nil
+            failure = nil
+            videoSendPhase = .idle
+        } catch {
+            // 用户取消：cancelVideoSend 已清理，这里不再改写状态
+            guard !Task.isCancelled else { return }
+
+            let summary = Self.videoFailureSummary(error)
+            if let chainFailure = error as? ProviderChainFailure {
+                failure = chainFailure
+            } else {
+                failure = ProviderChainFailure(attempts: [
+                    ProviderChainFailure.Attempt(
+                        providerId: "",
+                        providerDisplayName: "",
+                        modelId: "",
+                        errorSummary: summary
+                    ),
+                ])
+            }
+            videoSendPhase = .failed(summary)
+            // 保留 user 消息、附件与临时片段：用户在 S18b 点「重试」重发同一段
+        }
+        canCancelVideoSend = false
+        isSending = false
+        refreshAvailability()
+    }
+
+    /// 视频失败原因短句（永不包含 key；失败就是失败，不改写成成功）
+    private static func videoFailureSummary(_ error: Error) -> String {
+        switch error {
+        case let error as ProviderChainFailure: return error.summary
+        case let error as AIProviderError: return error.summary
+        case let error as ArkFileError: return error.summary
+        default: return "未知错误：\(error.localizedDescription)"
+        }
+    }
+
+    private func deleteTempClip(_ clip: VideoClipPayload) {
+        guard FileManager.default.fileExists(atPath: clip.fileURL.path) else { return }
+        try? FileManager.default.removeItem(at: clip.fileURL)
+    }
+
     // MARK: 持久化
 
     private func buildContext() -> ContextBuilder.Output {
@@ -296,19 +515,28 @@ final class ChatStore {
         try? context.save()
     }
 
-    private func append(role: ChatMessageRole, text: String, evidenceRefs: [EvidenceRef], providerModel: String) {
-        guard let threadId else { return }
+    @discardableResult
+    private func append(
+        role: ChatMessageRole,
+        text: String,
+        evidenceRefs: [EvidenceRef],
+        providerModel: String,
+        attachments: [ChatVideoAttachment] = []
+    ) -> ChatMessage? {
+        guard let threadId else { return nil }
         let message = ChatMessage(
             threadId: threadId,
             role: role.rawValue,
             text: text,
-            attachmentsJSON: "[]", // M7.1 恒纯文字，无附件（红线 3）
+            // 纯文字恒 "[]"（红线）；视频提问只存区间/服务商描述，不存视频本体
+            attachmentsJSON: attachments.isEmpty ? "[]" : AIJSON.encode(attachments),
             evidenceRefsJSON: AIJSON.encode(evidenceRefs),
             providerModel: providerModel
         )
         context.insert(message)
         messages.append(message)
         try? context.save()
+        return message
     }
 
     private func fetchTakes() -> [Take] {

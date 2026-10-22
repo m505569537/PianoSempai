@@ -35,6 +35,7 @@ struct TakeReportView: View {
     @Query(sort: \TakeAnalysis.analyzedAt, order: .reverse) private var analyses: [TakeAnalysis]
     @Query private var pieces: [Piece]
     @Query private var scoreFiles: [ScoreFile]
+    @Query private var providers: [AIProvider]
     /// 同曲目 take 序位（「第 N 遍」）与上一遍弱总分用；按 startedAt 升序
     @Query(sort: \Take.startedAt, order: .forward) private var allTakes: [Take]
     @State private var showMarkSheet = false
@@ -59,6 +60,8 @@ struct TakeReportView: View {
     // MARK: S16 回看入口（ADR-0010）
     /// 有视频附件时点「看录像」→ sheet 打开 S16
     @State private var videoTake: Take?
+    /// 「就这段问 Neko」→ ChatView 打开后自动叠 S18b（ADR-0011）
+    @State private var videoChatDraft: VideoSendDraft?
     /// S16 的「重新校准」：等 sheet 收完再开 S15，避免同帧换页丢弹层
     @State private var videoRecalibratePending = false
     @State private var showVideoCalibration = false
@@ -265,6 +268,9 @@ struct TakeReportView: View {
                     overviewCard          // ① 总览（分值 + 雷达）
                     if VideoUIFormatting.hasVideo(take) {
                         videoReviewRow    // S16 入口（只有真的有录像才出现）
+                        if canAskAboutVideo {
+                            videoAskRow   // S18b 直接入口（文件真的可读才出现）
+                        }
                     }
                     lowConfidenceBanner   // 低置信琥珀条（真实 canEvaluate=false）
                     problemsCard          // ② 错音与漏音（热力 + 明细）
@@ -314,6 +320,14 @@ struct TakeReportView: View {
             ChatView(
                 mode: .take(take, analysis: scoringAnalysis, pieceTitle: piece?.title),
                 context: context
+            )
+        }
+        .fullScreenCover(item: $videoChatDraft) { draft in
+            // 视频提问：先经 S18b 裁切确认（ChatView 转场结束后自动叠出）
+            ChatView(
+                mode: .take(take, analysis: scoringAnalysis, pieceTitle: piece?.title),
+                context: context,
+                videoDraft: draft
             )
         }
         .fullScreenCover(isPresented: $showCompare) {
@@ -370,6 +384,66 @@ struct TakeReportView: View {
             .contentShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
+    }
+
+    /// 「就这段问 Neko」入口：直接进 S18b（不必先开 S16）。
+    /// 只在视频文件真的可读时出现，参数全部取真实数据。
+    private var videoAskRow: some View {
+        Button {
+            openVideoAsk()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "text.bubble.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Color.amber)
+                    .frame(width: 32, height: 32)
+                    .background(Color.amber.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("就这段问 Neko")
+                        .font(.titleMd)
+                        .foregroundStyle(Color.textPrimary)
+                    Text("只发送你确认的那一段")
+                        .font(.labelSm)
+                        .foregroundStyle(Color.textMuted)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.textMuted)
+            }
+            .padding(12)
+            .background(Color.card, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border, lineWidth: 1))
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// 视频文件真实可读（记录存在 ≠ 文件存在；文件丢了就不给假入口）
+    private var canAskAboutVideo: Bool {
+        guard let path = take.videoFileURL, !path.isEmpty,
+              let url = VideoStore.absoluteURL(for: path) else { return false }
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
+    /// 默认提问：真实热点小节优先（1-based）；无热点用练习区间起点；都没有就不编小节号。
+    private var videoAskDefaultQuestion: String {
+        if let measure = scoringAnalysis?.hotspotMeasures.first ?? take.measureFrom {
+            return "第 \(measure) 小节这里的问题怎么练？"
+        }
+        return "这段录像里的问题怎么练？"
+    }
+
+    private func openVideoAsk() {
+        guard videoChatDraft == nil,
+              let draft = VideoSendDraft.make(
+                  take: take,
+                  analysis: scoringAnalysis,
+                  piece: piece,
+                  providers: providers,
+                  defaultQuestion: videoAskDefaultQuestion
+              ) else { return }
+        videoChatDraft = draft
     }
 
     private func submitMark(type: String, note: String) {
