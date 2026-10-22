@@ -1,5 +1,6 @@
 import Foundation
 import Photos
+import UIKit
 
 // 相册「读」能力（ADR-0012 / S17）：只在你主动导入 Zf 月度录像时读取。
 // 与 PhotoLibraryWriter（add-only 写回）相反：这里请求 .readWrite（含受限访问），
@@ -22,11 +23,26 @@ enum PhotoLibraryError: Error, Equatable {
     case cancelled
 }
 
+/// 「读」权限档位（S17 候选口径，ADR-0012 补充）：
+/// full = 可枚举最近视频；limited = 只能访问用户勾选的项（走 PhotosPicker，不伪造列表）；
+/// denied = 空态 + 去系统设置。
+enum PhotoLibraryAccess: Equatable, Sendable {
+    case full
+    case limited
+    case denied
+}
+
 protocol PhotoLibraryAccessing: AnyObject {
     /// 请求「读」权限（.readWrite 会弹受限访问）；返回是否可用于读取
     func requestReadAccess() async -> Bool
+    /// 当前「读」权限档位（决定 S17 是枚举最近视频还是走 picker）
+    func accessLevel() -> PhotoLibraryAccess
     /// 已选资产的元数据（creationDate/duration/分辨率）；受限访问下只对已选 asset 有效
     func metadata(forIdentifiers ids: [String]) async -> [String: ZFAssetMetadata]
+    /// 最近视频（.video，按拍摄时间倒序，最多 limit 条）；仅 full 权限有真实内容
+    func recentVideos(limit: Int) async -> [ZFAssetMetadata]
+    /// 候选行缩略图（maxPixelSize 为像素边长的近似值；取不到返回 nil）
+    func thumbnail(forIdentifier id: String, maxPixelSize: CGFloat) async -> UIImage?
     /// 把原片导出到临时目录（触发 iCloud 下载），progress 0...1，支持取消
     func exportOriginal(identifier: String,
                         to directory: URL,
@@ -41,6 +57,64 @@ final class PhotoLibraryService: PhotoLibraryAccessing {
         return status == .authorized || status == .limited
     }
 
+    /// 同步读当前档位（requestReadAccess 之后调用；.restricted / .notDetermined 视为 denied）
+    func accessLevel() -> PhotoLibraryAccess {
+        switch PHPhotoLibrary.authorizationStatus(for: .readWrite) {
+        case .authorized:
+            return .full
+        case .limited:
+            return .limited
+        default:
+            return .denied
+        }
+    }
+
+    /// 最近视频（.video，creationDate 倒序）。full 权限下才真正有内容；
+    /// limited 下由系统只暴露已勾选项，S17 仍按 ADR 走 picker，不调用本方法伪造列表。
+    func recentVideos(limit: Int) async -> [ZFAssetMetadata] {
+        guard limit > 0 else { return [] }
+        let options = PHFetchOptions()
+        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        options.fetchLimit = limit
+        let assets = PHAsset.fetchAssets(with: .video, options: options)
+        var result: [ZFAssetMetadata] = []
+        result.reserveCapacity(min(limit, assets.count))
+        assets.enumerateObjects { asset, index, stop in
+            guard index < limit else {
+                stop.pointee = true
+                return
+            }
+            result.append(Self.metadata(for: asset))
+        }
+        return result
+    }
+
+    /// 64×44 候选行的缩略图（按像素目标尺寸请求；iCloud 项允许拉取小图）
+    func thumbnail(forIdentifier id: String, maxPixelSize: CGFloat) async -> UIImage? {
+        guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject else {
+            return nil
+        }
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .highQualityFormat
+        options.resizeMode = .fast
+        options.isNetworkAccessAllowed = true
+        options.isSynchronous = false
+
+        return await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
+            let state = ThumbnailRequestState(continuation)
+            PHImageManager.default().requestImage(
+                for: asset,
+                targetSize: CGSize(width: maxPixelSize, height: maxPixelSize),
+                contentMode: .aspectFill,
+                options: options
+            ) { image, info in
+                // degraded 先到、final 后到：只认非 degraded（或取消/失败）的那次
+                if (info?[PHImageResultIsDegradedKey] as? Bool) == true { return }
+                state.finish(image)
+            }
+        }
+    }
+
     /// 批量取元数据；取不到的 asset 不出现在结果里（调用方按「无法读取」处理）
     func metadata(forIdentifiers ids: [String]) async -> [String: ZFAssetMetadata] {
         guard !ids.isEmpty else { return [:] }
@@ -48,15 +122,19 @@ final class PhotoLibraryService: PhotoLibraryAccessing {
         var result: [String: ZFAssetMetadata] = [:]
         result.reserveCapacity(assets.count)
         assets.enumerateObjects { asset, _, _ in
-            result[asset.localIdentifier] = ZFAssetMetadata(
-                assetIdentifier: asset.localIdentifier,
-                creationDate: asset.creationDate,
-                durationSec: asset.duration,
-                pixelWidth: asset.pixelWidth,
-                pixelHeight: asset.pixelHeight
-            )
+            result[asset.localIdentifier] = Self.metadata(for: asset)
         }
         return result
+    }
+
+    private static func metadata(for asset: PHAsset) -> ZFAssetMetadata {
+        ZFAssetMetadata(
+            assetIdentifier: asset.localIdentifier,
+            creationDate: asset.creationDate,
+            durationSec: asset.duration,
+            pixelWidth: asset.pixelWidth,
+            pixelHeight: asset.pixelHeight
+        )
     }
 
     /// 原片字节复制（不转码）：优先 .fullSizeVideo（编辑过的原片），否则 .video。
@@ -157,6 +235,30 @@ final class PhotoLibraryService: PhotoLibraryAccessing {
             return .iCloudUnavailable
         }
         return .exportFailed(nsError.localizedDescription)
+    }
+}
+
+/// PHImageManager.requestImage 的完成状态（degraded/final/取消都可能回调；continuation 只 resume 一次）
+private final class ThumbnailRequestState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<UIImage?, Never>?
+    private var finished = false
+
+    init(_ continuation: CheckedContinuation<UIImage?, Never>) {
+        self.continuation = continuation
+    }
+
+    func finish(_ image: UIImage?) {
+        lock.lock()
+        guard !finished else {
+            lock.unlock()
+            return
+        }
+        finished = true
+        let continuation = self.continuation
+        self.continuation = nil
+        lock.unlock()
+        continuation?.resume(returning: image)
     }
 }
 

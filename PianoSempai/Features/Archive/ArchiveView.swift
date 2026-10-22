@@ -39,6 +39,10 @@ struct ArchiveView: View {
     @State private var weekAnchor = Date()
     /// 问 Neko（S18 自由问答；fullScreenCover 天然隐藏 tab bar）
     @State private var showNekoChat = false
+    /// S17 导入 Zf 月度录像（fullScreenCover + NavigationStack：无 tab bar 的整页流程）
+    @State private var showZFImport = false
+    /// 导入成功后的单行 toast（不弹 modal）
+    @State private var zfToast: String?
     @Environment(\.modelContext) private var context
 
     private var settings: AppSettings? { settingsList.first }
@@ -108,6 +112,11 @@ struct ArchiveView: View {
 
                 monthlyEntryCard.padding(.top, 12)
 
+                // S17 入口恒显示：第一次导入时档案里还没有任何 take，不能按内容隐藏
+                if ArchiveZFEntry.shouldShowEntry(takes: takes) {
+                    zfImportEntry.padding(.top, 8)
+                }
+
                 if monthFilter != nil {
                     monthFilterRow.padding(.top, 12)
                 }
@@ -145,6 +154,13 @@ struct ArchiveView: View {
         .overlay(alignment: .bottomTrailing) {
             nekoFAB
         }
+        .overlay(alignment: .bottom) {
+            if let zfToast {
+                zfToastBanner(zfToast)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: zfToast)
         .sheet(item: $selected) { take in
             TakeReportView(take: take)
         }
@@ -156,6 +172,14 @@ struct ArchiveView: View {
         .fullScreenCover(isPresented: $showNekoChat) {
             // S18 问 Neko：自由问答，不带 take 上下文（take 上下文由 S13 提供）
             ChatView(mode: .freeform, context: context)
+        }
+        .fullScreenCover(isPresented: $showZFImport) {
+            // S17 无 tab 的整页流程：cover 天然隐藏 tab bar；内部 NavigationStack 保持 push 语义
+            NavigationStack {
+                S17ZFImportView { count in
+                    showZFToast("已导入 \(count) 段到档案")
+                }
+            }
         }
         .onAppear { now = Date() }
     }
@@ -390,6 +414,63 @@ struct ArchiveView: View {
             ? latestReport.observationTitle
             : "统计已就绪"
         return "\(latestReport.year) 年 \(latestReport.month) 月月报 · \(title)"
+    }
+
+    // MARK: S17 入口（导入 Zf 月度录像；一条入口，不改动现有列表行为）
+
+    private var zfImportEntry: some View {
+        Button {
+            showZFImport = true
+        } label: {
+            NocturneCard {
+                HStack(spacing: 12) {
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.system(size: 17))
+                        .foregroundStyle(Color.amber)
+                        .frame(width: 28, height: 28)
+                        .background(Color.canvas, in: RoundedRectangle(cornerRadius: 8))
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.border, lineWidth: 1))
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("导入 Zf 月度录像")
+                            .font(.titleMd)
+                            .foregroundStyle(Color.textPrimary)
+                        Text("从相册挑选 Zf 拍的练琴视频，永久归档在本机")
+                            .font(.labelSm)
+                            .foregroundStyle(Color.textMuted)
+                            .lineLimit(2)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.textMuted)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("导入 Zf 月度录像")
+    }
+
+    /// 导入成功单行提示（不弹 modal；2.5 秒后自动消失）
+    private func zfToastBanner(_ text: String) -> some View {
+        Text(text)
+            .font(.bodyMd)
+            .foregroundStyle(Color.textPrimary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Color.cardElevated, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.amber.opacity(0.35), lineWidth: 1))
+            .shadow(color: Color.black.opacity(0.3), radius: 16, y: 4)
+            .padding(.bottom, 88) // 让开问 Neko FAB 与 tab bar
+            .allowsHitTesting(false)
+    }
+
+    private func showZFToast(_ text: String) {
+        zfToast = text
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            if zfToast == text { zfToast = nil }
+        }
     }
 
     // MARK: 月份过滤行（引用 chip 从 S22 跳回来时出现）
@@ -710,6 +791,12 @@ struct ArchiveView: View {
                 title: "复习",
                 background: Color.border, foreground: Color.textMuted, border: Color.clear
             )
+        case "zfImport":
+            // ADR-0012：Zf 月度录像不是「主菜」，单独 badge
+            return TypeBadgeStyle(
+                title: "Zf",
+                background: Color.amber.opacity(0.10), foreground: Color.amber, border: Color.amber.opacity(0.3)
+            )
         default:
             return TypeBadgeStyle(
                 title: "主菜",
@@ -727,6 +814,8 @@ struct ArchiveView: View {
     }
 
     private func rowTitle(_ take: Take) -> String {
+        // Zf 月度录像走自己的标题（Stage A 已写好「9/14 Zf 录像」；不落「主菜」）
+        if let zfTitle = ArchiveZFEntry.rowTitle(for: take) { return zfTitle }
         // 曲目真实标题优先（真值时间线行显曲名，类型交给 badge）
         if let pieceId = take.pieceId,
            let title = pieces.first(where: { $0.entityId == pieceId })?.title,
@@ -1006,5 +1095,22 @@ enum ArchiveMonthFilter {
     static func apply(takes: [Take], periodKey: String?) -> [Take] {
         guard let periodKey else { return takes }
         return takes.filter { MonthlyCalendar.periodKey(for: $0.startedAt) == periodKey }
+    }
+}
+
+// MARK: - S17 入口与 Zf 行口径（纯逻辑，可单测）
+
+enum ArchiveZFEntry {
+
+    /// 入口恒显示：第一次导入 Zf 录像时档案里还什么都没有，
+    /// 若按 take 数/筛选结果隐藏，用户永远进不去（ADR-0012）。
+    static func shouldShowEntry(takes: [Take]) -> Bool {
+        true
+    }
+
+    /// zfImport take 的时间线标题；非 zf 返回 nil（走原有曲目/类型标题）
+    static func rowTitle(for take: Take) -> String? {
+        guard take.taskType == "zfImport" else { return nil }
+        return take.title.isEmpty ? "Zf 录像" : take.title
     }
 }
