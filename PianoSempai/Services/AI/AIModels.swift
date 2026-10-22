@@ -44,8 +44,8 @@ enum AIJSON {
 // MARK: - 请求
 
 /// OpenAI content 的两种形态：纯文本，或多模态 parts 数组。
-/// M7.1 只发 `.text`（纯文字/MIDI 问题永不带附件，红线 3）；
-/// `.parts` 分支为 M7.2 视频/图片预留——不预先实现，只留编码形态。
+/// 纯文字/MIDI 问题恒用 `.text`（红线：永不带附件）；V3 视频提问用 `.parts`
+/// （video_url.file_id + 文本，ADR-0011）。
 enum MessageContent: Codable, Equatable, Sendable {
     case text(String)
     case parts([ContentPart])
@@ -77,7 +77,35 @@ enum MessageContent: Codable, Equatable, Sendable {
     }
 }
 
-/// 多模态 part（M7.2 才真正产生；M7.1 只定义编码形态，见上方 MessageContent）
+/// 随提问发送的视频片段（本地临时 720p 文件 + 区间元数据）。
+/// 视频本体永不落库、不导出；发送结束（成功/取消/失败）即删本地临时文件。
+struct VideoClipPayload: Equatable, Sendable {
+    let fileURL: URL
+    let startSec: Double
+    let endSec: Double
+    /// 抽帧率，默认 1.0（方舟 Files API 取值 0.2–5）
+    let fps: Double
+
+    init(fileURL: URL, startSec: Double, endSec: Double, fps: Double = 1.0) {
+        self.fileURL = fileURL
+        self.startSec = startSec
+        self.endSec = endSec
+        self.fps = fps
+    }
+}
+
+/// 落 ChatMessage.attachmentsJSON 的附件描述（不存视频本体，ADR-0011）。
+struct ChatVideoAttachment: Codable, Equatable, Sendable {
+    var startSec: Double
+    var endSec: Double
+    var durationSec: Double
+    /// 实际命中的「服务商显示名 · 模型 id」；失败留空
+    var providerModel: String
+    /// 删除开关开启且云端删除实际成功才为 true；失败如实为 false
+    var cloudFileDeleted: Bool
+}
+
+/// 多模态 part（V3 视频提问真正产生 video_url.file_id；图片形态仅保留编码能力）
 struct ContentPart: Codable, Equatable, Sendable {
     enum Kind: String, Codable, Sendable {
         case text
@@ -90,15 +118,18 @@ struct ContentPart: Codable, Equatable, Sendable {
     var text: String?
     /// kind == .imageURL/.videoURL 时的地址（M7.2：经 S18b 确认的切片）
     var url: String?
+    /// kind == .videoURL 时的方舟云端文件 id（Files API 上传后所得，ADR-0011）
+    var fileId: String?
 
     enum CodingKeys: String, CodingKey {
         case type, text, imageURL = "image_url", videoURL = "video_url"
     }
 
-    init(kind: Kind, text: String? = nil, url: String? = nil) {
+    init(kind: Kind, text: String? = nil, url: String? = nil, fileId: String? = nil) {
         self.kind = kind
         self.text = text
         self.url = url
+        self.fileId = fileId
     }
 
     init(from decoder: Decoder) throws {
@@ -114,14 +145,19 @@ struct ContentPart: Codable, Equatable, Sendable {
             } else {
                 self.url = try container.decodeIfPresent(String.self, forKey: .imageURL)
             }
+            self.fileId = nil
         case .videoURL:
+            // 两种形态：{"video_url":{"url":...}} 与 {"video_url":{"file_id":...}}
             if let nested = try? container.decodeIfPresent(NestedURL.self, forKey: .videoURL) {
                 self.url = nested.url
+                self.fileId = nested.fileId
             } else {
                 self.url = try container.decodeIfPresent(String.self, forKey: .videoURL)
+                self.fileId = nil
             }
         case .text:
             self.url = nil
+            self.fileId = nil
         }
     }
 
@@ -134,12 +170,23 @@ struct ContentPart: Codable, Equatable, Sendable {
         case .imageURL:
             try container.encodeIfPresent(NestedURL(url: url), forKey: .imageURL)
         case .videoURL:
-            try container.encodeIfPresent(NestedURL(url: url), forKey: .videoURL)
+            // 有 fileId 时优先走 file_id 形态（云端文件可显式删除），否则退回 url 形态
+            if let fileId {
+                try container.encodeIfPresent(NestedURL(url: url, fileId: fileId), forKey: .videoURL)
+            } else {
+                try container.encodeIfPresent(NestedURL(url: url), forKey: .videoURL)
+            }
         }
     }
 
     private struct NestedURL: Codable, Equatable, Sendable {
         var url: String?
+        var fileId: String?
+
+        enum CodingKeys: String, CodingKey {
+            case url
+            case fileId = "file_id"
+        }
     }
 }
 
