@@ -24,7 +24,7 @@
 - **采集**：`AVCaptureSession` + `AVCaptureMovieFileOutput`（不自管 AVAssetWriter 编码）；1080p / 30fps / H.264 + 现场音轨。选 H.264 是为了下一批 V3 可直接上传，不必转码。预览用 `AVCaptureVideoPreviewLayer` 经 `UIViewRepresentable` 包一层（不做自绘假预览）。
 - **权限**：`AVCaptureDevice.requestAccess(for: .video / .audio)`；拒绝时诚实提示（相机权限被关 → 去系统设置），且**不阻塞**继续纯 MIDI 练习。
 - **配对**：录像与练习会话同起同停。锚点 = `Take.startedAt`；`Take` 记录视频起录偏移（通常 0）。任一路失败只落已有的一半：视频无 MIDI → `hasMidi=false`；MIDI 无视频 → 无附件。
-- **文件**：`Documents/videos/yyyy/MM/take-<takeId>.mov`（与 `TakeStore` 的 `midi/yyyy/MM/` 平行），`Take` 只存相对路径。
+- **文件**：`Documents/videos/yyyy/MM/video-<uuid>.mov`（与 `TakeStore` 的 `midi/yyyy/MM/` 平行），`Take` 只存相对路径。文件名用录像会话 UUID 而非 takeId —— 视频在 take 落库前已开始录制，takeId 那时还不存在。
 - **保留**：接 `VideoRetentionService`，按 `pieceId` 分组、`keepPerSource = 8`；无 `pieceId` 的 take 自成一组；Zf 永留留给 V7。规则持久化到 `AppSettings.videoRetentionMode`（`"lru8"` / `"never"`，默认 `lru8`），执行时机 = 每次保存视频后；被淘汰的 take 清 `videoFileURL` 并删文件。
 - **相册写回**：保存成功后 add-only 写一份进系统相册（新增 `NSPhotoLibraryAddUsageDescription`），失败或被拒静默跳过、不打断保存（PRD 299 已定）。
 - **回看（S16）**：`AVPlayer` + scrubber + 时码；入口 = 档案 take 行视频角标 + 报告页；「重新校准」→ S15；「问 Neko」本批隐藏（视频上传链路未做，不留死按钮）。

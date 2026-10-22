@@ -303,7 +303,7 @@ app 要敢当"坏人"（基本功任务不能跳过、硬门禁防止自我放�
 
 - **范围**：机位校准向导（S15，4 步）→ 练习室侧拍录制 → 视频作为 take 附件落盘 → 回看（S16）。V3 裁切发送、V7 Zf 导入为下一批。
 - **不做手型**：本批不接 MediaPipe，S15 校准页不画 21 点骨架与检测 chips，S16 不画「这一段的观察」卡（无数据源）。手型能力（PRD M6/P4）单列 backlog V8。
-- **录制口径**：录像与练习会话同起同停，与 MIDI 按 `Take.startedAt` 锚点配对；照常判分但 `isPassEligible=false`，不参与过关。视频 1080p30 H.264 + 现场音轨，落 `Documents/videos/yyyy/MM/take-<id>.mov`。
+- **录制口径**：录像与练习会话同起同停，与 MIDI 按 `Take.startedAt` 锚点配对；照常判分但 `isPassEligible=false`，不参与过关。视频 1080p30 H.264 + 现场音轨，落 `Documents/videos/yyyy/MM/video-<uuid>.mov`。
 - **入口**：练习室顶栏（图标钮；顶栏三枚 pill 已占满宽度，不再塞文字胶囊）。录完归位，回看从档案 take 行进入。
 - **保留规则**：每曲最近 8 条 LRU（设置页可改「不自动清理」，本次修好持久化）；淘汰只删视频文件，MIDI 与分析永久保留；保存成功同时 add-only 写一份进系统相册。
 
