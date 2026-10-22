@@ -11,6 +11,9 @@
   - 顺带修复 V9：设置页视频保留规则只存 `@State`、退页即丢 → 落库 `AppSettings.videoRetentionMode`。
 - **测试**：766 → 788（Stage A +15，Stage B +7），Hermes 独立全量 `xcodebuild test` 788/0 TEST SUCCEEDED。
 - **待办**：V10 真机验收（相机路径模拟器无法执行）。
+- **A2 视频发送 Neko（V3 / V4 / V5 / V6，ADR-0011）**：Files API 上传→`file_id`→提问→按开关 DELETE（不用 Base64，因无法显式删云端）；上传片段 720p H.264 约 2Mbps；2–30 秒；三预设（热点前后 2 小节 / 整段 / 手动）；入口 S16「问这段」+ 报告页。Stage A `8f34725`（ArkFileClient / 720p 转义 / ClipWindowMapper / ChainVideoRequest 链式路径，+22 测，810/0）→ Stage B `134ff98`（S18b 91% 抽屉、真实抽帧胶片轨、可拖手柄与播放头、运行时服务商名、删除开关、取消/重试状态机、ChatStore 附件链路，+15 测，825/0）。
+  - 关键设计：`ChainInput` 保持无附件字段（月报 `testInputHasNoAttachmentFields` 是红线，视频经独立 `ChainVideoRequest` 参数传入）；每跳用**自己的 key** 上传（`file_id` 不跨账号），成功与失败都按开关清理云端文件。
+  - 遗留：V11 真 key 端到端（需方舟控制台开通 `doubao-seed-2-1-pro` + 设备 key）。
 
 ---
 
@@ -133,10 +136,10 @@
 |---|---|---|---|---|
 | V1 | S15 机位校准向导（侧拍/整机位、向导步骤、校准确认） | S15 | done | ADR-0010，2026-10-22 代码落地（Stage B `3477c18`）：真实相机预览 + 静态取景框 + 提示/免责卡 + 4 步流程 + 5 秒试录回放；相机不可用/权限拒绝走诚实卡。**不画 MediaPipe 骨架与检测 chips**（见 V8）。真机路径待验。 |
 | V2 | S16 视频回看（take 视频列表/回放/选段预览） | S16 | done | ADR-0010，2026-10-22 代码落地：AVPlayer + scrubber + 时码 +「重新校准」/「删除这段录像」；档案与 take 报告有视频角标/入口。卡②手型观察与骨架不渲染（V8）；「问 Neko」隐藏（V3 未做）。真机待验。 |
-| V3 | S18b 视频裁切并发送给 Neko（近全高 sheet：胶片轨双手柄/区间 badge/预设 chips/提问上下文/服务商披露/删除开关/CTA） | S18b | in-progress | ADR-0011（2026-10-22 五项口径全拍）：Files API 上传→file_id→提问→按开关删除；720p/2Mbps 转码；2–30 秒；三个预设（热点前后2小节/整段/手动）；入口仅 S16 与报告页。服务商名运行时取 `displayName`。 |
-| V4 | S18b 服务商命中名实时显示（真值写死「火山方舟（字节跳动）」） | S18b §3.6 | in-progress | 原为「维持现状先不画」。V3 落地时改为运行时 `AIProvider.displayName`：发送前显示链上第一个支持视频的服务商 + 「失败时按链转移」，发送后消息显示实际命中。 |
-| V5 | S18b 上传中/可取消/失败重试/完成后「云端片段已删除」视觉 | S18b §4 | in-progress | 原为「先不画」。V3 落地时一并实现：上传中进度可取消、失败可重试、删除成功/失败如实提示（失败不谎称已删）。 |
-| V6 | S18b 最小裁切时长 2s 报错、开关 OFF「云端保留」态、下滑关闭/播放头可拖 | S18b §4/§5 | in-progress | 原为「先不画」。V3 落地时实现：<2s 行内红字、开关 OFF 时明示「云端保留至过期」、播放头可拖、下滑关闭按 28pt sheet 手势。 |
+| V3 | S18b 视频裁切并发送给 Neko（近全高 sheet：胶片轨双手柄/区间 badge/预设 chips/提问上下文/服务商披露/删除开关/CTA） | S18b | done | ADR-0011，2026-10-22 代码落地（Stage A `8f34725` / Stage B `134ff98`）：Files API 上传→`file_id`→提问→按开关 DELETE；720p/2Mbps 转码；2–30 秒；三预设；入口 S16「问这段」+ 报告页；真实抽帧胶片轨（不画假波形）。**真 key 端到端待 V11**。 |
+| V4 | S18b 服务商命中名实时显示（真值写死「火山方舟（字节跳动）」） | S18b §3.6 | done | 已改为运行时 `AIProvider.displayName`（`firstVideoCapableName` 选链上第一个支持视频的服务商，附「失败时按链转移」），无写死名；发送后气泡显示实际命中 `providerModel`。 |
+| V5 | S18b 上传中/可取消/失败重试/完成后「云端片段已删除」视觉 | S18b §4 | done | 上传中可取消（取消即删临时片段并撤回消息）、失败可重试（不重新裁切）、删除结果如实回填 `cloudFileDeleted`（失败不谎称已删；气泡暂不显示删除成功文案，等产品确认）。 |
+| V6 | S18b 最小裁切时长 2s 报错、开关 OFF「云端保留」态、下滑关闭/播放头可拖 | S18b §4/§5 | done | <2s 行内红字并禁用 CTA；开关 OFF 显示「云端文件会保留至过期」；播放头可拖；scrim 不关闭（真值），✕/取消关闭。 |
 | V7 | S17 月度录像导入（从系统相册挑尼康 Zf 视频复制本机永久归档，不上传/不判分/不自动分析手型；sticky 底部操作区） | S17 | blocked | 下一批（V1+V2 之后）。数据归属已定：复用 Take（`taskType="zfImport"`、`hasMidi=false`、挂视频附件、不进判分但进档案时间线与月报）。实现需 PhotoKit/PhotosPicker + NSPhotoLibrary 相关键（当前均无）。 |
 | V8 | MediaPipe 21 点骨架与手型检测（S15 校准页实时骨架、S16 回看页卡②「这一段的观察」3 条带置信度） | S15/S16 · PRD M6/P4 | blocked | 2026-10-22 用户拍板本批不含：SDK 接入 + 端上推理 + 检测项标定成本高，且与采集/回看不是同一批可交付物。骨架层、检测 chips、观察卡在能力落地前不渲染（无数据源禁止造假）。 |
 | V9 | 视频保留规则持久化（设置页「每曲最近 8 条 / 不自动清理」） | S23 | done | `RetentionRuleSheet` 原先只用 `@State`，退页即丢。2026-10-22 已修：`AppSettings.videoRetentionMode` 落库 + 行文案读真实设置；保存视频后按 pieceId 分组执行 `VideoRetentionService` 淘汰（`651ca8e`）。 |
