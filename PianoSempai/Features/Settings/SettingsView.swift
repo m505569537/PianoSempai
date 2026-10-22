@@ -85,7 +85,11 @@ struct SettingsView: View {
                         showCalibration = true
                     }
                     hairline
-                    row(icon: "video", title: "视频保留", value: "每曲最近 8 条") {
+                    row(
+                        icon: "video",
+                        title: "视频保留",
+                        value: VideoUIFormatting.retentionLabel(for: settings?.videoRetentionMode ?? "lru8")
+                    ) {
                         showRetention = true
                     }
                 }
@@ -570,7 +574,7 @@ private struct RouteOverviewSheet: View {
     }
 }
 
-// MARK: - 视频保留规则（真实规则可改；LRU N / never）
+// MARK: - 视频保留规则（真实规则可改；LRU N / never，选完即落库）
 
 private struct RetentionRuleSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -578,6 +582,8 @@ private struct RetentionRuleSheet: View {
     @Environment(\.modelContext) private var context
 
     @State private var mode = "lru8" // lru8 / never
+
+    private var settings: AppSettings? { settingsList.first }
 
     var body: some View {
         NavigationStack {
@@ -587,18 +593,18 @@ private struct RetentionRuleSheet: View {
                     .leading(19, fontSize: 12)
                     .foregroundStyle(Color.textMuted)
                 Button {
-                    mode = "lru8"
+                    select("lru8")
                 } label: {
                     radioRow("每曲最近 8 条（默认）", selected: mode == "lru8")
                 }
                 .buttonStyle(.plain)
                 Button {
-                    mode = "never"
+                    select("never")
                 } label: {
                     radioRow("不自动清理", selected: mode == "never")
                 }
                 .buttonStyle(.plain)
-                Text("P1 无视频捕获；规则在「录给 AI 看」批次（S15）生效。")
+                Text("清理只删视频文件；take、MIDI 与报告永久保留。")
                     .font(.labelSm)
                     .foregroundStyle(Color.textMuted)
                 Spacer()
@@ -616,6 +622,19 @@ private struct RetentionRuleSheet: View {
         }
         .preferredColorScheme(.dark)
         .presentationDetents([.medium])
+        .onAppear {
+            // 打开即显真实规则（此前只是 @State，退页即丢）
+            mode = settings?.videoRetentionMode ?? "lru8"
+        }
+    }
+
+    /// 点选即持久化并退出：不再有「选了却没保存」的死态
+    private func select(_ value: String) {
+        mode = value
+        let target = settings ?? AppSettings.fetchOrCreate(in: context)
+        target.videoRetentionMode = value
+        try? context.save()
+        dismiss()
     }
 
     private func radioRow(_ label: String, selected: Bool) -> some View {

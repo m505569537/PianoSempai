@@ -343,12 +343,14 @@ enum ScoringOrchestrator {
             context.insert(row)
         }
         take.analysisId = row.entityId
-        take.isPassEligible = outcome.eligibleForPass
+        // 录像会话照常判分，但永不参与过关（ADR-0010 决策三）
+        take.isPassEligible = outcome.eligibleForPass && !take.isRecordingSession
 
         // 课程推进状态机（ADR-0003；只有 CourseEngine 写 Piece.status）。
         // piece 存在即驱动，不要求 canEvaluate——notStarted→practicing、reviewing 的
         // 非可评中性都要靠 take 触发；history 由 react 内部按需自取。
-        if let piece {
+        // 录像会话跳过：reviewing 分支会直接吃本次 outcome，侧拍判定口径与正常练习不一致。
+        if let piece, !take.isRecordingSession {
             CourseEngine.reactToAnalyzedTake(
                 piece: piece,
                 canEvaluate: outcome.canEvaluate,
@@ -363,9 +365,9 @@ enum ScoringOrchestrator {
         // 通过 → resolveIfPassed 清零未结卡，prescribeIfNeeded 因最近可评=通过不新建；
         // 不过 → resolve 不动，连续 2 次可评不过才建（未结去重）。
         // 不改 Piece.status（红线：只由 CourseEngine 写）。
-        if let piece {
+        if let piece, !take.isRecordingSession {
             let pieceTakeIds = Set(((try? context.fetch(FetchDescriptor<Take>())) ?? [])
-                .filter { $0.pieceId == piece.entityId }
+                .filter { $0.pieceId == piece.entityId && !$0.isRecordingSession }
                 .map(\.entityId))
             let scoped = ((try? context.fetch(FetchDescriptor<TakeAnalysis>())) ?? [])
                 .filter { pieceTakeIds.contains($0.takeId) }
@@ -376,10 +378,10 @@ enum ScoringOrchestrator {
     }
 
     /// 同 piece 历史 takes（时间升序）的 (eligible, passed)——过关连续计数输入（§7）。
-    /// 未分析的 take 不参与（无分析行 = 无判定）。
+    /// 未分析的 take 不参与（无分析行 = 无判定）；录像会话永不参与（ADR-0010）。
     static func pieceTakeHistory(pieceId: UUID, in context: ModelContext) -> [(eligible: Bool, passed: Bool)] {
         let takes = ((try? context.fetch(FetchDescriptor<Take>())) ?? [])
-            .filter { $0.pieceId == pieceId }
+            .filter { $0.pieceId == pieceId && !$0.isRecordingSession }
             .sorted { $0.startedAt < $1.startedAt }
         let analyses = (try? context.fetch(FetchDescriptor<TakeAnalysis>())) ?? []
         let analysisByTake = Dictionary(uniqueKeysWithValues: analyses.map { ($0.entityId, $0) })

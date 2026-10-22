@@ -616,6 +616,13 @@ struct ArchiveView: View {
                         .foregroundStyle(Color.textPrimary)
                         .lineLimit(1)
                     typeBadge(take)
+                    if VideoUIFormatting.hasVideo(take) {
+                        // 只有标记，不新增点击目标：整行仍进 Take 报告
+                        Image(systemName: "video.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.amber.opacity(0.8))
+                            .accessibilityLabel("有录像")
+                    }
                 }
                 Text(metaText(take))
                     .font(.labelMono(11))

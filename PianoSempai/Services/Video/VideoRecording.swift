@@ -52,6 +52,10 @@ final class AVFoundationVideoRecorder: NSObject, VideoRecording,
     private var recordingRelativePath: String?
     /// 仅 sessionQueue 访问
     private var sessionConfigured = false
+    /// 仅 sessionQueue 访问（预览先配好时，录制开始再补音轨）
+    private var audioInputConfigured = false
+    /// 预览已准备好（lock 保护）：S15 挂 AVCaptureVideoPreviewLayer 的判据
+    private var previewReady = false
 
     var state: VideoRecordingState {
         lock.lock()
@@ -207,7 +211,14 @@ final class AVFoundationVideoRecorder: NSObject, VideoRecording,
     // MARK: - 会话（sessionQueue）
 
     private func configureSession(micGranted: Bool) throws {
-        if sessionConfigured { return }
+        if sessionConfigured {
+            // S15 先配了预览（可能当时没有麦克风权限）：录制开始时补上音轨，不改原有语义。
+            guard micGranted, !audioInputConfigured else { return }
+            session.beginConfiguration()
+            defer { session.commitConfiguration() }
+            addAudioInputIfPossible()
+            return
+        }
 
         session.beginConfiguration()
         defer { session.commitConfiguration() }
@@ -231,10 +242,8 @@ final class AVFoundationVideoRecorder: NSObject, VideoRecording,
         }
         session.addInput(videoInput)
 
-        if micGranted, let audioDevice = AVCaptureDevice.default(for: .audio),
-           let audioInput = try? AVCaptureDeviceInput(device: audioDevice),
-           session.canAddInput(audioInput) {
-            session.addInput(audioInput)
+        if micGranted {
+            addAudioInputIfPossible()
         }
 
         guard session.canAddOutput(movieOutput) else {
@@ -253,6 +262,15 @@ final class AVFoundationVideoRecorder: NSObject, VideoRecording,
         }
 
         sessionConfigured = true
+    }
+
+    /// 静音降级：麦克风不可用只是没有音轨，不失败
+    private func addAudioInputIfPossible() {
+        guard let audioDevice = AVCaptureDevice.default(for: .audio),
+              let audioInput = try? AVCaptureDeviceInput(device: audioDevice),
+              session.canAddInput(audioInput) else { return }
+        session.addInput(audioInput)
+        audioInputConfigured = true
     }
 
     private func startSession() throws {
@@ -375,6 +393,63 @@ final class AVFoundationVideoRecorder: NSObject, VideoRecording,
             handler(newState)
         } else {
             DispatchQueue.main.async { handler(newState) }
+        }
+    }
+}
+
+// MARK: - S15 预览（只起会话，绝不写文件）
+
+extension AVFoundationVideoRecorder {
+
+    /// 已配置好的 session（供 S15 挂 AVCaptureVideoPreviewLayer）；未 prepare 时为 nil
+    var previewSession: AVCaptureSession? {
+        lock.lock()
+        defer { lock.unlock() }
+        return previewReady ? session : nil
+    }
+
+    /// 准备预览会话（幂等）：请求相机（必需）与麦克风（可选）权限，配置 session 并启动。
+    /// 不开始录像，也不会写任何文件。
+    func preparePreview() async throws {
+        try await requestCameraAccess()
+        // 这里一并问麦克风：预览配置后 session 会被录制复用，先拿到音轨权限就不会在开录时再弹一次
+        let micGranted = await requestMicrophoneAccess()
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            sessionQueue.async { [weak self] in
+                guard let self else {
+                    continuation.resume(throwing: VideoRecordingError.configurationFailed("录制器已释放"))
+                    return
+                }
+                do {
+                    try self.configureSession(micGranted: micGranted)
+                    if !self.session.isRunning {
+                        self.session.startRunning()
+                    }
+                } catch {
+                    let failure = (error as? VideoRecordingError)
+                        ?? .configurationFailed(error.localizedDescription)
+                    continuation.resume(throwing: failure)
+                    return
+                }
+                self.lock.lock()
+                self.previewReady = true
+                self.lock.unlock()
+                continuation.resume()
+            }
+        }
+    }
+
+    /// 关闭预览会话（「视频镜头不常开」）：离开 S15 或练习室时必须调用
+    func endPreview() {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            if self.session.isRunning {
+                self.session.stopRunning()
+            }
+            self.lock.lock()
+            self.previewReady = false
+            self.lock.unlock()
         }
     }
 }

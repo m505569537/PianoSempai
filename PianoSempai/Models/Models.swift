@@ -267,6 +267,8 @@ final class Take {
     var analysisId: UUID?
     /// 该 take 是否参与了过关判定（高置信 + 覆盖完整；低置信/无谱 take = false，不计数不清零）
     var isPassEligible: Bool = false
+    /// 录像会话（侧拍）：照常判分，但不参与过关——连续计数 / 处方 / 状态机全部跳过
+    var isRecordingSession: Bool = false
     /// 自由弹奏一句话 / take 标题
     var title: String = ""
     /// 视频附件相对路径（Documents 下，如 videos/2026/10/video-<uuid>.mov）；nil = 无视频
@@ -277,7 +279,7 @@ final class Take {
     var videoStartedAtOffset: Double = 0
 
     /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
-    init(entityId: UUID = UUID(), startedAt: Date = Date(), endedAt: Date? = nil, durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false, midiFileURL: String = "", measureFrom: Int? = nil, measureTo: Int? = nil, tempoAvg: Int = 0, noteCount: Int = 0, wrongNoteCount: Int = 0, pedalEventCount: Int = 0, midiEventCount: Int = 0, interruptionRanges: [Int] = [], wrongNoteRecords: [String] = [], pieceId: UUID? = nil, scoreFileId: UUID? = nil, analysisId: UUID? = nil, isPassEligible: Bool = false, title: String = "", videoFileURL: String? = nil, videoDurationSec: Int = 0, videoStartedAtOffset: Double = 0) {
+    init(entityId: UUID = UUID(), startedAt: Date = Date(), endedAt: Date? = nil, durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false, midiFileURL: String = "", measureFrom: Int? = nil, measureTo: Int? = nil, tempoAvg: Int = 0, noteCount: Int = 0, wrongNoteCount: Int = 0, pedalEventCount: Int = 0, midiEventCount: Int = 0, interruptionRanges: [Int] = [], wrongNoteRecords: [String] = [], pieceId: UUID? = nil, scoreFileId: UUID? = nil, analysisId: UUID? = nil, isPassEligible: Bool = false, title: String = "", videoFileURL: String? = nil, videoDurationSec: Int = 0, videoStartedAtOffset: Double = 0, isRecordingSession: Bool = false) {
         self.entityId = entityId
         self.startedAt = startedAt
         self.endedAt = endedAt
@@ -303,6 +305,7 @@ final class Take {
         self.videoFileURL = videoFileURL
         self.videoDurationSec = videoDurationSec
         self.videoStartedAtOffset = videoStartedAtOffset
+        self.isRecordingSession = isRecordingSession
     }
 }
 

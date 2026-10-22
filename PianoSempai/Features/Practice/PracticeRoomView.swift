@@ -80,6 +80,19 @@ struct PracticeRoomView: View {
     /// Stage B §2a：今日/聚合入口外部不传 piece 的懒解析结果（load() 里落值）。
     /// 曲库详情页已传 piece 时不参与，行为不变。
     @State private var resolvedPiece: Piece?
+    // MARK: S15/S16 录像接线（ADR-0010；视频不上传、镜头只在本段练习内开）
+    /// S15 机位校准 cover（本视图唯一新增的 fullScreenCover）
+    @State private var showCalibration = false
+    /// S15 已确认机位：下一段练习开始时同步开录
+    @State private var recordArmed = false
+    /// 与 S15 共用同一个录制器（预览配置的 session 直接复用，不重复起相机）
+    @State private var recorder = AVFoundationVideoRecorder()
+    /// 本次练习是否真的在录（由录制器状态回调驱动）
+    @State private var recordingActive = false
+    /// 录像中点头像钮 → 关闭录像确认（不影响正在进行的一次练习）
+    @State private var confirmStopRecording = false
+    /// 结算已发起停录（防 onDisappear 与 finishAndSave 双停，双停会吞掉挂载结果）
+    @State private var videoStopRequested = false
     /// take 归属用条目：外部显式传入优先，否则用懒解析结果。
     private var effectivePiece: Piece? { piece ?? resolvedPiece }
 
@@ -178,10 +191,30 @@ struct PracticeRoomView: View {
             // 练习中自由问答（不带未保存的实时数据，避免假数据）
             ChatView(mode: .freeform, context: context)
         }
-        .onAppear(perform: load)
+        .fullScreenCover(isPresented: $showCalibration) {
+            S15CameraCalibrationView(recorder: recorder) { positioned in
+                // 完成校准 → armed；跳过录像 / 退出 → 不录
+                recordArmed = positioned
+                showCalibration = false
+            }
+        }
+        .onAppear {
+            load()
+            recorder.onStateChange = { state in
+                switch state {
+                case .recording: recordingActive = true
+                default: recordingActive = false
+                }
+            }
+        }
         // B6：节拍器与示范音都必须收尾。左上返回也走这里——不留后台音频图。
         //（teardown 必须显式调：deinit 到不了 @MainActor 的 DemoPlaybackService.teardown()）
-        .onDisappear { metronome.stop(); demo.teardown() }
+        // S15：离开练习室绝不能留相机会话；练习中途退出时丢掉没有 take 可挂的录像文件。
+        .onDisappear {
+            metronome.stop()
+            demo.teardown()
+            teardownRecording()
+        }
         .onReceive(hub.$events) { _ in
             // 只处理未消费过的新事件（订阅/复现会重放当前数组）
             guard let last = hub.events.last, last.id != lastHandledEventID else { return }
@@ -257,6 +290,7 @@ struct PracticeRoomView: View {
             headerTitle
             Spacer(minLength: 8)
             // TODO: equalizer (mix) — pending product
+            recordingButton
             closeButton
         }
         .padding(.horizontal, 14)
@@ -425,6 +459,41 @@ struct PracticeRoomView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+    }
+
+    /// 录像入口（真值无此钮，PRD M8b：练习室顶栏紧凑图标，24×24，紧贴关闭钮左侧）。
+    /// 关闭态：点开 S15 机位校准；已准备/正在录：确认后关闭录像（不打断本次练习）。
+    private var recordingButton: some View {
+        let isOn = recordArmed || recordingActive
+        return Button {
+            if isOn {
+                confirmStopRecording = true
+            } else {
+                showCalibration = true
+            }
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: isOn ? "video.fill" : "video")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(isOn ? Color.amber : Color.textMuted)
+                    .frame(width: 24, height: 24)
+                if isOn {
+                    Circle()
+                        .fill(Color.danger)
+                        .frame(width: 6, height: 6)
+                        .offset(x: 1, y: -1)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isOn ? "关闭录像" : "机位校准与录像")
+        .alert("关闭录像？", isPresented: $confirmStopRecording) {
+            Button("关闭录像") { recordArmed = false }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("下一段练习才会重新录像；正在进行的这一次不受影响。")
+        }
     }
 
     private var displayTitle: String {
@@ -1108,6 +1177,10 @@ struct PracticeRoomView: View {
                 // 预备拍关着：这里补一次无预备拍的 start
                 metronome.start(bpm: session.tempoState.bpm, countInBars: 0)
             }
+            // S15 已校准机位 → 与练习同起；录像失败只丢视频，不拦练习（ADR-0010）
+            if RecordingDecision.shouldStart(armed: recordArmed, isConnected: hub.isConnected) {
+                startVideoRecording()
+            }
         case .performing:
             // Stage A：用户暂停（不是结算）。停心跳与判分，节拍器一并停；elapsedSec 不计这段。
             session.pause()
@@ -1245,8 +1318,34 @@ struct PracticeRoomView: View {
             scoreFileId: scoreFile?.entityId,
             in: context
         )
+        // 录像会话：照常判分，但不参与过关（ADR-0010 决策三）。
+        // isRecordingSession 是判分链的硬开关（analyze 回写 / 连续计数 / 状态机 / 处方全部看它），
+        // isPassEligible 只是当下的展示值，必须在 triggerAnalysis 之前置好。
+        if recordingActive || recorderIsRecording {
+            take.isRecordingSession = true
+            take.isPassEligible = false
+        }
         // 先落库再分析：pieceTakeHistory 要能查到这条新 take（连续计数口径）
         try? context.save()
+
+        // 视频收尾与练习结算解耦：先停录（文件此时才写完），再挂到 take、再写相册。
+        // 相册写回失败/被拒静默跳过，绝不打断保存（PRD 299）。
+        if recordingActive || recorderIsRecording {
+            videoStopRequested = true
+            let recorder = self.recorder
+            let takeRef = take
+            Task { @MainActor in
+                if let result = await recorder.stop() {
+                    try? VideoAttachmentStore.attach(result: result, to: takeRef, in: context)
+                    if let url = VideoStore.absoluteURL(for: result.relativePath) {
+                        _ = await PhotoLibraryWriter().saveVideo(at: url)
+                    }
+                }
+                recordingActive = false
+                // 停录完成后再关 session：提前 stopRunning 可能截断还在写盘的录像
+                recorder.endPreview()
+            }
+        }
         // G3 Stage B：矫正进房练完即标记完成（完成口径不看达标率，ADR-0005 决策四；markCompleted 幂等）。
         // 矫正进房照常 triggerAnalysis，其 analyzeAndStore 会走处方接线（通过→resolve，不过→未结去重不重建）。
         if let correction {
@@ -1280,6 +1379,47 @@ struct PracticeRoomView: View {
                 in: context
             )
         }
+    }
+
+    // MARK: 录像接线（S15/S16）
+
+    private var recorderIsRecording: Bool {
+        if case .recording = recorder.state { return true }
+        return false
+    }
+
+    /// 与练习同起：录像失败只丢视频这一半，练习照常进行（ADR-0010「任一路失败只落已有的一半」）
+    private func startVideoRecording() {
+        let startedAt = session.startedAt ?? Date()
+        let recorder = self.recorder
+        Task {
+            try? await recorder.start(now: startedAt)
+        }
+    }
+
+    /// 离屏收尾：没落到 take 的录像文件直接删掉，相机 session 必须关
+    private func teardownRecording() {
+        recorder.onStateChange = nil
+        guard !showCalibration else { return } // S15 正在覆盖本页，预览归 S15 管
+        // 结算已发起停录：等 finishAndSave 的 Task 收尾（先写盘、再关 session）
+        guard !videoStopRequested else { return }
+
+        if recorderIsRecording {
+            videoStopRequested = true
+            let recorder = self.recorder
+            Task { @MainActor in
+                if let result = await recorder.stop(),
+                   let url = VideoStore.absoluteURL(for: result.relativePath) {
+                    try? FileManager.default.removeItem(at: url)
+                }
+                recordingActive = false
+                recorder.endPreview()
+            }
+            return
+        }
+
+        recordingActive = false
+        recorder.endPreview()
     }
 
     private func reconnect() {

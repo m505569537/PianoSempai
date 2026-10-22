@@ -56,6 +56,13 @@ struct TakeReportView: View {
     @State private var expectedPerMeasure: [[UInt8]]?
     @State private var didLoadExpectedPerMeasure = false
     @State private var didPreloadTakeNotes = false
+    // MARK: S16 回看入口（ADR-0010）
+    /// 有视频附件时点「看录像」→ sheet 打开 S16
+    @State private var videoTake: Take?
+    /// S16 的「重新校准」：等 sheet 收完再开 S15，避免同帧换页丢弹层
+    @State private var videoRecalibratePending = false
+    @State private var showVideoCalibration = false
+    @State private var videoRecorder = AVFoundationVideoRecorder()
 
     private var analysis: P1TakeAnalysis {
         TakeAnalysisService.analyze(take: take, errorMarks: errorMarks)
@@ -256,6 +263,9 @@ struct TakeReportView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     overviewCard          // ① 总览（分值 + 雷达）
+                    if VideoUIFormatting.hasVideo(take) {
+                        videoReviewRow    // S16 入口（只有真的有录像才出现）
+                    }
                     lowConfidenceBanner   // 低置信琥珀条（真实 canEvaluate=false）
                     problemsCard          // ② 错音与漏音（热力 + 明细）
                     rhythmCard            // ③ 节奏（偏差折线）
@@ -309,6 +319,57 @@ struct TakeReportView: View {
         .fullScreenCover(isPresented: $showCompare) {
             S21CompareView(takeA: take)
         }
+        .sheet(item: $videoTake, onDismiss: {
+            if videoRecalibratePending {
+                videoRecalibratePending = false
+                showVideoCalibration = true
+            }
+        }) { video in
+            S16VideoReviewView(
+                take: video,
+                displayTitle: piece?.title ?? title,
+                onRecalibrate: { videoRecalibratePending = true }
+            )
+        }
+        .fullScreenCover(isPresented: $showVideoCalibration) {
+            // 从回看页来重新校准：这里没有练习会话，S15 只做取景与试录，完成即关
+            S15CameraCalibrationView(recorder: videoRecorder) { _ in
+                showVideoCalibration = false
+            }
+        }
+    }
+
+    /// 「看录像」入口（仅 take.videoFileURL != nil）
+    private var videoReviewRow: some View {
+        Button {
+            videoTake = take
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "video.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Color.amber)
+                    .frame(width: 32, height: 32)
+                    .background(Color.amber.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("看录像")
+                        .font(.titleMd)
+                        .foregroundStyle(Color.textPrimary)
+                    Text("侧拍 \(VideoUIFormatting.timecode(take.videoDurationSec))")
+                        .font(.labelSm)
+                        .foregroundStyle(Color.textMuted)
+                        .monospacedDigit()
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.textMuted)
+            }
+            .padding(12)
+            .background(Color.card, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.border, lineWidth: 1))
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
     }
 
     private func submitMark(type: String, note: String) {
@@ -1870,6 +1931,12 @@ struct TakesListView: View {
                                         .monospacedDigit()
                                 }
                                 Spacer()
+                                if VideoUIFormatting.hasVideo(take) {
+                                    Image(systemName: "video.fill")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(Color.amber.opacity(0.8))
+                                        .accessibilityLabel("有录像")
+                                }
                                 if !take.interruptionRanges.isEmpty {
                                     Image(systemName: "wifi.slash")
                                         .font(.system(size: 12))
