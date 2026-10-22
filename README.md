@@ -64,3 +64,22 @@ docs/                  # PRD、P1 brief、视觉系统、画布 spec、数据契
 - 行为：`docs/PRD.md` + `docs/design-system/screens/*.md` 域契约
 - 数据：`docs/design-system/data-model.md`
 - 工程红线（违反即返工）：`docs/P1-BRIEF.md` §4
+- 真机验收手册（V10 相机 / V11 视频发送真 key / V12 Zf 相册）：`docs/acceptance/2026-10-22-device-acceptance.md`
+
+## 真机安装（Hermes 可直接执行）
+
+```bash
+# 1) 构建到真机（自动申请描述文件；无需 Xcode 界面）
+xcodebuild -project PianoSempai.xcodeproj -scheme PianoSempai -configuration Debug \
+  -destination 'platform=iOS,id=<UDID>' -allowProvisioningUpdates \
+  -derivedDataPath build/device build
+
+# 2) 安装 + 启动
+xcrun devicectl device install app --device <UDID> build/device/Build/Products/Debug-iphoneos/PianoSempai.app
+xcrun devicectl device process launch --device <UDID> com.eeexu.pianosempai
+```
+
+- `UDID`：`xcrun devicectl list devices`（用户机 = `eee xu的iPhone` / iPhone 16 Pro）
+- 免费 Personal Team（4P68RDUY3F）签出的描述文件**有效期仅约 1 天**，过期后 App 打不开，重跑上面两条即可；证书本身到 2027-06-18
+- 首次安装若提示未受信任：设置 › 通用 › VPN与设备管理 › 开发者 App 里信任 `505569537@qq.com`
+- `build/` 已在 `.gitignore`，真机构建不会污染工作区
