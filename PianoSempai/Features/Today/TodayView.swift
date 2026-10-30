@@ -20,6 +20,8 @@ struct TodayView: View {
     @Query private var tasks: [PracticeTask]
     @Query private var gateEvents: [GateEvent]
     @Query private var takes: [Take]
+    // D4：主菜错误热点的数据源（该曲目最新一条判分结果；口径同 PieceDetailView）
+    @Query(sort: \TakeAnalysis.analyzedAt, order: .reverse) private var analyses: [TakeAnalysis]
     /// Stage B §3：课程条目（复习卡数据源；真实 reviewing 条目存在才出卡，无假数据）
     @Query private var pieces: [Piece]
     // G4 视奏留痕（ADR-0004）：选片去重用 history + 趋势旁观察样本
@@ -352,6 +354,9 @@ struct TodayView: View {
         // 真值标题归属：类别词进徽章，标题取旧标题去掉「类别 · 」前缀后的部分（不重复、不编造曲名）
         let warmupName = warmupTask.map { "\($0.book) \($0.number)" } ?? "热身任务"
         let mainName = mainTask.map { "\($0.book) \($0.number)" } ?? "主菜任务"
+        // 计数与下方真实渲染的卡对齐：热身/主菜/奖励曲恒在，铺路卡仅当天有卡才渲染
+        //（本区整体由外层 `if let plan` 守卫，能渲染到这里时计数恒 ≥ 3）。
+        let taskCount = 3 + (todayPaving != nil ? 1 : 0)
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -360,7 +365,7 @@ struct TodayView: View {
                     .tracking(-0.3)
                     .foregroundStyle(Color.textPrimary)
                 Spacer(minLength: 8)
-                Text("3 项")
+                Text("\(taskCount) 项")
                     .font(.system(size: 12))
                     .foregroundStyle(Color.textMuted)
             }
@@ -767,7 +772,7 @@ struct TodayView: View {
                         .foregroundStyle(Color.textMuted)
                 }
 
-                // D4：错误热点 info 条仅在有现成可信来源时渲染；当前无 → 不渲染（禁止写死 21 小节）
+                // D4：错误热点 info 条仅在有可信数据时渲染（errorHotspotMeasure 真实聚合；无数据不渲染，禁止写死小节号）
                 if let measure = errorHotspotMeasure {
                     mainInfoBar(measure: measure)
                 }
@@ -841,10 +846,19 @@ struct TodayView: View {
     }
 
     /// D4 单一接线点：错误热点小节号的唯一来源。
-    /// 现成的可信来源是 `TakeAnalysis.hotspotMeasures`（per-take 判分结果），但 S07 没有
-    /// 「主菜最近一次 take」的现成聚合；按 D4 不新建聚合 → 恒 nil，info 条不渲染。
-    /// TODO(D4)：接入现成聚合后返回真实小节号，禁止写死 21。
-    private var errorHotspotMeasure: Int? { nil }
+    /// 口径同 PieceDetailView.hotspotMeasures / S12 热点 chip：主菜条目按 book+number 反查
+    /// Piece（谓词同 CourseEngine.resolveRoomPiece，只读不建档）→
+    /// LoopService.latestHotspotMeasures 取该曲目 hotspotMeasures 非空分析里最新一条的首个热点。
+    /// 无 plan / 无条目 / 没练过（无 Piece 行即无 take）/ 无热点 → nil，info 条不渲染（不编小节号）。
+    /// 返回值按展示口径换算 +1（hotspotMeasures 是 0-based，同 hotspotLine / PracticeHeatHotspot.oneBased）。
+    private var errorHotspotMeasure: Int? {
+        guard let plan, let mainTask = task(withId: plan.mainTaskId) else { return nil }
+        let piece = pieces.first { $0.book == mainTask.book && $0.number == mainTask.number }
+        return LoopService
+            .latestHotspotMeasures(pieceId: piece?.entityId, takes: takes, analyses: analyses)
+            .first
+            .map { $0 + 1 }
+    }
 
     // MARK: 全宽 CTA「开始练习」（真值 §6）
 
@@ -2172,6 +2186,6 @@ struct SightReadTrendView: View {
     TodayView(onBrowseLibrary: {})
         .environmentObject(WarmupOverridePresenter())
         // G5 Stage B：@Query 新增 ScoreFile / RewardDifficultyAssessment / RewardPavingCard → 预览容器同步注册
-        .modelContainer(for: [AppSettings.self, PlacementResult.self, DailyPlan.self, PracticeTask.self, GateEvent.self, Take.self, CoursePathState.self, Piece.self, SightReadDrillRecord.self, CorrectionPrescription.self, ScoreFile.self, RewardDifficultyAssessment.self, RewardPavingCard.self])
+        .modelContainer(for: [AppSettings.self, PlacementResult.self, DailyPlan.self, PracticeTask.self, GateEvent.self, Take.self, TakeAnalysis.self, CoursePathState.self, Piece.self, SightReadDrillRecord.self, CorrectionPrescription.self, ScoreFile.self, RewardDifficultyAssessment.self, RewardPavingCard.self])
         .preferredColorScheme(.dark)
 }

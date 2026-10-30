@@ -73,7 +73,9 @@ struct S21CompareView: View {
             }
             .sheet(isPresented: $showPicker) {
                 S21TakePickerView(
-                    title: pickerTargetA ? "选择 Take A（基准）" : "选择 Take B（对比）"
+                    title: pickerTargetA ? "选择 Take A（基准）" : "选择 Take B（对比）",
+                    // 只列与另一槽位可对比的候选（canCompare 同口径），不可对比的不进列表
+                    comparableTo: pickerTargetA ? takeB : takeA
                 ) { selected in
                     if pickerTargetA { takeA = selected } else { takeB = selected }
                     showPicker = false
@@ -83,9 +85,12 @@ struct S21CompareView: View {
         .preferredColorScheme(.dark)
     }
 
-    private func candidateTakes(for current: Take?) -> [Take] {
-        guard let current else { return allTakes }
-        return allTakes.filter {
+    /// 与 current 同曲同段的候选（口径同 canCompare：pieceId / measureFrom / measureTo 全等，
+    /// 双方同为 nil 亦相等——自由弹奏对自由弹奏）；current == nil（另一槽位未选）→ 全量可选。
+    /// 供 S21TakePickerView 过滤：不可对比的 take 不进列表，从源头掐掉「选了却静默无结果」。
+    static func candidateTakes(for current: Take?, in takes: [Take]) -> [Take] {
+        guard let current else { return takes }
+        return takes.filter {
             $0.entityId != current.entityId &&
             $0.pieceId == current.pieceId &&
             $0.measureFrom == current.measureFrom &&
@@ -359,27 +364,49 @@ private struct ComparisonData {
 
 private struct S21TakePickerView: View {
     let title: String
+    /// 另一槽位已选的 take：候选只列同曲同段（canCompare 同口径）；nil = 另一槽位未选，全量可选
+    let comparableTo: Take?
     let onSelect: (Take) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Take.startedAt, order: .reverse) private var takes: [Take]
 
+    /// 只列可对比候选（S21CompareView.candidateTakes），不可对比的 take 根本不出现
+    private var candidates: [Take] {
+        S21CompareView.candidateTakes(for: comparableTo, in: takes)
+    }
+
     var body: some View {
         NavigationStack {
-            List(takes) { take in
-                Button {
-                    onSelect(take)
-                    dismiss()
-                } label: {
-                    HStack(spacing: 10) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(takeOrdinal(take)).font(.bodyMd).foregroundStyle(Color.textPrimary)
-                            Text("♩=\(take.tempoAvg) · \(take.durationSec / 60)分\(take.durationSec % 60)秒").font(.labelSm).foregroundStyle(Color.textMuted)
+            Group {
+                if candidates.isEmpty {
+                    // 无可对比候选：诚实空态（不渲染空列表让用户误触后无结果）
+                    VStack(spacing: 8) {
+                        Text("没有可对比的 take")
+                            .font(.bodyMd)
+                            .foregroundStyle(Color.textMuted)
+                        Text("只对比同一首曲目同一小节段")
+                            .font(.labelSm)
+                            .foregroundStyle(Color.textMuted)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List(candidates) { take in
+                        Button {
+                            onSelect(take)
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(takeOrdinal(take)).font(.bodyMd).foregroundStyle(Color.textPrimary)
+                                    Text("♩=\(take.tempoAvg) · \(take.durationSec / 60)分\(take.durationSec % 60)秒").font(.labelSm).foregroundStyle(Color.textMuted)
+                                }
+                                Spacer()
+                            }
                         }
-                        Spacer()
+                        .buttonStyle(.plain)
                     }
                 }
-                .buttonStyle(.plain)
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)

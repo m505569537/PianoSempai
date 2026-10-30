@@ -80,10 +80,13 @@ final class PracticeSession: ObservableObject {
 
     // MARK: 配置
 
-    func configure(scoreName: String, expectedPerMeasure: [[UInt8]], startBPM: Int) {
+    /// referenceBPM：曲目真实参考速（速度上限；0 = 未知 → 回落固定 84，拜厄入门段口径，不编造）。
+    /// 上限始终 ≥ startBPM（矫正 ×0.6 进房 startBPM 低于参考速时，提速空间照常保留）。
+    func configure(scoreName: String, expectedPerMeasure: [[UInt8]], startBPM: Int, referenceBPM: Int = 0) {
         self.scoreName = scoreName
         self.expectedPerMeasure = expectedPerMeasure
-        tempoState = LoopTempoState(bpm: startBPM, referenceBpm: max(startBPM, 84))
+        let ceiling = referenceBPM > 0 ? max(startBPM, referenceBPM) : max(startBPM, 84)
+        tempoState = LoopTempoState(bpm: startBPM, referenceBpm: ceiling)
         reconfigureRegion()
     }
 

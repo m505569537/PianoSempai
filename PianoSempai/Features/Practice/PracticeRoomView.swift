@@ -1472,12 +1472,14 @@ struct PracticeRoomView: View {
             let score = try ScoreLoader.loadScore(contentsOf: url)
             loadedScore = score
             let expected = ScoreExpectedPitches.extract(score: score)
+            // 参考速度（速度上限）：显式传入 > piece 参考速 > 0（0 = 未知，session 回落固定 84，不编造）。
+            // 上限跟曲目真实参考速走，不再写死 84（速度输入「40–N」随曲显示真实上限）。
+            let referenceBPM = referenceTempo > 0 ? referenceTempo : (effectivePiece?.referenceTempo ?? 0)
             // G3 Stage B：矫正进房初始速度 = 参考速 × 最保守速度比（CorrectionEngine.initialTempoRatio）；
-            // 无参考速回落 72（与默认口径一致）。configure 前算好，直接走 startBPM，不改 session 公开面。
+            // 无参考速回落 72（与默认口径一致）。configure 前算好，随 referenceBPM 一起传入。
             let startBPM: Int
             if let ratio = initialTempoRatio {
-                let ref = referenceTempo > 0 ? referenceTempo : (effectivePiece?.referenceTempo ?? 0)
-                let base = ref > 0 ? ref : 72
+                let base = referenceBPM > 0 ? referenceBPM : 72
                 startBPM = Int((Double(base) * ratio).rounded())
             } else {
                 startBPM = 72
@@ -1485,7 +1487,8 @@ struct PracticeRoomView: View {
             session.configure(
                 scoreName: displayTitle,
                 expectedPerMeasure: expected,
-                startBPM: startBPM
+                startBPM: startBPM,
+                referenceBPM: referenceBPM
             )
             // G3 Stage B / P12+C5：进房即锁定 hotspot 循环区间（此时 expected 已有，总小节数可锚定）。
             // 直接改 startMeasure/endMeasure → didSet→reconfigureRegion（phase 仍 .idle，正确）。
@@ -1500,7 +1503,7 @@ struct PracticeRoomView: View {
     }
 }
 
-// MARK: - M6a take 保存占位（S13 全量报告 M6b；此处只展示真实统计）
+// MARK: - M6a take 保存结算（S13 全量报告已上线：档案页这条 take 可进报告；此处只展示真实统计）
 
 struct M6aTakeSavedView: View {
     @Environment(\.dismiss) private var dismiss
@@ -1515,7 +1518,7 @@ struct M6aTakeSavedView: View {
             Text("Take 已保存")
                 .font(.headlineLg)
                 .foregroundStyle(Color.textPrimary)
-            Text("自动保存的原始 MIDI 与统计如下；S13 全量报告在下一批次提供。")
+            Text("自动保存的原始 MIDI 与统计如下；完整报告可在档案页这条 take 里查看。")
                 .font(.bodySm)
                 .foregroundStyle(Color.textMuted)
                 .multilineTextAlignment(.center)

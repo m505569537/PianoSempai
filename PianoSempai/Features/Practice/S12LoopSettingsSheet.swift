@@ -320,7 +320,7 @@ struct S12LoopSettingsSheet: View {
 
             VStack(spacing: 4) {
                 modeRow(.loop, title: "逐遍循环（默认）", note: "原速稳定练习")
-                modeRow(.adaptiveUp, title: "每遍提速 +5 BPM", note: "渐进肌肉记忆")
+                modeRow(.adaptiveUp, title: "零错两遍 +5 BPM", note: "渐进肌肉记忆")
                 modeRow(.adaptiveDown, title: "崩了自动 −5 BPM 重来", note: "智能降级缓冲")
             }
             .padding(.top, 8)
@@ -330,7 +330,7 @@ struct S12LoopSettingsSheet: View {
                 Image(systemName: "pawprint.fill")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(Color.s12Primary)
-                Text("连崩 2 遍自动暂停，Neko 会建议降速或分手")
+                Text("崩一遍就自动 −5 BPM 重来；想换手练或问 Neko，随时在练习室里点问 Neko。")
                     .font(.bodySm)
                     .foregroundStyle(Color.s12OnSurfaceVariant)
                     .fixedSize(horizontal: false, vertical: true)

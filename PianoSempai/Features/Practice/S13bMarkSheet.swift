@@ -206,7 +206,7 @@ struct S13bMarkSheet: View {
     // MARK: §4 说明框
 
     private var explanationBox: some View {
-        Text("这个地方你连续 3 遍都弹成了同一个音。可能是你弹错，也可能是谱子本身印错了。标记后不会扣分，Neko 会把它和原始 MIDI 一起留着。")
+        Text("这里可能和你弹的不一致：可能是弹错，也可能是谱子本身印错了。标记后不会扣分，Neko 会把它和原始 MIDI 一起留着，之后可以换谱源再试。")
             .font(.bodySm)
             .leading(19.5, fontSize: 12) // 真值 leading-relaxed（1.625 @12px）
             .foregroundStyle(Color.s13bExplanationText)

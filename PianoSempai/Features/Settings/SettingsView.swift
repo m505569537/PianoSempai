@@ -539,7 +539,7 @@ private struct RouteOverviewSheet: View {
                     routeRow("哈农", "当前第 \(state.currentHanon) 条")
                     routeRow("车尔尼 599", state.projected599Week > 0 ? "约 \(state.projected599Week) 周后解锁" : "未排期")
                     routeRow("周数", "第 \(state.weekNumber) 周")
-                    Text("过关 = 连续 2 次 take 达到硬指标（错音率/节奏偏差/速度），由课程引擎判定（P2 完整接入）。")
+                    Text("过关 = 连续 2 次 take 达到硬指标（错音率/节奏偏差/速度），由课程引擎判定。")
                         .font(.labelSm)
                         .leading(16, fontSize: 11)
                         .foregroundStyle(Color.textMuted)

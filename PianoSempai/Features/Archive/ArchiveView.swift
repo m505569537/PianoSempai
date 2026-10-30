@@ -634,16 +634,16 @@ struct ArchiveView: View {
                     .frame(maxWidth: .infinity, minHeight: 96, alignment: .center)
             }
 
-            // 手型趋势：依赖相机批次（blocked），只留占位，不画假数据
+            // 手型检测未接入（V8 backlog）：行保留占位，不画假数据
             HStack(spacing: 8) {
                 Image(systemName: "video")
                     .font(.system(size: 14))
                     .foregroundStyle(Color.textMuted)
-                Text("手型趋势：录像后展示")
+                Text("手型检测未接入")
                     .font(.bodySm)
                     .foregroundStyle(Color.textMuted)
                 Spacer(minLength: 0)
-                Text("暂无数据")
+                Text("暂不展示")
                     .font(.labelSm)
                     .foregroundStyle(Color.textMuted)
                     .padding(.horizontal, 8)

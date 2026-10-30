@@ -2568,6 +2568,31 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(session.phase, .finished, "重复 finish() 不把 phase 带走")
     }
 
+    // MARK: PracticeSession — 速度上限（referenceBPM 跟曲目真实参考速，未知回落 84）
+
+    @MainActor
+    func testConfigureCeilingUsesRealReferenceTempo() {
+        // ♩=72 的曲目：上限跟曲目走（不再写死 84，速度输入「40–72」）
+        let session = PracticeSession()
+        session.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 72, referenceBPM: 72)
+        XCTAssertEqual(session.tempoState.referenceBpm, 72)
+        XCTAssertEqual(session.tempoState.bpm, 72)
+
+        // 矫正 ×0.6 进房：startBPM 低于参考速，上限仍是参考速本身（提速空间保留）
+        let correction = PracticeSession()
+        correction.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 43, referenceBPM: 72)
+        XCTAssertEqual(correction.tempoState.referenceBpm, 72)
+        XCTAssertEqual(correction.tempoState.bpm, 43)
+    }
+
+    @MainActor
+    func testConfigureCeilingFallsBackTo84WithoutTempo() {
+        // referenceTempo 0 且无 piece → 保持固定 84 兜底（不编造参考速）
+        let session = PracticeSession()
+        session.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 72, referenceBPM: 0)
+        XCTAssertEqual(session.tempoState.referenceBpm, 84)
+    }
+
     func testS12TargetPickWritesBackLoopConfig() {
         // applyAndStart 的写回口径：整份 LoopConfig 一次回写，targetLoopCount 随选中档位带走
         let three = S12LoopSettingsSheet.loopConfig(
