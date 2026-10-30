@@ -61,7 +61,9 @@ enum MonthlyReportBuilder {
             observationBody: "",
             observationProviderModel: nil,
             refsTakeCount: takeCount,
-            refsVideoCount: 0,
+            // 当月真实带视频的 take 数（录像 take 与 Zf 导入都写 videoFileURL，两来源都计；
+            // 无视频 → 0，渲染层只在 > 0 时出侧拍 chip）
+            refsVideoCount: inMonth.filter { ($0.videoFileURL ?? "").isEmpty == false }.count,
             observationStatus: "pending",
             generatedAt: now
         )

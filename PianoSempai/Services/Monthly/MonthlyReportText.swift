@@ -7,8 +7,8 @@ import Foundation
 // 1. 教材路线：本地只有 CoursePathState「当前值」快照——没有月内起点历史、没有拜厄/哈农总数分母，
 //    没有「43→48」这种推进数据。因此本层不产出任何箭头推进文案、不产出进度百分比：
 //    只显「拜厄 当前 48」这类当前值；599 未解锁显锁行，projected599Week>0 才带「预计第 N 周解锁」。
-// 2. 手型/侧拍：当前无视频/侧拍模型，refsVideoCount 恒 0。观察引用 chip 只渲染 take 那条，
-//    侧拍 chip 不渲染（视图侧手型趋势整段隐藏，不在本层出文案）。
+// 2. 手型/侧拍：侧拍引用数来自真实数据（当月带 videoFileURL 的 take，录像与 Zf 导入都算）；
+//    refsVideoCount > 0 才渲染侧拍 chip，为 0 不渲染（不是渲染「引用 0 条侧拍」）。
 
 struct MonthlyStatCell: Equatable {
     var value: String
@@ -157,7 +157,7 @@ enum MonthlyReportText {
     }
 
     /// 引用 chip 列表：只渲染有真实证据的那几条。
-    /// refsVideoCount 恒 0（无视频批次）→ 侧拍 chip 不渲染（不是渲染「引用 0 条侧拍」）。
+    /// refsVideoCount 为当月真实带视频 take 数（> 0 才出侧拍 chip；0 不渲染，不是「引用 0 条侧拍」）。
     static func observationChips(_ snapshot: MonthlyReportSnapshot) -> [ObservationChip] {
         var chips: [ObservationChip] = []
         if snapshot.refsTakeCount > 0 {

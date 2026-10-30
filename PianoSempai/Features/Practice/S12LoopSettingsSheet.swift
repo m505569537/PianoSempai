@@ -222,10 +222,11 @@ struct S12LoopSettingsSheet: View {
     }
 
     /// 微型时间线（真值 §5.2）：totalMeasures 等分列、列等高；选中段 primary-container。
-    /// 不画假波形高度，也不画 21 号错误圆点（无真实逐小节热点来源）。
+    /// 不画假波形高度；错误热点圆点与注记仅在传入 hotspotMeasures 非空时画（真实数据，不写死小节号）。
     private var measureStrip: some View {
         let total = max(1, totalMeasures)
         let selectedCount = max(0, end - start + 1)
+        let hotspotOneBased = hotspotMeasures.filter { $0 >= 0 }.map { $0 + 1 }.sorted()
         return VStack(spacing: 6) {
             HStack(spacing: 8) {
                 Text("第 1 小节")
@@ -247,6 +248,15 @@ struct S12LoopSettingsSheet: View {
                         .fill(m >= start && m <= end ? Color.s12PrimaryContainer : Color.s12ContainerHighest60)
                         .frame(maxWidth: .infinity)
                         .frame(height: 20)
+                        // 真值 §5.2：热点列顶部 6pt error 圆点（0-based 数据按 m-1 命中；列高/布局不动）
+                        .overlay(alignment: .top) {
+                            if hotspotOneBased.contains(m) {
+                                Circle()
+                                    .fill(Color.s12Error)
+                                    .frame(width: 6, height: 6)
+                                    .offset(y: -6)
+                            }
+                        }
                 }
             }
             .padding(4)
@@ -257,7 +267,26 @@ struct S12LoopSettingsSheet: View {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .strokeBorder(Color.s12OutlineVariant25, lineWidth: 1)
             )
+
+            // 真值注记：仅真实热点存在才渲染（第 N 小节存在常错音符，系统已自动定位）；无热点整行不渲染
+            if !hotspotOneBased.isEmpty {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color.s12Error)
+                        .frame(width: 6, height: 6)
+                    Text(Self.hotspotNoteText(hotspotOneBased))
+                        .font(.labelSm)
+                        .foregroundStyle(Color.s12Annotation)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
+    }
+
+    /// 热点注记文案：单节「第 N 小节存在常错音符，系统已自动定位」；多节 1-based 升序「、」连接
+    static func hotspotNoteText(_ oneBasedMeasures: [Int]) -> String {
+        let measures = oneBasedMeasures.map { "第 \($0) 小节" }.joined(separator: "、")
+        return "\(measures)存在常错音符，系统已自动定位"
     }
 
     /// 快捷 chips（真值 §5.3）：单选互斥。错误热点仅在能解析出合法区间时可用（数据由外部传入）

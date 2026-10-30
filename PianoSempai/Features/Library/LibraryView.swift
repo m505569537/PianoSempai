@@ -256,7 +256,8 @@ struct LibraryView: View {
                         catalogRow(
                             entry,
                             index: layout.order[entry.id] ?? 0,
-                            isFocus: entry.id == layout.focusId
+                            isFocus: entry.id == layout.focusId,
+                            hasPredecessor: layout.predecessorIds.contains(entry.id)
                         )
                     }
                     // 底部虚线导入卡（与 header 导入钮共用同一 showImporter）
@@ -289,6 +290,8 @@ struct LibraryView: View {
     private struct CatalogLayout {
         var order: [String: Int] = [:]
         var focusId: String?
+        /// 有真实前置（同书 catalog 里存在 number-1 且 number > 1）的条目 id 集合（S08 副行「前置：第N条」）
+        var predecessorIds: Set<String> = []
     }
 
     private var catalogLayout: CatalogLayout {
@@ -297,10 +300,15 @@ struct LibraryView: View {
         let path = pathState ?? CoursePathState()
         // L1「已拿下」筛选：优先读 Piece 实际状态，而非 number/current 推断。
         let pieceStatusMap = Dictionary(uniqueKeysWithValues: allPieces.map { ("\($0.book)-\($0.number)", $0.status) })
+        let catalogIds = Set(catalog.map(\.id))
         for entry in catalog {
             guard !entry.isSample else { continue }
             n += 1
             layout.order[entry.id] = n
+            // 前置：同书内置目录里真实存在 number-1（示例/导入无前置；书内第 1 条无前置）
+            if entry.number > 1, catalogIds.contains("\(entry.book)-\(entry.number - 1)") {
+                layout.predecessorIds.insert(entry.id)
+            }
             if layout.focusId == nil,
                CourseEngine.catalogStatus(book: entry.book, number: entry.number, pathState: path, pieceStatus: pieceStatusMap[entry.id]) == .practicing {
                 layout.focusId = entry.id
@@ -348,7 +356,7 @@ struct LibraryView: View {
     /// - Parameters:
     ///   - index: 该条目在完整训练教材 catalog 中的稳定顺序号（sample 不参与编号）
     ///   - isFocus: 是否当前主练条目（同一时刻仅一条，享竖条/发光/脉动点/旋转）
-    private func catalogRow(_ entry: CatalogEntry, index: Int, isFocus: Bool) -> some View {
+    private func catalogRow(_ entry: CatalogEntry, index: Int, isFocus: Bool, hasPredecessor: Bool) -> some View {
         let path = pathState ?? CoursePathState()
         // L1「已拿下」筛选：优先读 Piece 实际状态，而非 number/current 推断。
         let pieceStatusMap = Dictionary(uniqueKeysWithValues: allPieces.map { ("\($0.book)-\($0.number)", $0.status) })
@@ -427,6 +435,7 @@ struct LibraryView: View {
                     }
                     subline(
                         statusText: statusText,
+                        predecessorText: hasPredecessor ? "前置：第\(entry.number - 1)条" : nil,
                         tempo: tempo,
                         honestyText: honestyText,
                         dimmed: dimmed
@@ -464,10 +473,12 @@ struct LibraryView: View {
     }
 
     /// 副行（真值 §5）：状态 • ♩=NN（mono 琥珀/90），`•` 用 Color.border。
+    /// 真值行「前置：第N条」：状态后跟真实前置段（catalogRow 只收有真实前置的行，示例/导入不传）。
     /// M5 红线：无参考谱条目在此带 muted「无参考谱」，不因副行改真值样式而伪装成可判分。
     @ViewBuilder
     private func subline(
         statusText: String,
+        predecessorText: String?,
         tempo: Int?,
         honestyText: String?,
         dimmed: Bool
@@ -475,6 +486,11 @@ struct LibraryView: View {
         HStack(spacing: 6) {
             Text(statusText)
                 .foregroundStyle(dimmed ? Color.s08Subtle : Color.textMuted)
+            if let predecessorText {
+                sublineDot
+                Text(predecessorText)
+                    .foregroundStyle(Color.textMuted)
+            }
             if let honestyText {
                 sublineDot
                 Text(honestyText)

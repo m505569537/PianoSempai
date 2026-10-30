@@ -748,7 +748,7 @@ private struct StorageSheet: View {
 
     private func measure() {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        rows = ["midi", "scores", "pdfs", "exports"].map { dir in
+        rows = ["midi", "scores", "pdfs", "videos", "exports"].map { dir in
             let url = docs.appendingPathComponent(dir, isDirectory: true)
             return (dir, Self.folderSize(url))
         }.filter { $0.1 > 0 }

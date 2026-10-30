@@ -225,7 +225,8 @@ enum ExportService {
             entries.append(contentsOf: sandboxEntries(baseDir: baseDir, subdirectory: dir, zipPrefix: prefix, fileManager: fileManager))
         }
         if includeVideos {
-            entries.append(contentsOf: sandboxEntries(baseDir: baseDir, subdirectory: "video", zipPrefix: "video", fileManager: fileManager))
+            // 真实视频目录是 videos（复数，VideoStore 同款：videos/yyyy/MM 与 videos/zf/yyyy/MM）
+            entries.append(contentsOf: sandboxEntries(baseDir: baseDir, subdirectory: "videos", zipPrefix: "videos", fileManager: fileManager))
         }
 
         let exportsDir = baseDir.appendingPathComponent("exports", isDirectory: true)

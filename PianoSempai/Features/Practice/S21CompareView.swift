@@ -155,6 +155,10 @@ struct S21CompareView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("六维对比").font(.system(size: 15, weight: .bold, design: .serif))
+                    // 真值 caption：能力雷达模型（title 右侧 11px dim）
+                    Text("能力雷达模型")
+                        .font(.labelSm)
+                        .foregroundStyle(Color.textMuted)
                     Spacer()
                     HStack(spacing: 12) {
                         legendDot(color: .amber, label: "A 今天")
@@ -205,7 +209,14 @@ struct S21CompareView: View {
     private func heatCompareCard(_ comp: ComparisonData) -> some View {
         card {
             VStack(alignment: .leading, spacing: 12) {
-                Text("错音热点对比").font(.system(size: 15, weight: .bold, design: .serif)).foregroundStyle(Color.textBody)
+                // 真值：标题行右侧 10px dim 注记「颜色越深代表错误频次越高」
+                HStack(alignment: .firstTextBaseline) {
+                    Text("错音热点对比").font(.system(size: 15, weight: .bold, design: .serif)).foregroundStyle(Color.textBody)
+                    Spacer(minLength: 8)
+                    Text("颜色越深代表错误频次越高")
+                        .font(.labelSm)
+                        .foregroundStyle(Color.textMuted)
+                }
                 heatRow(label: "A（这一遍）", measures: comp.hotMeasuresA, summary: comp.heatSummaryA, color: .amber)
                 heatRow(label: "B（上一遍）", measures: comp.hotMeasuresB, summary: comp.heatSummaryB, color: .compareB)
             }

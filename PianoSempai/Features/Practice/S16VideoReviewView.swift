@@ -54,9 +54,21 @@ struct S16VideoReviewView: View {
         return FileManager.default.fileExists(atPath: url.path)
     }
 
+    /// 副行（真值 §2「拜厄 45 · 第 21 小节」）：曲名（或 take 真实标题）· 小节段 · 日期 · 时长。
+    /// 缺数据的段直接跳过（无 piece/title / 无小节区间 → 不出该段），绝不编占位。
     private var subtitle: String {
+        var segments: [String] = []
+        if let pieceTitle = piece?.title, !pieceTitle.isEmpty {
+            segments.append(pieceTitle)
+        } else if !take.title.isEmpty {
+            segments.append(take.title)
+        }
+        if let from = take.measureFrom, let to = take.measureTo {
+            segments.append(from == to ? "第 \(from) 小节" : "第 \(from)–\(to) 小节")
+        }
         let when = take.startedAt.formatted(date: .abbreviated, time: .shortened)
-        return "\(when) · \(VideoUIFormatting.timecode(take.videoDurationSec))"
+        segments.append("\(when) · \(VideoUIFormatting.timecode(take.videoDurationSec))")
+        return segments.joined(separator: " · ")
     }
 
     var body: some View {

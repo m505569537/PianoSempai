@@ -264,6 +264,16 @@ struct PieceDetailView: View {
         return TakeReportPresentation.decodeHeat(analysis.measureHeatJSON)
     }
 
+    /// 该曲目最近一条 take 的真实速度（S09 真值「上次速度 ♩=N」数据源）。
+    /// 只看 startedAt 最新一条：它 tempoAvg == 0 就是没速度，不回扫旧 take 冒充「上次」。
+    private var latestTakeTempo: Int? {
+        guard let id = existingPiece?.entityId else { return nil }
+        return takes
+            .filter { $0.pieceId == id }
+            .max(by: { $0.startedAt < $1.startedAt })?
+            .tempoAvg
+    }
+
     /// 小节 → 真实问题音数（同 S13 报告页口径：alignmentJSON 逐音明细按小节统计；
     /// 无法定位的行不计入任何格）
     private var latestProblemCountByMeasure: [Int: Int] {
@@ -572,9 +582,11 @@ struct PieceDetailView: View {
                 } else if let range = latestHeatRange {
                     let shown = PracticeHeatGrid.shownMeasures(range, limit: PracticeHeatGrid.detailCellLimit)
                     let hotspots = PracticeHeatHotspot.oneBased(hotspotMeasures)
-                    // 重点小节行（真实 hotspotMeasures；无热点 → 整行不渲染）
+                    // 重点小节行（真实 hotspotMeasures；无热点 → 整行不渲染）。
+                    // 真值「上次速度 ♩=N · 错误热点 X 小节」：最近 take 有真实速度才前置，无速度维持原行。
                     if let line = PracticeHeatHotspot.labelLine(hotspotMeasures) {
-                        Text(line)
+                        let tempoPrefix = latestTakeTempo.flatMap { $0 > 0 ? "上次速度 ♩=\($0) · " : "" } ?? ""
+                        Text(tempoPrefix + line)
                             .font(.labelSm)
                             .foregroundStyle(Color.amber)
                             .monospacedDigit()

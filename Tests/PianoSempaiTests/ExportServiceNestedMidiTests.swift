@@ -95,4 +95,57 @@ final class ExportServiceNestedMidiTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: restoredScore.path), "扁平 scores 写回原路径")
         XCTAssertEqual(try Data(contentsOf: restoredScore), scoreContent)
     }
+
+    // MARK: 视频进包（回归：真实目录是 videos 复数，VideoStore 同款；曾写错单数 video 静默丢全部视频）
+
+    /// 构造 Documents 形状的 baseDir：midi/scores/pdfs + videos/2026/10/a.mov
+    private func makeSourceDirWithVideo() throws -> URL {
+        let baseDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("export-video-\(UUID().uuidString)", isDirectory: true)
+        for sub in ["midi", "scores", "pdfs"] {
+            let dir = baseDir.appendingPathComponent(sub, isDirectory: true)
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try Data("fake-\(sub)".utf8).write(to: dir.appendingPathComponent("f.\(sub)"))
+        }
+        let videoDir = baseDir.appendingPathComponent("videos/2026/10", isDirectory: true)
+        try FileManager.default.createDirectory(at: videoDir, withIntermediateDirectories: true)
+        try Data("fake-mov".utf8).write(to: videoDir.appendingPathComponent("a.mov"))
+        return baseDir
+    }
+
+    @MainActor
+    func testExportWithVideosIncludesVideosEntry() throws {
+        let container = try ModelContainer(
+            for: AppSettings.self, Take.self, ScoreFile.self, ScoreErrorMark.self,
+            GateEvent.self, CoursePathState.self, PlacementResult.self, VelocityCalibration.self,
+            DailyPlan.self, PracticeTask.self, Piece.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = ModelContext(container)
+        let baseDir = try makeSourceDirWithVideo()
+        defer { try? FileManager.default.removeItem(at: baseDir) }
+
+        let zipURL = try ExportService.buildExport(baseDir: baseDir, includeVideos: true, context: context)
+        let paths = try ExportService.entryPaths(of: zipURL)
+        XCTAssertTrue(paths.contains { $0.hasPrefix("videos/") }, "开视频开关：videos/ 条目必须进包（路径前缀 videos/）")
+        XCTAssertTrue(paths.contains("videos/2026/10/a.mov"), "嵌套视频文件原路径进包")
+    }
+
+    @MainActor
+    func testExportWithoutVideosOmitsVideosEntry() throws {
+        let container = try ModelContainer(
+            for: AppSettings.self, Take.self, ScoreFile.self, ScoreErrorMark.self,
+            GateEvent.self, CoursePathState.self, PlacementResult.self, VelocityCalibration.self,
+            DailyPlan.self, PracticeTask.self, Piece.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = ModelContext(container)
+        let baseDir = try makeSourceDirWithVideo()
+        defer { try? FileManager.default.removeItem(at: baseDir) }
+
+        let zipURL = try ExportService.buildExport(baseDir: baseDir, includeVideos: false, context: context)
+        let paths = try ExportService.entryPaths(of: zipURL)
+        XCTAssertFalse(paths.contains { $0.hasPrefix("videos/") }, "关视频开关：videos/ 条目不得进包")
+        XCTAssertTrue(paths.contains("midi/f.midi"), "midi 照常进包（开关只影响视频）")
+    }
 }

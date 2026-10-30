@@ -293,6 +293,29 @@ final class MonthlyReportBuilderTests: XCTestCase {
         XCTAssertEqual(build().weeklyRhythmScores, [90], "同一 take 多份分析取 analyzedAt 最新")
     }
 
+    // MARK: 侧拍引用数（当月真实带视频的 take；录像与 Zf 导入都写 videoFileURL）
+
+    func testRefsVideoCountCountsOnlyTakesWithVideoInMonth() {
+        // 月内两条：一条带 videoFileURL → 1；一条 nil → 0
+        let withVideo = makeTake(at: date("2026-09-03 10:00:00"), durationSec: 900)
+        withVideo.videoFileURL = "videos/2026/9/video-abc.mov"
+        let withoutVideo = makeTake(at: date("2026-09-04 10:00:00"), durationSec: 900)
+        context.insert(withVideo)
+        context.insert(withoutVideo)
+        XCTAssertEqual(build().refsVideoCount, 1, "只数真实带视频的 take")
+
+        // 界外带视频的 take 不计（月界过滤先行）
+        let outOfMonth = makeTake(at: date("2026-08-20 10:00:00"), durationSec: 900)
+        outOfMonth.videoFileURL = "videos/2026/8/video-old.mov"
+        context.insert(outOfMonth)
+        XCTAssertEqual(build().refsVideoCount, 1, "界外视频 take 不进当月计数")
+    }
+
+    func testRefsVideoCountZeroWhenNoVideos() {
+        insertValidTakes(onDays: ["2026-09-02", "2026-09-09"])
+        XCTAssertEqual(build().refsVideoCount, 0, "无视频 → 0（渲染层不出侧拍 chip）")
+    }
+
     // MARK: 教材路线
 
     func testRouteFromPathState() {
@@ -325,7 +348,7 @@ final class MonthlyReportBuilderTests: XCTestCase {
         XCTAssertEqual(snapshot.month, 9)
         XCTAssertEqual(snapshot.takeCount, 3)
         XCTAssertEqual(snapshot.refsTakeCount, 3, "引用 take 数 = 当月全部 take")
-        XCTAssertEqual(snapshot.refsVideoCount, 0, "无视频批次，恒 0")
+        XCTAssertEqual(snapshot.refsVideoCount, 0, "当月无带视频 take → 0")
         XCTAssertEqual(snapshot.observationStatus, "pending")
         XCTAssertEqual(snapshot.observationTitle, "")
         XCTAssertEqual(snapshot.observationBody, "")

@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 // 安全卡 + 底部 dock）。本任务只重排视觉与补真实体积，不改导出/恢复机制：
 // buildExport / previewRestore / makePreRestoreSnapshot / restore / ShareSheet 全部原样保留。
 //
-// 诚实数据：清单里的体积一律 FileManager 实测（Documents 下 midi / scores / pdfs / video
+// 诚实数据：清单里的体积一律 FileManager 实测（Documents 下 midi / scores / pdfs / videos
 // 目录递归真实字节）+ metadata.json 编码后字节，不写死任何示例数字；
 // 没有独立文件的分项（课程/笔记/Take 元数据，都合并在 metadata.json 内）显「—」而不是编数字。
 
@@ -43,8 +43,10 @@ struct ExportView: View {
     /// 真实体积（FileManager 实测；出现时由 .task 量好）
     @State private var measured: ExportSizeReport?
 
-    private var videoCount: Int { 0 } // P1 无视频捕获（S15/M8 批次接入）
-    private var videoRowDisabled: Bool { videoCount == 0 } // 无视频时置灰（brief）
+    /// 实测视频条数（S15/M8 已有视频捕获：Documents/videos 递归真实计数；未量好 = 0）
+    private var videoCount: Int { measured?.videoFileCount ?? 0 }
+    /// 视频行是否置灰：只看实测条数（Documents/videos 递归真实计数；无视频 → 置灰不可勾）
+    private var videoRowDisabled: Bool { videoCount == 0 }
     /// 只有完整包模式能导出（「仅报告 PDF」未支持 → 主 CTA 置灰不可点）
     private var canExport: Bool { format == .fullPackage }
 
@@ -237,7 +239,7 @@ struct ExportView: View {
     }
 
     /// 视频行（真值 §4.2）：底 #211E1C/60、20×20 方形 r4 空框、muted 文案；
-    /// videoCount 恒 0（P1 无视频捕获）→ 整行置灰、不给勾选。
+    /// videoCount = Documents/videos 实测条数，无视频 → 整行置灰、不给勾选（真实计数，不写死 0）。
     private var videoRow: some View {
         HStack(alignment: .top, spacing: 12) {
             RoundedRectangle(cornerRadius: 4)
@@ -469,7 +471,7 @@ struct ExportView: View {
         let midi = folderSizeAndCount(docs.appendingPathComponent("midi", isDirectory: true))
         let scores = folderSizeAndCount(docs.appendingPathComponent("scores", isDirectory: true))
         let pdfs = folderSizeAndCount(docs.appendingPathComponent("pdfs", isDirectory: true))
-        let video = folderSizeAndCount(docs.appendingPathComponent("video", isDirectory: true))
+        let video = folderSizeAndCount(docs.appendingPathComponent("videos", isDirectory: true))
         return ExportSizeReport(
             metadataBytes: (try? JSONEncoder.iso.encode(metadata))?.count ?? 0,
             midiBytes: midi.bytes,
