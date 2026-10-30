@@ -32,10 +32,6 @@ final class SimulatedMIDIEventSource: MIDIEventSource {
         emit(.noteOff(note: note, velocity: 0), channel: channel)
     }
 
-    func setSustain(_ value: UInt8, channel: UInt8 = 0) {
-        emit(.sustainPedal(value: value), channel: channel)
-    }
-
     // MARK: - 自动回放（固定序列，验收"模拟源打印结构化事件"用）
 
     /// 回放一段上行音阶（八分音符 @120bpm = 250ms/事件），可中途停止。

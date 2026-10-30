@@ -19,10 +19,6 @@ struct RawMIDIEventRecord: Codable, Equatable {
 
 enum TakeStore {
 
-    enum StoreError: Error {
-        case directoryCreationFailed
-    }
-
     /// 本 take 的事件文件 URL（不创建内容；落盘由 append 驱动）
     static func makeFileURL(now: Date = Date(), fileManager: FileManager = .default) throws -> URL {
         let docs = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]

@@ -74,9 +74,4 @@ enum ScoreFollowEngine {
         state.measureIndex = measure
         return state
     }
-
-    /// 当前小节是否整段走完（用于一遍循环结束判定：光标在终点且终点耗尽）
-    static func passCompleted(_ state: ScoreFollowState, endMeasureIndex: Int) -> Bool {
-        state.measureIndex == endMeasureIndex && (state.remaining[endMeasureIndex] ?? []).isEmpty
-    }
 }

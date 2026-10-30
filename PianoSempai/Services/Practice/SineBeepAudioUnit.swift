@@ -1,7 +1,7 @@
 import AVFoundation
 
-// SineBeep MIDI 音频单元（Stage A 核心，未接线任何调用方）：
-// 用 AUAudioUnit 子类**合成**被删除的 MetronomeService.sineBuffer 原始电子蜂鸣
+// SineBeep MIDI 音频单元：
+// 用 AUAudioUnit 子类**合成** MetronomeService 原 PCM sineBuffer 同款电子蜂鸣
 // （常拍 1000Hz/30ms、重拍 1500Hz/35ms，线性衰减包络 0.5 → 0）。
 //
 // 两种驱动方式共用同一条合成路径：

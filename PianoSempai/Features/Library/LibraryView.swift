@@ -703,14 +703,6 @@ struct LibraryView: View {
         case training, reward, pdf
     }
 
-    private func iconName(for kind: String) -> String {
-        switch kind {
-        case "pdf": "doc.richtext"
-        case "mid": "music.note"
-        default: "music.quarternote.3"
-        }
-    }
-
     private func emptyHint(_ text: String) -> some View {
         Text(text)
             .font(.bodySm)

@@ -7,12 +7,6 @@ import SwiftData
 // 期望音符取自内置样例谱的小节区间；命中率用音序简单匹配（P1 简化，非对齐算法，M5/P2 升级）。
 // 所有数字均来自真实 MIDI 事件，无随机/伪造（红线 2）。
 
-struct SightReadSegment {
-    let title: String
-    let measureRange: ClosedRange<Int> // 1-based 小节号（展示用）
-    let expectedPitches: [UInt8] // 谱面期望音（两声部都计入，按出现顺序）
-}
-
 struct SightReadSegmentResult {
     let expected: Int
     let matched: Int

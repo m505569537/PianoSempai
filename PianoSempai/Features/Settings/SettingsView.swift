@@ -11,7 +11,6 @@ struct SettingsView: View {
     @Query private var settingsList: [AppSettings]
     @Query private var pathStates: [CoursePathState]
     @Query private var placementResults: [PlacementResult]
-    @Query private var takes: [Take]
     @Query(sort: \AIProvider.sortOrder) private var providers: [AIProvider]
     /// 力度校准记录（按时间倒序；右值取最近一条的 createdAt，无记录显「—」）
     @Query(sort: \VelocityCalibration.createdAt, order: .reverse) private var calibrations: [VelocityCalibration]

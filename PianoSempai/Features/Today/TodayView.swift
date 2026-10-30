@@ -16,7 +16,6 @@ struct TodayView: View {
     @Environment(\.modelContext) private var context
     @Query private var settingsList: [AppSettings]
     @Query(sort: \PlacementResult.createdAt, order: .reverse) private var placementResults: [PlacementResult]
-    @Query private var dailyPlans: [DailyPlan]
     @Query private var tasks: [PracticeTask]
     @Query private var gateEvents: [GateEvent]
     @Query private var takes: [Take]
@@ -995,42 +994,6 @@ struct TodayView: View {
             sightReadRoute = SightReadDrillRoute(pick: pick)
         } label: { card }
             .buttonStyle(.plain)
-    }
-
-    // MARK: 周进度
-
-    /// D2 已确认：S07 常态（真值 code.html 无此元素）从渲染中移除，代码保留待产品确认。
-    /// TODO(D2)：S07b / 后续批次若要恢复，直接在 normalState 里重新挂载。
-    private func weekProgressRow(plan: DailyPlan) -> some View {
-        let progress = TodayPlanService.weekProgress(
-            takes: takes, weeklyGoal: settings?.weeklyGoal ?? 3,
-            dailyChoiceMinutes: plan.durationChoice, today: now
-        )
-        let fraction = progress.targetMinutes > 0
-            ? min(1, Double(progress.doneMinutes) / Double(progress.targetMinutes)) : 0
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("本周进度")
-                    .font(.bodyMd)
-                    .foregroundStyle(Color.textBody)
-                Spacer()
-                Text("\(progress.doneMinutes)m / \(progress.targetMinutes)m")
-                    .font(.labelMd)
-                    .foregroundStyle(Color.textPrimary)
-                    .monospacedDigit()
-            }
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.borderInput)
-                        .frame(height: 4)
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.amber)
-                        .frame(width: proxy.size.width * fraction, height: 4)
-                }
-            }
-            .frame(height: 4)
-        }
     }
 }
 

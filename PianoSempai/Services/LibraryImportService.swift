@@ -49,10 +49,6 @@ enum LibraryImportService {
         }
     }
 
-    static func isSupported(_ ext: String) -> Bool {
-        detectKind(fileExtension: ext) != nil
-    }
-
     // MARK: 导入主流程
 
     /// - Parameters:

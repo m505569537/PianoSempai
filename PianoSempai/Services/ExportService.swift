@@ -137,10 +137,6 @@ enum ExportService {
         let includeWithNeko: Bool
     }
 
-    enum ExportError: Error, Equatable {
-        case nothingToExport
-    }
-
     // MARK: 收集
 
     static func collectMetadata(context: ModelContext) -> ExportMetadata {

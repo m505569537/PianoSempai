@@ -2,6 +2,18 @@
 
 本文件是 PianoSempai 唯一的「往后挪 / 待补」需求登记本。新增推迟项一律追加到这里，不再散落在临时审计文件里。
 
+## 本轮完成总结（2026-10-30 · 失实清理 + 练习闭环五批）
+
+- **用户可见失实清理 + 3 处真实数据接线**（`381389f`）：删除无实现支撑的承诺文案——今日任务写死「3 项」、结算弹窗「S13 下一批次」、设置页「P2 完整接入」、S13b「连续 3 遍」、S12「每遍提速 +5」/「连崩 2 遍自动暂停 + Neko 会建议」、档案页「手型趋势：录像后展示」；接通主菜卡错误热点 info 条、速度上限随曲目 referenceTempo、S21 对比选择器按同口径过滤。
+- **向导 / 循环档位 / 笔记**（`a77cdad`）：向导验证步升级为弹两音验证；会话中阻止自动锁屏；循环新增 10 遍档；单声部谱分手诚实禁用（不可拆声部不给假开关）；笔记可钉到曲目并置顶。
+- **自由弹奏与断连**（`c84d70f`）：BLE 断线自动暂停计时 + 重连续弹；退后台 take 正常收尾；自由弹奏力度分布 / 音域真实统计。
+- **循环与判分口径**（`03156b1`）：循环新增 5 分钟档目标（达标后完整收尾遍）；判分默认按通道 1 分析；今日主菜卡显示真实小节区间。
+- **曲库详情趋势**（`7f31811`，PRD 288）：曲目详情页新增全部 take 列表 + 六维趋势曲线（`PieceTakesTrendView.swift` 为新文件，需 xcodegen 注册后才入 target 编译）。
+- **顺带修复**：视频导出目录名 `video`→`videos` 单复数（此前 includeVideos 静默空包 + 视频行恒置灰）；月报「引用 N 条侧拍」真实计数；存储明细补 videos 分项；设计稿缺口补齐（S12 小节条热点圆点 + 真实注记、S16「曲名 · 第 N 小节」、S09「上次速度 ♩=N」、S21 两处图例说明、S08「前置：第N条」）。
+- **测试**：851 → 887（五批合计 +36，每批经全量 `xcodebuild test` 验证）。
+
+---
+
 ## 本轮完成总结（2026-10-22 · 文档收敛 + 相机录像闭环 V1+V2）
 
 - **D 文档收敛**：vault 独有资产迁入仓库（48 张 `docs/design-reference/samples/`、Stitch 登记 `screens-registry.md`）；vault 侧重复 PRD/spec/契约归档到 `_archive/2026-10-22-pre-convergence/`，只留 `progress.md` + `README.md` 指针。提交 `3212a4d`。
@@ -43,7 +55,7 @@
 
 | # | 需求 | 来源 | 状态 | 说明 / 阻塞 |
 |---|---|---|---|---|
-| P1 | 连续循环遍数机制（3/5 遍、8 小节格、「目标 5 遍全绿通关」面板） | S11 §5 | done | LoopConfig.targetLoopCount + completedLoopCount + auto-finish；S12 卡4「目标遍数」chip（不限/3/5）；练习室顶栏副行「X/Y 遍」+ 循环格 badge；面板纯展示不碰过关判定。+11 测试，755/0。 |
+| P1 | 连续循环遍数机制（3/5 遍、8 小节格、「目标 5 遍全绿通关」面板） | S11 §5 | done | LoopConfig.targetLoopCount + completedLoopCount + auto-finish；S12 卡4「目标遍数」chip（不限/3/5）；练习室顶栏副行「X/Y 遍」+ 循环格 badge；面板纯展示不碰过关判定。+11 测试，755/0。2026-10-30 增补：目标遍数新增 10 遍档、5 分钟档目标（达标后完整收尾遍）a77cdad + 03156b1。 |
 || P2 | 已弹音符琥珀着色（逐音符命中态） | S11 §4.3 | done | Stage A（App 层接线）+ Stage B（cursor-driven referenceNotes 过滤）双落地：PracticeScoreScrollView 内部维护 referenceNotes/playedNoteIDs；cursor 变化时过滤 referenceNotes 计算 playedNoteIDs；ScoreView 传入 selectionForPlayedNotes() + voiceColorsForPlayedNotes()（amber）。真实演奏时 cursor 基于 .beat(measureIndex, tickInMeasure)，近似标记已过音符；精确命中后续接 NoteAligner 实时结果。e59ba5a，2026-10-15 完成。 |
 | P3 | 分手能力（双手 / 右手 / 左手） | S11 §6.1 | done | 练习室顶栏新增 hand mode chip group（双手 / 右手 / 左手）；PracticeScoreScrollView 接收 HandMode 并按 voice→hand 映射着色：非激活 hand 整组变灰（gray/30%），激活 hand 内已弹音符琥珀（P2 复用）。HandMode 枚举落地 ScoringModels.swift；设计坞「分手」格可接入。75a1a3b，2026-10-15 完成。 |
 | P4 | 纸内谱头 / 页脚（No.45、速度术语、「双手协同」chip、左手提示、Op. 标记、版权/来源） | S11 §4.2/4.4 | done | Layer 1（App 层叠加）已落地：header 显示编号/速度术语/双手 chip/Op. tag/左手提示；footer 显示页码+版权/来源 chip（copyrightNotice）+ 曲目引用。Piece 新增 opusTag/leftHandNote/copyrightNotice；CatalogEntry/ensurePiece 接通；BuiltinCatalog.json 已填入 Op.101/Op.1 + Public Domain。左手提示真实数据留待产品录入。双手协同真实判分等 P3。0ec8749 + 2c83174 + 20d6358 + 9e1eb21 + 0f448a8 + 9f7089c，2026-10-15。 |

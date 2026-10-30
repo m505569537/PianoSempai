@@ -17,12 +17,6 @@ enum MonthlyDraftRule {
             ?? MonthlyCalendar.monthStart(for: now)
     }
 
-    /// 是否需要为上月起草：每月 1 号，或库中尚无「紧邻上月」的月报（用户月中才装 App / 漏刷）。
-    /// 仅决定「该不该看」，是否真的插库还要看库里有没有（已有 = 不重算，快照冻结语义）。
-    static func shouldDraft(now: Date, hasPreviousReport: Bool) -> Bool {
-        MonthlyCalendar.calendar.component(.day, from: now) == 1 || !hasPreviousReport
-    }
-
     /// 起草时喂给 builder 的参照时刻：上月 15 号 12:00（该月内任意固定时刻；15 号任何月份都存在）
     static func referenceDate(monthStart: Date) -> Date {
         MonthlyCalendar.calendar.date(byAdding: DateComponents(day: 14, hour: 12), to: monthStart) ?? monthStart

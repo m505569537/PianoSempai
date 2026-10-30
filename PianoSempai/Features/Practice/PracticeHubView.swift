@@ -130,33 +130,3 @@ struct PracticeHubView: View {
         .buttonStyle(.plain)
     }
 }
-
-/// M6b 承接占位（诚实去向，不留死按钮）
-struct M6bPlaceholderSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let title: String
-    let note: String
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "hourglass")
-                .font(.system(size: 30))
-                .foregroundStyle(Color.amber)
-            Text(title)
-                .font(.headlineLg)
-                .foregroundStyle(Color.textPrimary)
-            Text(note)
-                .font(.bodySm)
-                .foregroundStyle(Color.textMuted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            Button("知道了") { dismiss() }
-                .buttonStyle(PrimaryButtonStyle(cornerRadius: 8))
-                .padding(.horizontal, 60)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.canvas)
-        .preferredColorScheme(.dark)
-        .presentationDetents([.medium])
-    }
-}

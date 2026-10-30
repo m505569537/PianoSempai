@@ -287,44 +287,6 @@ private struct TabBar: View {
     }
 }
 
-// MARK: - 通用小组件
-
-/// 框架级 toast（P1 占位提示用，如 FAB）
-struct ToastCapsule: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.bodyMd)
-            .foregroundStyle(Color.textPrimary)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Color.cardElevated, in: Capsule())
-            .overlay(Capsule().strokeBorder(Color.border, lineWidth: 1))
-            .shadow(color: Color.black.opacity(0.3), radius: 16, y: 4)
-            .frame(maxHeight: .infinity, alignment: .center)
-            .allowsHitTesting(false)
-    }
-}
-
-/// M2 框架占位页：仅结构，不含伪造数据（红线 2）
-struct TabPlaceholderPage: View {
-    let title: String
-    let note: String
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Text(title)
-                .font(.headlineLg)
-                .foregroundStyle(Color.textPrimary)
-            Text(note)
-                .font(.bodySm)
-                .foregroundStyle(Color.textMuted)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
 #Preview {
     AppFrameView()
         .preferredColorScheme(.dark)

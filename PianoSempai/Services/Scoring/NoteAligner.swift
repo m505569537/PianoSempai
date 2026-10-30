@@ -402,49 +402,6 @@ enum NoteAligner {
         return (aligned, matchedRefIDs, usedLocal)
     }
 
-    // MARK: - 锚点（全量两指针版本已由 segmentAnchors 取代；保留供单测）
-
-    // MARK: - 旧全量锚点（保留：isotonic 单测用）
-
-    /// 两指针贪心：ref 按序找第一个同 pitch、不早于上一锚点、且相邻隐含斜率落在
-    /// 期望斜率 [0.2×, 5×] 带内的 played（防跨遍/远距误锚：如 ref@beat2 配到 10 秒外的同音）。
-    /// 带宽 0.2/5 是显式工程参数（覆盖 ±80% 渐快渐慢），非统计魔法数。
-    static func coarseAnchors(
-        references: [ReferenceNote],
-        played: [PlayedNote],
-        expectedSecPerBeat: Double
-    ) -> [TempoPoint] {
-        var anchors: [TempoPoint] = []
-        var j = 0
-        var lastBeat: Double?
-        var lastSec: Double?
-        let minSlope = 0.2 * expectedSecPerBeat
-        let maxSlope = 5.0 * expectedSecPerBeat
-
-        for ref in references {
-            var k = j
-            while k < played.count {
-                let candidate = played[k]
-                if candidate.pitch == ref.pitch, candidate.onsetSec >= (lastSec ?? -Double.infinity) {
-                    var ok = true
-                    if let lb = lastBeat, let ls = lastSec {
-                        let slope = (candidate.onsetSec - ls) / max(0.25, ref.onsetBeat - lb)
-                        if slope < minSlope || slope > maxSlope { ok = false }
-                    }
-                    if ok {
-                        anchors.append(TempoPoint(beat: ref.onsetBeat, sec: candidate.onsetSec))
-                        lastBeat = ref.onsetBeat
-                        lastSec = candidate.onsetSec
-                        j = k + 1
-                        break
-                    }
-                }
-                k += 1
-            }
-        }
-        return anchors
-    }
-
     // MARK: - 保序回归（PAVA）与插值
 
     /// 把 (beat, sec) 锚点拟成 sec 关于 beat 的单调非降折线（允许渐快渐慢）
@@ -506,53 +463,6 @@ enum NoteAligner {
         guard !anchors.isEmpty else { return 1.0 }
         let residuals = anchors.map { abs($0.sec - tempoFn($0.beat)) }
         return residuals.reduce(0, +) / Double(residuals.count)
-    }
-
-    // MARK: - 首遍切分
-
-    /// 循环重启检测：implied beat 随第二遍会整体抬升（时间轴单调），时间逆推测不出回绕；
-    /// 改用「onset 超出范围末拍预测 + 与首参考音同 pitch」识别重启点。
-    static func firstPassRange(
-        played: [PlayedNote],
-        tempoFn: (Double) -> Double,
-        scopeEndBeat: Double,
-        firstPitch: UInt8?
-    ) -> Range<Int> {
-        guard !played.isEmpty, let firstPitch else { return 0..<played.count }
-        let scopeEndSec = tempoFn(scopeEndBeat)
-        for (idx, note) in played.enumerated() where idx > 0 {
-            if note.onsetSec > scopeEndSec && note.pitch == firstPitch {
-                return 0..<idx
-            }
-        }
-        return 0..<played.count
-    }
-
-    static func countPasses(
-        played: [PlayedNote],
-        tempoFn: (Double) -> Double,
-        scopeEndBeat: Double,
-        firstPitch: UInt8?
-    ) -> Int {
-        guard !played.isEmpty, let firstPitch else { return 0 }
-        let scopeEndSec = tempoFn(scopeEndBeat)
-        var passes = 1
-        for (idx, note) in played.enumerated() where idx > 0 {
-            if note.onsetSec > scopeEndSec && note.pitch == firstPitch {
-                passes += 1
-            }
-        }
-        return passes
-    }
-
-    /// tempoFn 的逆（秒 → 拍）：单调折线二分求逆
-    static func impliedBeat(sec: Double, tempoFn: (Double) -> Double) -> Double {
-        var lo = -10.0, hi = 2000.0
-        for _ in 0..<48 {
-            let mid = (lo + hi) / 2
-            if tempoFn(mid) < sec { lo = mid } else { hi = mid }
-        }
-        return (lo + hi) / 2
     }
 
     // MARK: - 单段 DP
