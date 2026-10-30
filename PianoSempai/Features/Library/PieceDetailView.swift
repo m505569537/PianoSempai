@@ -717,6 +717,37 @@ struct PieceDetailView: View {
                         }
                         .buttonStyle(.plain)
                     }
+
+                    // PRD 288：全部 take + 维度趋势曲线（真值 §3.7 最近 Take 卡底部入口）。
+                    // 有内容才出现；push 走本视图自己的 NavigationStack（本页 fullScreenCover/sheet
+                    // 各只有一个路由，push 是第三个、互不叠加的导航通道）。
+                    // 传真实 Piece 行（existingPiece）：目的地按 entityId 查 take，不按标题重解析。
+                    if let piece = existingPiece {
+                        NavigationLink {
+                            PieceTakesTrendView(piece: piece)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text("查看全部 take 与趋势")
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .font(.system(size: 13, weight: .medium))
+                            .tracking(0.3)
+                            .foregroundStyle(Color.amber)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 9)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color.amber.opacity(0.12))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .strokeBorder(Color.amber.opacity(0.4), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 12)
+                    }
                 }
             }
         }
