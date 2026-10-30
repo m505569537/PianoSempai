@@ -160,4 +160,28 @@ final class PracticeRoomRoutingTests: XCTestCase {
     func testContextBuilderTaskTypeLabelReview() {
         XCTAssertEqual(ContextBuilder.taskTypeLabel("review"), "review（复习）")
     }
+
+    // MARK: MainPracticeRoute（练习室主菜续练 item 路由载荷；Fix 2026-10-23）
+
+    /// 内置目录内的曲目：route 参数可解析出谱坐标（视图闭包全部取自 route）
+    func testMainPracticeRouteResolvesBundledCoords() {
+        let route = MainPracticeRoute(book: "拜厄", number: 5, timeLimitMinutes: 20)
+        XCTAssertEqual(BundledScoreCoordinates.resolve(book: route.book, number: route.number),
+                       BundledScoreCoordinates(book: "拜厄", number: 5))
+        XCTAssertEqual(route.timeLimitMinutes, 20) // 视图映射为 1200 秒
+    }
+
+    /// 非内置教材：resolve 为 nil（练习室诚实降级，不伪造谱面）
+    func testMainPracticeRouteIsHonestForNonBundledBook() {
+        let route = MainPracticeRoute(book: "车尔尼599", number: 1, timeLimitMinutes: 20)
+        XCTAssertNil(BundledScoreCoordinates.resolve(book: route.book, number: route.number))
+    }
+
+    /// id 每实例新建：同 book/number 的两次点击 id 不同（重按可重新呈现，不被当作同一 item 吞掉）
+    func testMainPracticeRouteIdentifiableIsStablePerInstance() {
+        let first = MainPracticeRoute(book: "拜厄", number: 5, timeLimitMinutes: 20)
+        let second = MainPracticeRoute(book: "拜厄", number: 5, timeLimitMinutes: 20)
+        XCTAssertNotEqual(first.id, second.id)
+        XCTAssertNotEqual(first, second) // Equatable 含 id，实例可区分
+    }
 }

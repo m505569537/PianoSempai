@@ -1,6 +1,23 @@
 import SwiftData
 import SwiftUI
 
+// MARK: - 主菜续练路由载荷（item 式呈现：闭包参数全部取自 route，不读侧 @State。
+// 旧 Bool + side-@State 写法下，内容闭包求值早于 side-state 写入曾致 pieceTitle 为空、无谱进房）
+
+struct MainPracticeRoute: Identifiable, Equatable {
+    let id: UUID
+    let book: String
+    let number: Int
+    let timeLimitMinutes: Int?
+
+    init(book: String, number: Int, timeLimitMinutes: Int?, id: UUID = UUID()) {
+        self.id = id
+        self.book = book
+        self.number = number
+        self.timeLimitMinutes = timeLimitMinutes
+    }
+}
+
 // MARK: - tab3 练习室聚合入口（practice.md：主菜续练/选曲/自由弹奏/最近 take）
 
 struct PracticeHubView: View {
@@ -10,9 +27,8 @@ struct PracticeHubView: View {
     let onBrowseLibrary: () -> Void
     let onBrowseArchive: () -> Void
 
-    @State private var showMainPractice = false
-    /// 续练点击时捕获的主菜任务（Fix：book/number 不再在导航处丢失）
-    @State private var mainPracticeTask: PracticeTask?
+    /// 续练路由载荷（nil = 不呈现；每次点击新建实例，id 不同可再次弹出）
+    @State private var mainPracticeRoute: MainPracticeRoute?
     @State private var showFreeplay = false
     @State private var showRecentTakes = false
 
@@ -37,8 +53,9 @@ struct PracticeHubView: View {
                         subtitle: "\(mainTask.book) 第\(mainTask.number)条 · 今日还剩约 \(plan.durationChoice) 分钟",
                         accent: .amber
                     ) {
-                        mainPracticeTask = mainTask
-                        showMainPractice = true
+                        mainPracticeRoute = MainPracticeRoute(book: mainTask.book,
+                                                              number: mainTask.number,
+                                                              timeLimitMinutes: todayPlan?.durationChoice)
                     }
                     .padding(.top, 16)
                 } else {
@@ -67,13 +84,12 @@ struct PracticeHubView: View {
             .padding(.bottom, 24)
         }
         .background(Color.canvas)
-        .fullScreenCover(isPresented: $showMainPractice) {
-            let coords = BundledScoreCoordinates.resolve(
-                book: mainPracticeTask?.book, number: mainPracticeTask?.number ?? 0)
+        .fullScreenCover(item: $mainPracticeRoute) { route in
+            let coords = BundledScoreCoordinates.resolve(book: route.book, number: route.number)
             PracticeRoomView(
                 taskType: "main",
-                pieceTitle: mainPracticeTask.map { "\($0.book) \($0.number)" } ?? "",
-                timeLimitSec: (todayPlan?.durationChoice).map { $0 * 60 },
+                pieceTitle: "\(route.book) \(route.number)",
+                timeLimitSec: route.timeLimitMinutes.map { $0 * 60 },
                 bundledBook: coords?.book,
                 bundledNumber: coords?.number ?? 0
             )
