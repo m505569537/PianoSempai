@@ -23,6 +23,10 @@ struct LoopConfig: Equatable {
     /// 目标遍数（P1 循环遍数面板）：0 = 不限（维持原状），>0 = 顶栏/循环格显示「已完成/目标」进度。
     /// 只作交互层计数展示，不进过关判定、不改引擎 wrap 行为（wrap 检测本就在 consumeFollow 内）。
     var targetLoopCount: Int = 0
+    /// 目标时长分钟数（PRD「循环 3/5/10 遍或 5 分钟」）：0 = 不用时长目标。
+    /// 与 targetLoopCount 相互独立（各自可为 0 = 关）；两者都 > 0 时谁先达标谁触发——
+    /// 遍数在引擎 wrap 时判、时长在 tick 里判，先到者收尾，绝不双重 finish。
+    var targetLoopMinutes: Int = 0
 
     var measureCount: Int { endMeasure - startMeasure + 1 }
 }

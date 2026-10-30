@@ -124,6 +124,7 @@ enum CourseEngine {
         main.book = "拜厄"
         main.number = result.entryBeyer
         main.status = "pending"
+        applyHotspotMeasureRange(to: main, in: context)
         context.insert(main)
 
         let plan = DailyPlan()
@@ -160,6 +161,7 @@ enum CourseEngine {
         main.type = "main"
         main.book = "拜厄"
         main.number = pathState.currentBeyer
+        applyHotspotMeasureRange(to: main, in: context)
         context.insert(main)
 
         let plan = DailyPlan()
@@ -170,6 +172,23 @@ enum CourseEngine {
         plan.generatedFromRulesVersion = rulesVersion
         context.insert(plan)
         return plan
+    }
+
+    // MARK: - 主菜小节区间（PRD §M5 热点分段；S07 真值主卡副行「17–24 小节」）
+
+    /// 生成主菜任务时写真实小节区间：解析 book+number 的 Piece（与进房同一条
+    /// resolveRoomPiece 口径，不另造查询），取该曲最近一次判分出的错误热点
+    /// （LoopService.latestHotspotMeasures：analyzedAt 最新且非空），再经
+    /// LoopService.hotspotRange 转 1-based 区间写进 task.measureFrom/To。
+    /// 无 piece / 无 take / 无分析 / 无热点 / 区间钳制不合法 → 双 nil（诚实：没有就不写，不编区间）。
+    private static func applyHotspotMeasureRange(to task: PracticeTask, in context: ModelContext) {
+        guard let piece = resolveRoomPiece(book: task.book, number: task.number, in: context) else { return }
+        let takes = (try? context.fetch(FetchDescriptor<Take>())) ?? []
+        let analyses = (try? context.fetch(FetchDescriptor<TakeAnalysis>())) ?? []
+        let hotspots = LoopService.latestHotspotMeasures(pieceId: piece.entityId, takes: takes, analyses: analyses)
+        guard let range = LoopService.hotspotRange(hotspotMeasures: hotspots, totalMeasures: piece.totalMeasures) else { return }
+        task.measureFrom = range.start
+        task.measureTo = range.end
     }
 
     /// 切换当日时长（15/30/45）：只改 DailyPlan.durationChoice，热身不被压缩（today.md）

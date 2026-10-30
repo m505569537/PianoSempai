@@ -7,6 +7,17 @@ import SheetMusicLoader
 // 纯函数不依赖 ModelContext/磁盘，可注入单测；run 负责 IO + 幂等 upsert + 过关落库。
 // 红线：判分只读分析，只有 CourseEngine 写 Piece.status；失败不吞、不抛假分（§14）。
 
+/// PRD 52：全通道记录落盘，默认按通道 1 分析——本筛选只挑「分析用」事件，落盘与回放都不动。
+/// （回放路径 TakeReportView/TakePlaybackService 读全量 events 重演录音，不得接此筛选。）
+enum AnalysisChannelFilter {
+    /// 分析用通道：通道 1（raw 0-based = 0；模拟源默认也在通道 0）
+    static let analysisChannel: UInt8 = 0
+
+    static func forAnalysis(_ events: [RawMIDIEventRecord]) -> [RawMIDIEventRecord] {
+        events.filter { $0.c == analysisChannel }
+    }
+}
+
 enum ScoringOrchestrator {
 
     /// 引擎版本（幂等 upsert 键之一；SPEC §8）
@@ -269,6 +280,10 @@ enum ScoringOrchestrator {
     // MARK: - 幂等 upsert + 过关落库
 
     /// 分析并落库一条 take（解析 + upsert + 过关判定串联，测试可注入 events/refs）。
+    /// 事件先经 AnalysisChannelFilter（PRD 52：全通道落盘、默认按通道 1 分析）——
+    /// 落盘不动；回放路径（TakeReportView/TakePlaybackService）读全量重演，也不在此列。
+    /// 筛后为空（演奏不在通道 1）→ played 为空 → analyzeTake 走既有
+    /// .error("无演奏数据…") 出口，不出假分。
     @MainActor
     @discardableResult
     static func analyzeAndStore(
@@ -282,7 +297,7 @@ enum ScoringOrchestrator {
         in context: ModelContext
     ) -> AnalysisOutcome {
         let parsed = MidiTakeParser.parse(
-            events: events,
+            events: AnalysisChannelFilter.forAnalysis(events),
             interruptionRanges: interruptionRanges,
             streamEndSec: Double(take.durationSec)
         )

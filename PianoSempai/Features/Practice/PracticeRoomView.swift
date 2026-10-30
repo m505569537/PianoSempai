@@ -414,8 +414,8 @@ struct PracticeRoomView: View {
         }
     }
 
-    /// 副行只用真实数据：循环区间（loopConfig 已按总小节数钳制）+ 房间 BPM +（有目标遍数时）遍数进度。
-    /// 谱还没加载好时区间谈不上，只给 BPM——不编造小节号。
+    /// 副行只用真实数据：循环区间（loopConfig 已按总小节数钳制）+ 房间 BPM +（有目标遍数时）遍数进度
+    /// +（时长目标达标待完整收尾时）达标提示。谱还没加载好时区间谈不上，只给 BPM——不编造小节号。
     private var headerSubtitle: String {
         Self.headerSubtitleText(
             scoreLoaded: loadedScore != nil,
@@ -423,20 +423,23 @@ struct PracticeRoomView: View {
             endMeasure: session.loopConfig.endMeasure,
             completedLoopCount: session.completedLoopCount,
             targetLoopCount: session.loopConfig.targetLoopCount,
-            bpm: session.tempoState.bpm
+            bpm: session.tempoState.bpm,
+            finalPassPending: session.finalPassPending
         )
     }
 
     /// 顶栏副行文案（纯函数，可单测；视图只喂真实数据）：
-    /// 谱已加载才给「区间」，BPM 恒在；仅当 targetLoopCount > 0 时追加「完成/目标 遍」。
-    /// 无目标遍数 → 不出现「遍」字，文案与加此功能前逐字一致。
+    /// 谱已加载才给「区间」，BPM 恒在；仅当 targetLoopCount > 0 时追加「完成/目标 遍」；
+    /// 仅当时长目标达标待完整收尾（finalPassPending）时追加「已达标 · 弹完这遍完整收尾」。
+    /// 无目标遍数 → 不出现「遍」字；未达标 → 不出现「已达标」，文案与加此功能前逐字一致。
     static func headerSubtitleText(
         scoreLoaded: Bool,
         startMeasure: Int,
         endMeasure: Int,
         completedLoopCount: Int,
         targetLoopCount: Int,
-        bpm: Int
+        bpm: Int,
+        finalPassPending: Bool = false
     ) -> String {
         var parts: [String] = []
         if scoreLoaded {
@@ -445,6 +448,9 @@ struct PracticeRoomView: View {
         parts.append("♩=\(bpm)")
         if let progress = loopProgressText(completedLoopCount: completedLoopCount, targetLoopCount: targetLoopCount) {
             parts.append("\(progress) 遍")
+        }
+        if finalPassPending {
+            parts.append("已达标 · 弹完这遍完整收尾")
         }
         return parts.joined(separator: " · ")
     }

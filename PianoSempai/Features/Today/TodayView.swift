@@ -354,6 +354,12 @@ struct TodayView: View {
         // 真值标题归属：类别词进徽章，标题取旧标题去掉「类别 · 」前缀后的部分（不重复、不编造曲名）
         let warmupName = warmupTask.map { "\($0.book) \($0.number)" } ?? "热身任务"
         let mainName = mainTask.map { "\($0.book) \($0.number)" } ?? "主菜任务"
+        // 主卡副行（真值「17–24 小节 · 18 分钟」）：任务里写好的真实热点区间才前缀「N–M 小节」，
+        // 缺任一端保持原「约 N 分钟」——不编区间（区间由 CourseEngine 建任务时写入，视图不算）。
+        let mainMeasurePrefix: String? = {
+            guard let task = mainTask, let from = task.measureFrom, let to = task.measureTo else { return nil }
+            return "\(from)–\(to) 小节"
+        }()
         // 计数与下方真实渲染的卡对齐：热身/主菜/奖励曲恒在，铺路卡仅当天有卡才渲染
         //（本区整体由外层 `if let plan` 守卫，能渲染到这里时计数恒 ≥ 3）。
         let taskCount = 3 + (todayPaving != nil ? 1 : 0)
@@ -385,7 +391,8 @@ struct TodayView: View {
 
             mainCard(
                 name: mainName,
-                subtitle: "约 \(durations.mainMinutes) 分钟",
+                subtitle: mainMeasurePrefix.map { "\($0) · 约 \(durations.mainMinutes) 分钟" }
+                    ?? "约 \(durations.mainMinutes) 分钟",
                 action: { handleMainStart(warmupDone: warmupDone) }
             )
 

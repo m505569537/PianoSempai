@@ -41,6 +41,35 @@ final class ScoringOrchestratorTests: XCTestCase {
         )
     }
 
+    // MARK: AnalysisChannelFilter（PRD 52：全通道落盘，默认按通道 1 分析）
+
+    func testChannelFilterKeepsOnlyAnalysisChannel() {
+        let events = [
+            RawMIDIEventRecord(t: 1, k: "on", c: 0, n: 60, v: 90, suspicious: false),
+            RawMIDIEventRecord(t: 2, k: "off", c: 0, n: 60, v: 0, suspicious: false),
+            RawMIDIEventRecord(t: 3, k: "on", c: 1, n: 72, v: 88, suspicious: false), // 第二设备/分谱键盘
+            RawMIDIEventRecord(t: 4, k: "cc64", c: 5, n: 64, v: 127, suspicious: false),
+        ]
+        let filtered = AnalysisChannelFilter.forAnalysis(events)
+        XCTAssertEqual(filtered.map(\.t), [1, 2], "只有通道 1（raw 0）的事件进分析")
+        XCTAssertTrue(filtered.allSatisfy { $0.c == AnalysisChannelFilter.analysisChannel })
+    }
+
+    func testChannelFilterAllOnOtherChannelReturnsEmpty() {
+        let events = [
+            RawMIDIEventRecord(t: 1, k: "on", c: 1, n: 60, v: 90, suspicious: false),
+            RawMIDIEventRecord(t: 2, k: "on", c: 2, n: 64, v: 90, suspicious: false),
+        ]
+        XCTAssertTrue(
+            AnalysisChannelFilter.forAnalysis(events).isEmpty,
+            "演奏不在通道 1 → 筛后为空；analyzeTake 走既有「无演奏数据」error 出口，不出假分"
+        )
+    }
+
+    func testChannelFilterEmptyInputStaysEmpty() {
+        XCTAssertTrue(AnalysisChannelFilter.forAnalysis([]).isEmpty)
+    }
+
     // MARK: 夹具（IO 层）
 
     private func makeContainer() throws -> ModelContainer {

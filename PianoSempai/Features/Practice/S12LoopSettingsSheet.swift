@@ -65,8 +65,12 @@ struct S12LoopSettingsSheet: View {
             mode = session.loopConfig.mode
             gapSec = session.loopConfig.gapSec
             countIn = session.loopConfig.countIn
-            // 打开即回显既有目标遍数（0 / 3 / 5 之外的存量值一律按「不限」呈现，不编造档位）
-            target = TargetLoopPick.pick(for: session.loopConfig.targetLoopCount)
+            // 打开即回显既有目标（PRD：3/5/10 遍或 5 分钟）：按两字段反查；
+            // 档位之外的存量值一律按「不限」呈现，不编造档位
+            target = TargetLoopPick.pick(
+                targetLoopCount: session.loopConfig.targetLoopCount,
+                targetLoopMinutes: session.loopConfig.targetLoopMinutes
+            )
             // 打开即当前段（真值 §5.3 默认激活项），值与 loopConfig 一致
             quick = .current
         }
@@ -456,8 +460,8 @@ struct S12LoopSettingsSheet: View {
 
     // MARK: 卡4 目标遍数
 
-    /// 卡 4「目标遍数」（P1 循环遍数面板）：不限 / 3 遍 / 5 遍，单选互斥。
-    /// 「不限」= targetLoopCount 0——维持现状，循环照旧一直转。
+    /// 卡 4「目标遍数」（P1 循环遍数面板 + PRD「3/5/10 遍或 5 分钟」）：五档单选互斥。
+    /// 「不限」= 两目标字段都 0——维持现状，循环照旧一直转。
     private var targetLoopCard: some View {
         s12Card {
             HStack(alignment: .firstTextBaseline) {
@@ -608,7 +612,8 @@ struct S12LoopSettingsSheet: View {
     }
 
     /// 「开始循环练习」的写回口径（纯函数，可单测）：整份 LoopConfig 一次回写，
-    /// 目标遍数随卡 4 选中档位（TargetLoopPick）一起带走——不存在只写一半的路径。
+    /// 目标随卡 4 选中档位（TargetLoopPick）一起带走，遍数与分钟两字段互斥双写——
+    /// 选时长档清遍数、选遍数档清分钟，不存在旧值残留继续触发的路径。
     static func loopConfig(
         start: Int,
         end: Int,
@@ -623,7 +628,8 @@ struct S12LoopSettingsSheet: View {
             mode: mode,
             gapSec: gapSec,
             countIn: countIn,
-            targetLoopCount: target.loopCount
+            targetLoopCount: target.loopCount,
+            targetLoopMinutes: target.minutes
         )
     }
 
@@ -668,12 +674,12 @@ private enum QuickPick: String, CaseIterable {
     // 改由视图层按传入的 hotspotMeasures 计算（见 quickChip）。
 }
 
-// MARK: - 目标遍数 chip 单选枚举（卡 4：不限 / 3 遍 / 5 遍 / 10 遍）
+// MARK: - 目标遍数 chip 单选枚举（卡 4：不限 / 3 遍 / 5 遍 / 10 遍 / 5 分钟）
 
-/// 卡 4「目标遍数」四档（P1 循环遍数面板 + PRD「循环 3/5/10 遍」）。
-/// 内部不私有：loopCount / pick(for:) 是纯函数，供单测。
+/// 卡 4「目标遍数」五档（P1 循环遍数面板 + PRD「循环 3/5/10 遍或 5 分钟」）。
+/// 内部不私有：loopCount / minutes / pick(...) 是纯函数，供单测。
 enum TargetLoopPick: String, CaseIterable {
-    case none, three, five, ten
+    case none, three, five, ten, fiveMinutes
 
     var title: String {
         switch self {
@@ -681,6 +687,7 @@ enum TargetLoopPick: String, CaseIterable {
         case .three: return "3 遍"
         case .five: return "5 遍"
         case .ten: return "10 遍"
+        case .fiveMinutes: return "5 分钟"
         }
     }
 
@@ -691,20 +698,40 @@ enum TargetLoopPick: String, CaseIterable {
         case .three: return "弹满 3 遍"
         case .five: return "弹满 5 遍"
         case .ten: return "弹满 10 遍"
+        case .fiveMinutes: return "弹满 5 分钟"
         }
     }
 
-    /// 写回 loopConfig.targetLoopCount 的真实值：0 = 不限（维持现状）
+    /// 写回 loopConfig.targetLoopCount 的真实值：0 = 不限（维持现状）。
+    /// 时长档不借用遍数：.fiveMinutes 写 0，分钟走 minutes（两字段不混载）。
     var loopCount: Int {
         switch self {
-        case .none: return 0
+        case .none, .fiveMinutes: return 0
         case .three: return 3
         case .five: return 5
         case .ten: return 10
         }
     }
 
-    /// 由既有 targetLoopCount 反查选中项（打开 sheet 回显用）。
+    /// 写回 loopConfig.targetLoopMinutes 的真实值：仅 .fiveMinutes 为 5，其余 0。
+    var minutes: Int {
+        self == .fiveMinutes ? 5 : 0
+    }
+
+    /// 该档是否写时长目标（S12 保存路径据此双写 LoopConfig 两字段、互清另一个）
+    var writesMinutes: Bool {
+        self == .fiveMinutes
+    }
+
+    /// 由既有 LoopConfig 两字段反查选中项（打开 sheet 回显用）。
+    /// 时长目标 > 0 → 5 分钟档（遍数字段此时应为 0；两字段都非 0 的脏数据按时长呈现）。
+    /// 遍数走 pick(for:) 口径：四档之外的存量值（含负数/未来档位）→ 不限，不冒充某一档。
+    static func pick(targetLoopCount: Int, targetLoopMinutes: Int) -> TargetLoopPick {
+        guard targetLoopMinutes <= 0 else { return .fiveMinutes }
+        return pick(for: targetLoopCount)
+    }
+
+    /// 由既有 targetLoopCount 反查选中项（遍数口径；时长档看 pick(targetLoopCount:targetLoopMinutes:)）。
     /// 四档之外的存量值（含负数/未来档位）→ 不限，不冒充某一档。
     static func pick(for targetLoopCount: Int) -> TargetLoopPick {
         switch targetLoopCount {

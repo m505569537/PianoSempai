@@ -2480,6 +2480,25 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(PracticeRoomView.loopProgressText(completedLoopCount: 3, targetLoopCount: 3), "3/3")
     }
 
+    @MainActor
+    func testHeaderSubtitleAppendsFinalPassHintOnlyWhenPending() {
+        // 未达标（默认 false）：文案与加此功能前逐字一致
+        let plain = PracticeRoomView.headerSubtitleText(
+            scoreLoaded: true, startMeasure: 1, endMeasure: 3,
+            completedLoopCount: 1, targetLoopCount: 3, bpm: 72
+        )
+        XCTAssertFalse(plain.contains("已达标"), "未达标不出现「已达标」")
+        XCTAssertEqual(plain, "1–3 小节 · ♩=72 · 1/3 遍")
+
+        // 时长目标达标待完整收尾：追加一句，原有部分不动
+        let pending = PracticeRoomView.headerSubtitleText(
+            scoreLoaded: true, startMeasure: 1, endMeasure: 3,
+            completedLoopCount: 1, targetLoopCount: 3, bpm: 72,
+            finalPassPending: true
+        )
+        XCTAssertEqual(pending, "1–3 小节 · ♩=72 · 1/3 遍 · 已达标 · 弹完这遍完整收尾")
+    }
+
     func testTargetLoopPickSelectionSequence() {
         // chip 选择序列：不限 → 0，选 3 → 3，选 5 → 5，选 10 → 10
         XCTAssertEqual(TargetLoopPick.none.loopCount, 0, "「不限」= 0（不限遍数）")
@@ -2499,6 +2518,42 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(TargetLoopPick.pick(for: 5), .five)
         XCTAssertEqual(TargetLoopPick.pick(for: 10), .ten)
         XCTAssertEqual(TargetLoopPick.pick(for: 7), .none, "档位之外的存量值按「不限」呈现，不冒充档位")
+    }
+
+    func testTargetLoopPickFiveMinutesAndTwoFieldRoundTrip() {
+        // 第五档：5 分钟（PRD「循环 3/5/10 遍或 5 分钟」）；遍数与分钟两字段不混载
+        XCTAssertEqual(TargetLoopPick.fiveMinutes.title, "5 分钟")
+        XCTAssertEqual(TargetLoopPick.fiveMinutes.note, "弹满 5 分钟")
+        XCTAssertEqual(TargetLoopPick.fiveMinutes.loopCount, 0, "时长档不写遍数")
+        XCTAssertEqual(TargetLoopPick.fiveMinutes.minutes, 5)
+        XCTAssertTrue(TargetLoopPick.fiveMinutes.writesMinutes)
+        XCTAssertFalse(TargetLoopPick.three.writesMinutes, "遍数档不写时长")
+
+        // 两字段 round-trip：五档各自的 (count, minutes) 表示反查回同一档
+        for pick in TargetLoopPick.allCases {
+            let restored = TargetLoopPick.pick(
+                targetLoopCount: pick.loopCount,
+                targetLoopMinutes: pick.minutes
+            )
+            XCTAssertEqual(restored, pick, "\(pick.rawValue) 经两字段写回后应还原")
+        }
+        XCTAssertEqual(TargetLoopPick.pick(targetLoopCount: 0, targetLoopMinutes: 0), .none, "(0, 0) → 不限")
+        XCTAssertEqual(
+            TargetLoopPick.pick(targetLoopCount: 3, targetLoopMinutes: 5), .fiveMinutes,
+            "两字段都非 0 的脏数据按时长呈现（保存路径本就互清另一个字段）"
+        )
+
+        // S12 保存口径：整份 LoopConfig 双写、互清——选时长清遍数，选遍数清时长
+        let minutesConfig = S12LoopSettingsSheet.loopConfig(
+            start: 1, end: 3, mode: .loop, gapSec: 3, countIn: true, target: .fiveMinutes
+        )
+        XCTAssertEqual(minutesConfig.targetLoopMinutes, 5)
+        XCTAssertEqual(minutesConfig.targetLoopCount, 0, "旧遍数目标必须被清掉，不能残留继续触发")
+        let countConfig = S12LoopSettingsSheet.loopConfig(
+            start: 1, end: 3, mode: .loop, gapSec: 3, countIn: true, target: .ten
+        )
+        XCTAssertEqual(countConfig.targetLoopCount, 10)
+        XCTAssertEqual(countConfig.targetLoopMinutes, 0, "旧时长目标必须被清掉")
     }
 
     @MainActor

@@ -90,4 +90,75 @@ final class CourseEngineTests: XCTestCase {
         XCTAssertTrue(tasks.contains { $0.type == "warmup" && $0.book == "哈农" && $0.number == 1 })
         XCTAssertTrue(tasks.contains { $0.type == "main" && $0.book == "拜厄" && $0.number == 45 })
     }
+
+    // MARK: 主菜小节区间（PRD §M5 热点分段；S07 真值主卡副行「17–24 小节」）
+
+    /// 带 Take/TakeAnalysis 的容器（热点区间要查 take→analysis 链）
+    private func makeContainerWithTakes() throws -> ModelContainer {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try ModelContainer(
+            for: AppSettings.self, PlacementSelfReport.self, PlacementResult.self,
+            VelocityCalibration.self, CoursePathState.self, DailyPlan.self, PracticeTask.self,
+            Piece.self, Take.self, TakeAnalysis.self,
+            configurations: config
+        )
+    }
+
+    /// 定级完成的最小夹具（todayPlan 只有在 CoursePathState.placementResultId 非空时才生成）
+    private func insertPlacement(context: ModelContext, beyer: Int = 45) throws {
+        let result = PlacementResult()
+        result.entryBeyer = beyer
+        result.entryHanon = 1
+        context.insert(result)
+        let pathState = CoursePathState()
+        pathState.placementResultId = result.entityId
+        pathState.currentBeyer = beyer
+        pathState.currentHanon = 1
+        context.insert(pathState)
+    }
+
+    private func mainTask(in context: ModelContext) throws -> PracticeTask {
+        try XCTUnwrap(
+            context.fetch(FetchDescriptor<PracticeTask>()).first { $0.type == "main" },
+            "todayPlan 应生成主菜任务"
+        )
+    }
+
+    func testTodayPlanMainTaskCarriesHotspotMeasureRange() throws {
+        let container = try makeContainerWithTakes()
+        let context = ModelContext(container)
+        try insertPlacement(context: context)
+
+        // 曲目 + take + 分析：热点 0-based [16,17,18,23] → 1-based 17–24（真值同款区间）
+        let piece = CourseEngine.resolveRoomPiece(book: "拜厄", number: 45, in: context)
+        piece?.totalMeasures = 32
+        let take = Take(durationSec: 120, taskType: "main", hasMidi: true, pieceId: piece?.entityId)
+        context.insert(take)
+        context.insert(TakeAnalysis(takeId: take.entityId, engineVersion: "test", hotspotMeasures: [16, 17, 18, 23]))
+        try context.save()
+
+        XCTAssertNotNil(CourseEngine.todayPlan(in: context))
+        let main = try mainTask(in: context)
+        XCTAssertEqual(main.measureFrom, 17, "热点 0-based [16,23] → 1-based 17（LoopService.hotspotRange 口径）")
+        XCTAssertEqual(main.measureTo, 24)
+        // 只有主菜写区间，热身不带
+        let warmup = try XCTUnwrap(
+            context.fetch(FetchDescriptor<PracticeTask>()).first { $0.type == "warmup" }
+        )
+        XCTAssertNil(warmup.measureFrom)
+        XCTAssertNil(warmup.measureTo)
+    }
+
+    func testTodayPlanMainTaskStaysNilWithoutAnalysis() throws {
+        let container = try makeContainerWithTakes()
+        let context = ModelContext(container)
+        try insertPlacement(context: context)
+        try context.save()
+        // 无 take、无分析：区间双 nil（诚实：没有热点数据就不写，不编区间）
+
+        XCTAssertNotNil(CourseEngine.todayPlan(in: context))
+        let main = try mainTask(in: context)
+        XCTAssertNil(main.measureFrom)
+        XCTAssertNil(main.measureTo)
+    }
 }

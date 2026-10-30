@@ -55,6 +55,10 @@ final class PracticeSession: ObservableObject {
     /// 只服务交互层进度展示（顶栏副行 / 循环格 badge），不参与过关判定。
     /// 弹满 loopConfig.targetLoopCount（>0）时自动 finish()；计数在 start() 归零，每会话独立。
     @Published private(set) var completedLoopCount: Int = 0
+    /// 时长目标达标、待「完整收尾遍」（PRD：循环 3/5/10 遍或 5 分钟——达标自动一次完整收尾遍）。
+    /// tick 里达标即置 true（不立即收尾）；当前这遍弹完（引擎 wrap）清零并 finish()。
+    /// 房间据此在顶栏提示「已达标 · 弹完这遍完整收尾」；start() 归零，每会话独立。
+    @Published private(set) var finalPassPending = false
 
     let isFreePlay: Bool
     private(set) var scoreName = ""
@@ -123,6 +127,7 @@ final class PracticeSession: ObservableObject {
         elapsedSec = 0
         // 遍数进度每会话独立：上一会话弹了几遍不带进这一次（finish() 不清零，这里清）
         completedLoopCount = 0
+        finalPassPending = false
         pauseStartedAt = nil
         totalPaused = 0
         interruptionStarts = []
@@ -215,12 +220,21 @@ final class PracticeSession: ObservableObject {
     /// - 仅在 performing 且未到点时推进（paused 期间没有 Timer，tick 被 phase 挡掉）；
     /// - 用 startedAt 现算「活跃」整秒写入 elapsedSec（@Published，驱动进度条/计时重绘）；
     /// - 达到时长上限则置 timeUp，由视图收尾。暂停时间不烧倒计时。
+    /// - 时长目标（loopConfig.targetLoopMinutes）达标 → 置 finalPassPending，当前遍弹完再收尾
+    ///   （只看 .loop 模式；自由弹奏没有「完整收尾遍」概念）。
     /// 关键：elapsedSec 必须在这里每秒发布，否则视图里现算 Date() 没有重绘触发，计时冻在 0:00。
     func tick(now: Date) {
         guard phase == .performing, !timeUp, startedAt != nil else { return }
         elapsedSec = Int(activeElapsed(now: now))
         if let limit = timeLimitSec, elapsedSec >= limit {
             timeUp = true
+        }
+        // PRD：循环「或 5 分钟」——活跃时长达标不立即 finish，等当前遍 wrap 完整收尾。
+        // 已 pending 就不再重复置位；达标后用户继续弹的每一秒 pending 保持 true，直到 wrap。
+        if loopConfig.mode == .loop, !isFreePlay,
+           !finalPassPending, loopConfig.targetLoopMinutes > 0,
+           elapsedSec >= loopConfig.targetLoopMinutes * 60 {
+            finalPassPending = true
         }
     }
 
@@ -298,8 +312,13 @@ final class PracticeSession: ObservableObject {
             }
             // 遍数进度只在这里自增：引擎的 wrap 判定是唯一真源，交互层不另起一套计数
             completedLoopCount += 1
-            // 弹满目标遍数 → 自动收尾（只走 finish()：不触发通关/解锁/streak/铺路/矫正）
-            if loopConfig.targetLoopCount > 0, completedLoopCount >= loopConfig.targetLoopCount {
+            // 达标自动收尾（只走 finish()：不触发通关/解锁/streak/铺路/矫正）。
+            // 时长目标已达（finalPassPending）→ 当前遍就是「完整收尾遍」，弹完即收；
+            // 否则按遍数目标判（弹满 targetLoopCount 收）。两目标都设时谁先达标谁触发，不双重收尾。
+            if finalPassPending {
+                finalPassPending = false
+                _ = finish(now: Date())
+            } else if loopConfig.targetLoopCount > 0, completedLoopCount >= loopConfig.targetLoopCount {
                 _ = finish(now: Date())
             }
         }
