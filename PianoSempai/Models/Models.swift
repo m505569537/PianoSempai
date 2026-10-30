@@ -609,19 +609,25 @@ final class PracticeNote {
     var title: String = ""
     var body: String = ""
     var linkedTakeId: UUID?
+    /// 钉到的曲目（PRD「好解答可钉到曲目」；Piece.entityId，nil = 未关联；曲目删除后残留 id 由展示层如实忽略）
+    var pieceId: UUID?
+    /// 置顶（列表内排最前；手动笔记/AI 沉淀默认 false）
+    var pinned: Bool = false
     /// 周报所属周（weekStart 的 "yyyy-MM-dd"，周一起始；M7.2 周报按此去重，其它类型笔记为 nil）
     var weekKey: String?
     /// open / resolved
     var status: String = "open"
     var createdAt: Date = Date()
 
-    /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
-    init(entityId: UUID = UUID(), kind: String = "manual", title: String = "", body: String = "", linkedTakeId: UUID? = nil, weekKey: String? = nil, status: String = "open", createdAt: Date = Date()) {
+    /// 显式 init（@Model 宏 init 综合不稳定，显式提供；新参数带默认，旧调用点不受影响）
+    init(entityId: UUID = UUID(), kind: String = "manual", title: String = "", body: String = "", linkedTakeId: UUID? = nil, pieceId: UUID? = nil, pinned: Bool = false, weekKey: String? = nil, status: String = "open", createdAt: Date = Date()) {
         self.entityId = entityId
         self.kind = kind
         self.title = title
         self.body = body
         self.linkedTakeId = linkedTakeId
+        self.pieceId = pieceId
+        self.pinned = pinned
         self.weekKey = weekKey
         self.status = status
         self.createdAt = createdAt

@@ -668,17 +668,19 @@ private enum QuickPick: String, CaseIterable {
     // 改由视图层按传入的 hotspotMeasures 计算（见 quickChip）。
 }
 
-// MARK: - 目标遍数 chip 单选枚举（卡 4：不限 / 3 遍 / 5 遍）
+// MARK: - 目标遍数 chip 单选枚举（卡 4：不限 / 3 遍 / 5 遍 / 10 遍）
 
-/// 卡 4「目标遍数」三档（P1 循环遍数面板）。内部不私有：loopCount / pick(for:) 是纯函数，供单测。
+/// 卡 4「目标遍数」四档（P1 循环遍数面板 + PRD「循环 3/5/10 遍」）。
+/// 内部不私有：loopCount / pick(for:) 是纯函数，供单测。
 enum TargetLoopPick: String, CaseIterable {
-    case none, three, five
+    case none, three, five, ten
 
     var title: String {
         switch self {
         case .none: return "不限"
         case .three: return "3 遍"
         case .five: return "5 遍"
+        case .ten: return "10 遍"
         }
     }
 
@@ -688,6 +690,7 @@ enum TargetLoopPick: String, CaseIterable {
         case .none: return "不限遍数"
         case .three: return "弹满 3 遍"
         case .five: return "弹满 5 遍"
+        case .ten: return "弹满 10 遍"
         }
     }
 
@@ -697,15 +700,17 @@ enum TargetLoopPick: String, CaseIterable {
         case .none: return 0
         case .three: return 3
         case .five: return 5
+        case .ten: return 10
         }
     }
 
     /// 由既有 targetLoopCount 反查选中项（打开 sheet 回显用）。
-    /// 三档之外的存量值（含负数/未来档位）→ 不限，不冒充某一档。
+    /// 四档之外的存量值（含负数/未来档位）→ 不限，不冒充某一档。
     static func pick(for targetLoopCount: Int) -> TargetLoopPick {
         switch targetLoopCount {
         case 3: return .three
         case 5: return .five
+        case 10: return .ten
         default: return .none
         }
     }

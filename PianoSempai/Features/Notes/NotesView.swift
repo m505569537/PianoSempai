@@ -53,9 +53,12 @@ struct NotesView: View {
     /// 新建/编辑（push；NoteEditTarget 为空 = 新建）
     @State private var editTarget: NoteEditTarget?
 
-    /// 当前筛选 + 检索后的时间线（规则全在 NotesFilter，视图不内置过滤逻辑）
+    /// 当前筛选 + 检索后的时间线（规则全在 NotesFilter，视图不内置过滤逻辑）；
+    /// 排序走 NotesSorting：置顶优先，其后保持 createdAt 倒序（PRD：好解答可钉到曲目并置顶）
     private var visibleNotes: [PracticeNote] {
-        NotesFilter.apply(notes: notes, chip: chip, query: searchText, takeTitles: takeTitles)
+        NotesFilter
+            .apply(notes: notes, chip: chip, query: searchText, takeTitles: takeTitles)
+            .sorted(by: NotesSorting.isPinnedFirst)
     }
 
     /// 检索用：只给被引用的 take 建标题索引（spec：take 关联也可检索）
@@ -212,12 +215,15 @@ struct NotesView: View {
         let kind = note.noteKind
         let resolved = note.isResolvedIssue
         return VStack(alignment: .leading, spacing: 8) {
-            // 1. 头部行：左真实 createdAt，右类型 badge
+            // 1. 头部行：左真实 createdAt（置顶时加小标记），右类型 badge
             HStack {
                 Text(Self.cardDateFormatter.string(from: note.createdAt))
                     .font(.bodySm)
                     .tracking(0.6) // tracking-wide
                     .foregroundStyle(Color.textMuted)
+                if note.pinned {
+                    pinnedMarker
+                }
                 Spacer(minLength: 8)
                 kindBadge(kind)
             }
@@ -237,8 +243,9 @@ struct NotesView: View {
                     .strikethrough(resolved, color: Color.textMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            // 4. 底部行（按类型：关联 take / 周报生成时间 / 待处理标记）
+            // 4. 底部行（按类型：关联 take / 周报生成时间 / 待处理标记）；钉到的曲目单独一行
             noteFooter(note)
+            linkedPieceRow(note)
             cardActions(note)
         }
         .padding(16)
@@ -372,6 +379,34 @@ struct NotesView: View {
                 .accessibilityLabel("关联的练习已删除，无法跳转")
                 .padding(.top, 4)
             }
+        }
+    }
+
+    /// 置顶小标记：pin 图标 +「置顶」（列表里它排最前面，卡上说明原因）
+    private var pinnedMarker: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "pin.fill")
+                .font(.system(size: 11))
+            Text("置顶")
+        }
+        .font(.labelSm)
+        .foregroundStyle(Color.textMuted)
+    }
+
+    /// 钉到的曲目行：只显真实存在的曲目标题；pieceId 查不到（曲目已删）整行省略，不编名字。
+    /// 纯展示不跳转（卡片动作只有编辑/状态切换，见 cardActions）。
+    @ViewBuilder
+    private func linkedPieceRow(_ note: PracticeNote) -> some View {
+        if let pieceId = note.pieceId, let piece = pieces.first(where: { $0.entityId == pieceId }) {
+            HStack(spacing: 6) {
+                Image(systemName: "books.vertical")
+                    .font(.system(size: 13))
+                Text("关联曲目：\(piece.title)")
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .font(.labelSm)
+            .foregroundStyle(Color.textMuted)
         }
     }
 

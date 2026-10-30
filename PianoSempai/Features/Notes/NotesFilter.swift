@@ -155,6 +155,15 @@ enum NotesFilter {
     }
 }
 
+/// 笔记列表排序（PRD：置顶优先）：pinned 在前，其后按 createdAt 倒序（@Query 原序即 createdAt 倒序）。
+/// 纯谓词，供单测。
+enum NotesSorting {
+    static func isPinnedFirst(_ lhs: PracticeNote, _ rhs: PracticeNote) -> Bool {
+        if lhs.pinned != rhs.pinned { return lhs.pinned }
+        return lhs.createdAt > rhs.createdAt
+    }
+}
+
 /// 编辑页草稿（纯值类型：新建/编辑共用）。
 /// 保存校验与标题兜底都在这里，视图只读取结果 —— 规则可单测。
 struct NoteDraft {

@@ -56,25 +56,30 @@ final class MIDIWizardFlowTests: XCTestCase {
         ))
     }
 
-    // MARK: 验证步判定（2 秒监听窗）
+    // MARK: 验证步判定（2 秒监听窗；PRD：弹两音验证——两个不同音名）
 
-    /// 监听窗内收到有效 Note On → 通过
-    func testNoteOnInsideWindowPasses() {
-        XCTAssertTrue(MIDIVerifyGate.passes(windowArmed: true, windowExpired: false, velocity: 72))
+    /// 监听窗内只收到 1 个音 → 不放行（旧单音规则已废弃）
+    func testSinglePitchInsideWindowDoesNotPass() {
+        XCTAssertFalse(MIDIVerifyGate.passes(windowArmed: true, windowExpired: false, pitches: [60]))
     }
 
-    /// 窗口空过之后才到的音：三格照常更新，但不放行（用户可「再听一次」重开窗口）
-    func testNoteOnOutsideWindowDoesNotPass() {
-        XCTAssertFalse(MIDIVerifyGate.passes(windowArmed: false, windowExpired: true, velocity: 72))
+    /// 监听窗内两个不同音名 → 通过（PRD「弹两音验证信号」）
+    func testTwoDistinctPitchesInsideWindowPass() {
+        XCTAssertTrue(MIDIVerifyGate.passes(windowArmed: true, windowExpired: false, pitches: [60, 64]))
+    }
+
+    /// 两个音到了但监听窗已过期 → 不放行（「再听一次」重开窗重算）
+    func testTwoPitchesButWindowExpiredDoesNotPass() {
+        XCTAssertFalse(MIDIVerifyGate.passes(windowArmed: true, windowExpired: true, pitches: [60, 64]))
     }
 
     /// 监听窗还没武装（未进入验证步）→ 不放行
-    func testNoteOnWithoutWindowDoesNotPass() {
-        XCTAssertFalse(MIDIVerifyGate.passes(windowArmed: false, windowExpired: false, velocity: 72))
+    func testPitchesWithoutWindowDoNotPass() {
+        XCTAssertFalse(MIDIVerifyGate.passes(windowArmed: false, windowExpired: false, pitches: [60, 64]))
     }
 
-    /// velocity=0 视为无效 Note On（BLE 丢 Note Off 的截断事件同型），不通过
-    func testZeroVelocityDoesNotPass() {
-        XCTAssertFalse(MIDIVerifyGate.passes(windowArmed: true, windowExpired: false, velocity: 0))
+    /// 同一个音重复两遍 ≠ 两个音：音名必须互异（distinct，不是次数）
+    func testDuplicateSamePitchTwiceDoesNotPass() {
+        XCTAssertFalse(MIDIVerifyGate.passes(windowArmed: true, windowExpired: false, pitches: [60, 60]))
     }
 }

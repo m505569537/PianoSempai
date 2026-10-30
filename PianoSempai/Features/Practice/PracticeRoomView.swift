@@ -53,6 +53,9 @@ struct PracticeRoomView: View {
 
     @State private var loadedScore: Score?
     @State private var loadError: String?
+    /// 谱面是否带左右手声部（PRD 分手练习语境）：load() 时由 ScoreReferenceNotes.extract 的
+    /// isTwoStaff 一次判定（ReferenceNote.hand 的同一生产源）；单声部谱 → 分手 chip 禁用 + 诚实说明。
+    @State private var scoreHasHandSplit = false
     /// 每行小节数（0=自动；全局显示偏好，谱面滚动视图据此重排）。
     @AppStorage(ScoreDisplayPrefs.measuresPerLineKey) private var measuresPerLine = 0
     @State private var metronomeOn = false
@@ -214,6 +217,8 @@ struct PracticeRoomView: View {
             metronome.stop()
             demo.teardown()
             teardownRecording()
+            // PRD：会话中阻止自动锁屏——离开练习室必须恢复，绝不悬挂（任何退出路径都走这里）
+            UIApplication.shared.isIdleTimerDisabled = false
         }
         .onReceive(hub.$events) { _ in
             // 只处理未消费过的新事件（订阅/复现会重放当前数组）
@@ -233,6 +238,12 @@ struct PracticeRoomView: View {
                 metronome.stop()
                 finishAndSave() // 时间到自动保存（不截断语义：此刻收尾存 take）
             }
+        }
+        // PRD：会话中默认阻止自动锁屏（take 真正进行中 = performing/paused；暂停仍算会话中）。
+        // 恢复口径：finish()（用户收尾/时间到/弹满遍数）置 .finished、异常退出走 onDisappear，
+        // 两条路径都会把 isIdleTimerDisabled 置回 false。
+        .onChange(of: session.phase) { _, phase in
+            UIApplication.shared.isIdleTimerDisabled = (phase == .performing || phase == .paused)
         }
         .confirmationDialog("退出练习？已弹的部分会保存为 take。", isPresented: $exitConfirm, titleVisibility: .visible) {
             Button("结束并保存") { finishAndSave() }
@@ -345,25 +356,38 @@ struct PracticeRoomView: View {
         .overlay(Capsule().strokeBorder(Color.amber.opacity(0.25), lineWidth: 1))
     }
 
-    /// P3 分手模式 chip 组：双手 / 右手 / 左手
+    /// P3 分手模式 chip 组：双手 / 右手 / 左手。
+    /// PRD 红线：谱面没有左右手声部（单声部/单 voice）时分手无从谈起——右手/左手禁用并诚实说明，
+    /// 双手照常可选；谱有手信息时不渲染任何说明。
     private var handModePicker: some View {
-        HStack(spacing: 4) {
-            ForEach([HandMode.both, .right, .left], id: \.self) { mode in
-                let isActive = handMode == mode
-                Button {
-                    handMode = mode
-                } label: {
-                    Text(mode.title)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(isActive ? Color.amber : Color.textPrimary.opacity(0.7))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(isActive ? Color.white.opacity(0.10) : Color.clear, in: Capsule())
-                        .overlay(
-                            Capsule().strokeBorder(isActive ? Color.amber.opacity(0.30) : Color.white.opacity(0.10), lineWidth: 1)
-                        )
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 4) {
+                ForEach([HandMode.both, .right, .left], id: \.self) { mode in
+                    let isActive = handMode == mode
+                    let chipDisabled = mode != .both && !scoreHasHandSplit
+                    Button {
+                        handMode = mode
+                    } label: {
+                        Text(mode.title)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(isActive ? Color.amber : Color.textPrimary.opacity(0.7))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(isActive ? Color.white.opacity(0.10) : Color.clear, in: Capsule())
+                            .overlay(
+                                Capsule().strokeBorder(isActive ? Color.amber.opacity(0.30) : Color.white.opacity(0.10), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(chipDisabled)
+                    .opacity(chipDisabled ? 0.4 : 1)
                 }
-                .buttonStyle(.plain)
+            }
+            if !scoreHasHandSplit {
+                Text("这条谱没有左右手声部，无法分手练习")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.textMuted)
+                    .lineLimit(1)
             }
         }
     }
@@ -1471,6 +1495,8 @@ struct PracticeRoomView: View {
         do {
             let score = try ScoreLoader.loadScore(contentsOf: url)
             loadedScore = score
+            // 分手可用性：双谱表 = 有左右手声部（hand 判定的唯一来源，同 PracticeScoreScrollView 的 referenceNotes）
+            scoreHasHandSplit = ScoreReferenceNotes.extract(score: score).isTwoStaff
             let expected = ScoreExpectedPitches.extract(score: score)
             // 参考速度（速度上限）：显式传入 > piece 参考速 > 0（0 = 未知，session 回落固定 84，不编造）。
             // 上限跟曲目真实参考速走，不再写死 84（速度输入「40–N」随曲显示真实上限）。

@@ -30,8 +30,10 @@ struct S03MidiWizardView: View {
     @State private var verifyNoteName: String?
     @State private var verifyVelocity: Int?
     @State private var verifyTime: String?
+    /// 本轮监听窗内见过的不同音名（PRD：弹两音验证——两个不同音才放行；「再听一次」重开窗时清空）
+    @State private var verifyPitches: [UInt8] = []
     @State private var verifyPassed = false
-    /// 验证监听窗（onboarding 域契约：2 秒内收到 ≥1 个有效 Note On）。
+    /// 验证监听窗（onboarding 域契约：2 秒内收到 ≥2 个不同音名的有效 Note On，见 MIDIVerifyGate）。
     /// token 每次武装窗口时换新 → `.task(id:)` 自动取消上一个计时，不留野定时器。
     @State private var verifyWindowToken: UUID?
     @State private var verifyWindowExpired = false
@@ -475,12 +477,12 @@ struct S03MidiWizardView: View {
             Text("验证信号")
                 .font(.headlineLg)
                 .foregroundStyle(Color.textPrimary)
-            Text("请弹任意一个音，三格会实时显示收到的信号。")
+            Text("请弹两个不同的音，三格会实时显示收到的信号。")
                 .font(.bodySm)
                 .foregroundStyle(Color.textMuted)
                 .padding(.top, 4)
 
-            // 监听窗状态（契约：2 秒内 ≥1 个有效 Note On）
+            // 监听窗状态（PRD 契约：2 秒内 ≥2 个不同音名的有效 Note On）
             verifyWindowStatus
                 .padding(.top, 16)
 
@@ -564,7 +566,7 @@ struct S03MidiWizardView: View {
         } else {
             HStack(spacing: 6) {
                 Image(systemName: "dot.radiowaves.left.and.right")
-                Text("正在监听，2 秒内弹一个音")
+                Text("正在监听，2 秒内弹两个音")
             }
             .font(.bodySm)
             .foregroundStyle(Color.textMuted)
@@ -593,12 +595,16 @@ struct S03MidiWizardView: View {
         verifyNoteName = SightReadSession.noteName(note)
         verifyVelocity = Int(velocity)
         verifyTime = verifyTimestampFormatter.string(from: Date())
-        // 验证通过标准（onboarding 域契约）：监听窗内收到 ≥1 个有效 Note On。
-        // 窗外到达的音只更新三格（实时反馈），不放行——用户可「再听一次」重开窗口。
+        // 验证通过标准（PRD：弹两音验证）：监听窗内收到 ≥2 个不同音名的有效 Note On
+        //（同一音重复不算；velocity=0 的截断事件在 onReceive 处已挡）。窗外到达的音只更新三格
+        //（实时反馈），不放行——用户可「再听一次」重开窗口。
+        if !verifyPitches.contains(note) {
+            verifyPitches.append(note)
+        }
         if MIDIVerifyGate.passes(
             windowArmed: verifyWindowToken != nil,
             windowExpired: verifyWindowExpired,
-            velocity: velocity
+            pitches: verifyPitches
         ) {
             verifyPassed = true
             verifyWindowToken = nil // 已判定，停表
@@ -614,10 +620,11 @@ struct S03MidiWizardView: View {
         armVerifyWindow()
     }
 
-    /// 武装监听窗（换 token → `.task(id:)` 取消上一个计时）
+    /// 武装监听窗（换 token → `.task(id:)` 取消上一个计时）；音名累计同步清空（新窗重新算两个音）
     private func armVerifyWindow() {
         verifyWindowExpired = false
         verifyWindowToken = UUID()
+        verifyPitches = []
     }
 
     // MARK: 底部 CTA

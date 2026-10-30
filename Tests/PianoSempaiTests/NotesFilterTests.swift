@@ -18,6 +18,7 @@ final class NotesFilterTests: XCTestCase {
         body: String = "",
         status: String = "open",
         linkedTakeId: UUID? = nil,
+        pinned: Bool = false,
         offset: Int
     ) -> PracticeNote {
         PracticeNote(
@@ -25,6 +26,7 @@ final class NotesFilterTests: XCTestCase {
             title: title,
             body: body,
             linkedTakeId: linkedTakeId,
+            pinned: pinned,
             status: status,
             createdAt: base.addingTimeInterval(-Double(offset) * 60)
         )
@@ -209,6 +211,36 @@ final class NotesFilterTests: XCTestCase {
         XCTAssertTrue(NoteKind.weeklyReport.isReadOnly)
         XCTAssertFalse(NoteKind.manual.isReadOnly)
         XCTAssertFalse(NoteKind.issue.isReadOnly)
+    }
+
+    // MARK: - 置顶排序（PRD：笔记可钉到曲目并置顶；NotesSorting 谓词）
+
+    func testPinnedNoteSortsAheadOfNewerUnpinnedNote() {
+        // offset 越小越新：这条 unpinned 更新，但 pinned 的旧笔记仍要排前面
+        let newer = makeNote(kind: "manual", title: "更新的普通笔记", offset: 0)
+        let pinned = makeNote(kind: "manual", title: "置顶的旧笔记", pinned: true, offset: 9)
+        let sorted = [newer, pinned].sorted(by: NotesSorting.isPinnedFirst)
+        XCTAssertEqual(titles(sorted), ["置顶的旧笔记", "更新的普通笔记"])
+    }
+
+    func testPinnedSortingKeepsCreatedAtDescWithinEachGroup() {
+        let notes = [
+            makeNote(kind: "manual", title: "普通-新", offset: 0),
+            makeNote(kind: "manual", title: "置顶-旧", pinned: true, offset: 8),
+            makeNote(kind: "manual", title: "普通-旧", offset: 5),
+            makeNote(kind: "manual", title: "置顶-更旧", pinned: true, offset: 20),
+        ]
+        let sorted = notes.sorted(by: NotesSorting.isPinnedFirst)
+        XCTAssertEqual(titles(sorted), ["置顶-旧", "置顶-更旧", "普通-新", "普通-旧"])
+    }
+
+    func testUnpinnedNotesSortByCreatedAtDescOnly() {
+        let notes = [
+            makeNote(kind: "manual", title: "新", offset: 0),
+            makeNote(kind: "manual", title: "旧", offset: 3),
+        ]
+        let sorted = notes.sorted(by: NotesSorting.isPinnedFirst)
+        XCTAssertEqual(titles(sorted), ["新", "旧"])
     }
 
     // MARK: - 编辑草稿（保存校验 + 标题兜底）

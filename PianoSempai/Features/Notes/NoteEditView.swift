@@ -13,13 +13,19 @@ struct NoteEditTarget: Hashable {
     var title: String
     var body: String
     var linkedTakeId: UUID?
+    /// 钉到的曲目（PRD「好解答可钉到曲目」；nil = 未关联）
+    var pieceId: UUID?
+    /// 置顶
+    var pinned: Bool
 
-    init(noteId: UUID? = nil, kind: NoteKind = .manual, title: String = "", body: String = "", linkedTakeId: UUID? = nil) {
+    init(noteId: UUID? = nil, kind: NoteKind = .manual, title: String = "", body: String = "", linkedTakeId: UUID? = nil, pieceId: UUID? = nil, pinned: Bool = false) {
         self.noteId = noteId
         self.kind = kind
         self.title = title
         self.body = body
         self.linkedTakeId = linkedTakeId
+        self.pieceId = pieceId
+        self.pinned = pinned
     }
 
     init(note: PracticeNote) {
@@ -28,7 +34,9 @@ struct NoteEditTarget: Hashable {
             kind: note.noteKind,
             title: note.title,
             body: note.body,
-            linkedTakeId: note.linkedTakeId
+            linkedTakeId: note.linkedTakeId,
+            pieceId: note.pieceId,
+            pinned: note.pinned
         )
     }
 }
@@ -45,6 +53,9 @@ struct NoteEditView: View {
     @State private var title: String
     @State private var bodyText: String
     @State private var linkedTakeId: UUID?
+    /// 钉到的曲目 + 置顶（PRD：问答沉淀可钉到曲目）
+    @State private var pieceId: UUID?
+    @State private var pinned: Bool
     @State private var showDeleteConfirm = false
 
     init(target: NoteEditTarget) {
@@ -54,6 +65,8 @@ struct NoteEditView: View {
         _title = State(initialValue: target.title)
         _bodyText = State(initialValue: target.body)
         _linkedTakeId = State(initialValue: target.linkedTakeId)
+        _pieceId = State(initialValue: target.pieceId)
+        _pinned = State(initialValue: target.pinned)
     }
 
     private var draft: NoteDraft {
@@ -71,6 +84,12 @@ struct NoteEditView: View {
         return takes.first { $0.entityId == id }
     }
 
+    /// 钉到的真实曲目（id 查不到 = 已删除 → 编辑页显示未关联态，不编名字）
+    private var linkedPiece: Piece? {
+        guard let id = pieceId else { return nil }
+        return pieces.first { $0.entityId == id }
+    }
+
     /// title 与 body 不能同时为空；周报对象不许改写（红线：AI 生成内容只读）
     private var canSave: Bool {
         draft.canSave && !(existing?.noteKind == .weeklyReport)
@@ -83,6 +102,8 @@ struct NoteEditView: View {
                 titleSection
                 bodySection
                 takeSection
+                pieceSection
+                pinSection
                 if existing != nil {
                     deleteSection
                 }
@@ -215,6 +236,71 @@ struct NoteEditView: View {
         }
     }
 
+    // MARK: 关联曲目 + 置顶（PRD：好解答可钉到曲目；与关联 take 相互独立，可同时存在）
+
+    private var pieceSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("关联曲目（选填）")
+            NavigationLink {
+                PiecePickerView(selectedPieceId: $pieceId)
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "books.vertical")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.textBody)
+                        .frame(width: 20)
+                    if let piece = linkedPiece {
+                        Text(piece.title)
+                            .font(.bodyMd)
+                            .foregroundStyle(Color.textPrimary)
+                            .lineLimit(1)
+                    } else {
+                        Text("不关联")
+                            .font(.bodyMd)
+                            .foregroundStyle(Color.textMuted)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.textMuted)
+                }
+                .padding(12)
+                .background(Color.card, in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.border, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            if pieces.isEmpty {
+                Text("曲库还是空的。定级或导入曲目后，这里就能把笔记钉到具体曲目。")
+                    .font(.labelSm)
+                    .foregroundStyle(Color.textMuted)
+            }
+        }
+    }
+
+    private var pinSection: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "pin")
+                .font(.system(size: 14))
+                .foregroundStyle(Color.textBody)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("置顶")
+                    .font(.bodyMd)
+                    .foregroundStyle(Color.textPrimary)
+                Text("在笔记列表排在最前面")
+                    .font(.labelSm)
+                    .foregroundStyle(Color.textMuted)
+            }
+            Spacer()
+            Toggle("置顶", isOn: $pinned)
+                .labelsHidden()
+                .tint(Color.amber)
+        }
+        .padding(12)
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.border, lineWidth: 1))
+    }
+
     private var deleteSection: some View {
         Button {
             showDeleteConfirm = true
@@ -254,13 +340,17 @@ struct NoteEditView: View {
             note.title = draft.resolvedTitle
             note.body = draft.trimmedBody
             note.linkedTakeId = draft.linkedTakeId
+            note.pieceId = pieceId
+            note.pinned = pinned
         } else {
             context.insert(
                 PracticeNote(
                     kind: draft.kind.rawValue,
                     title: draft.resolvedTitle,
                     body: draft.trimmedBody,
-                    linkedTakeId: draft.linkedTakeId
+                    linkedTakeId: draft.linkedTakeId,
+                    pieceId: pieceId,
+                    pinned: pinned
                 )
             )
         }
@@ -365,6 +455,105 @@ struct TakePickerView: View {
 
     private func select(_ id: UUID?) {
         selectedTakeId = id
+        dismiss()
+    }
+}
+
+// MARK: - 曲目选择器（同栈 push 子页；钉到曲目用，可清空；同 TakePickerView 的 option-row 模式）
+
+struct PiecePickerView: View {
+    @Binding var selectedPieceId: UUID?
+    @Environment(\.dismiss) private var dismiss
+    @Query(sort: [SortDescriptor(\Piece.book), SortDescriptor(\Piece.number)]) private var pieces: [Piece]
+
+    /// 副行只用真实字段：教材归属 + 参考速度（>0 才显），两样都没有的导入曲如实显「导入曲目」
+    private func pieceDetail(_ piece: Piece) -> String {
+        var parts: [String] = []
+        if !piece.book.isEmpty { parts.append(piece.book) }
+        if piece.referenceTempo > 0 { parts.append("♩=\(piece.referenceTempo)") }
+        return parts.isEmpty ? "导入曲目" : parts.joined(separator: " · ")
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("把笔记钉到具体曲目，好办法跟着曲子走，下次练它时翻得到。")
+                    .font(.bodySm)
+                    .leading(19, fontSize: 12)
+                    .foregroundStyle(Color.textMuted)
+                    .padding(.top, 8)
+
+                optionRow(
+                    title: "不关联",
+                    detail: "这条笔记不指向具体曲目",
+                    selected: selectedPieceId == nil
+                ) {
+                    select(nil)
+                }
+                .padding(.top, 4)
+
+                ForEach(pieces) { piece in
+                    optionRow(
+                        title: piece.title,
+                        detail: pieceDetail(piece),
+                        selected: selectedPieceId == piece.entityId
+                    ) {
+                        select(piece.entityId)
+                    }
+                }
+
+                if pieces.isEmpty {
+                    Text("曲库还是空的。定级或导入曲目后，这里就会出现。")
+                        .font(.bodySm)
+                        .foregroundStyle(Color.textMuted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
+        }
+        .background(Color.canvas)
+        .tint(Color.amber)
+        .navigationTitle("选择曲目")
+        .navigationBarTitleDisplayMode(.inline)
+        .preferredColorScheme(.dark)
+    }
+
+    private func optionRow(title: String, detail: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .strokeBorder(selected ? Color.amber : Color.borderInput, lineWidth: 1)
+                        .frame(width: 16, height: 16)
+                    Circle()
+                        .fill(Color.amber)
+                        .frame(width: 8, height: 8)
+                        .opacity(selected ? 1 : 0)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.bodyMd)
+                        .foregroundStyle(selected ? Color.amber : Color.textPrimary)
+                        .lineLimit(1)
+                    Text(detail)
+                        .font(.labelSm)
+                        .foregroundStyle(Color.textMuted)
+                        .monospacedDigit()
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 52)
+            .background(Color.card, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.border, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func select(_ id: UUID?) {
+        selectedPieceId = id
         dismiss()
     }
 }

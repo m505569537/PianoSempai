@@ -2481,21 +2481,24 @@ final class PracticeCoreTests: XCTestCase {
     }
 
     func testTargetLoopPickSelectionSequence() {
-        // chip 选择序列：不限 → 0，选 3 → 3，选 5 → 5
+        // chip 选择序列：不限 → 0，选 3 → 3，选 5 → 5，选 10 → 10
         XCTAssertEqual(TargetLoopPick.none.loopCount, 0, "「不限」= 0（不限遍数）")
         XCTAssertEqual(TargetLoopPick.three.loopCount, 3)
         XCTAssertEqual(TargetLoopPick.five.loopCount, 5)
+        XCTAssertEqual(TargetLoopPick.ten.loopCount, 10, "PRD：循环 3/5/10 遍的 10 遍档")
 
-        // chip 文案（brief §3：不限 / 3 遍 / 5 遍）
+        // chip 文案（brief §3：不限 / 3 遍 / 5 遍 / 10 遍）
         XCTAssertEqual(TargetLoopPick.none.title, "不限", "空态档位叫「不限」，不写「无目标」")
         XCTAssertEqual(TargetLoopPick.three.title, "3 遍")
         XCTAssertEqual(TargetLoopPick.five.title, "5 遍")
+        XCTAssertEqual(TargetLoopPick.ten.title, "10 遍")
 
         // 打开 sheet 的回显：既有值反查选中项
         XCTAssertEqual(TargetLoopPick.pick(for: 0), .none)
         XCTAssertEqual(TargetLoopPick.pick(for: 3), .three)
         XCTAssertEqual(TargetLoopPick.pick(for: 5), .five)
-        XCTAssertEqual(TargetLoopPick.pick(for: 7), .none, "三档之外的存量值按「不限」呈现，不冒充档位")
+        XCTAssertEqual(TargetLoopPick.pick(for: 10), .ten)
+        XCTAssertEqual(TargetLoopPick.pick(for: 7), .none, "档位之外的存量值按「不限」呈现，不冒充档位")
     }
 
     @MainActor
