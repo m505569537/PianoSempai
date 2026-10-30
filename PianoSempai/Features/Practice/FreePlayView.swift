@@ -7,6 +7,58 @@ import SwiftUI
 // 本期只重做视觉与卷帘呈现：MIDI 采集 / 计时 / 保存（自由 take）/ 丢弃确认 / 节拍器逻辑全部沿用原实现，
 // 不动 PracticeSession、Models 与其它文件。
 
+// MARK: - S14 自由弹奏统计（PRD 204：自由弹奏无参考谱——不出对错分，只给统计：时长/力度分布/音域）
+
+/// 纯值统计 + 纯函数 summarize，视图只读结果；可完整单测。
+/// 之所以放在本文件而不是新文件：构建脚本本批次不许跑 xcodegen，新 .swift 进不了 target。
+struct FreePlayStats: Equatable {
+    let noteCount: Int
+    /// 力度最小/最大（真实 MIDI 1...127；没有音符时为 0）
+    let velocityMin: Int
+    let velocityMax: Int
+    /// 力度分布 5 桶真实计数（sum == noteCount；无音符时全 0）。
+    /// 等宽切真实力度范围 1...127（127/5=25.4，整数分桶边界取整）：
+    /// 桶 0=1–26 / 1=27–51 / 2=52–77 / 3=78–102 / 4=103–127，即 bucket = min(4, (v-1)*5/127)。
+    let velocityBuckets: [Int]
+    /// 音域（MIDI 音高）；没有音符时 nil，绝不编造区间
+    let lowestPitch: UInt8?
+    let highestPitch: UInt8?
+
+    static func summarize(_ notes: [(pitch: UInt8, velocity: UInt8, sec: Double)]) -> FreePlayStats {
+        guard let first = notes.first else {
+            return FreePlayStats(
+                noteCount: 0, velocityMin: 0, velocityMax: 0,
+                velocityBuckets: [0, 0, 0, 0, 0], lowestPitch: nil, highestPitch: nil
+            )
+        }
+        var buckets = [Int](repeating: 0, count: 5)
+        var velocityMin = Int(first.velocity)
+        var velocityMax = velocityMin
+        var lowest = first.pitch
+        var highest = first.pitch
+        for note in notes {
+            buckets[bucketIndex(of: note.velocity)] += 1
+            velocityMin = min(velocityMin, Int(note.velocity))
+            velocityMax = max(velocityMax, Int(note.velocity))
+            lowest = min(lowest, note.pitch)
+            highest = max(highest, note.pitch)
+        }
+        return FreePlayStats(
+            noteCount: notes.count,
+            velocityMin: velocityMin,
+            velocityMax: velocityMax,
+            velocityBuckets: buckets,
+            lowestPitch: lowest,
+            highestPitch: highest
+        )
+    }
+
+    /// 等宽分桶（见 velocityBuckets 注释）；UInt8 防溢出无需担心，(v-1) 最大 126。
+    private static func bucketIndex(of velocity: UInt8) -> Int {
+        min(4, Int(velocity - 1) * 5 / 127)
+    }
+}
+
 struct FreePlayView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -171,9 +223,9 @@ struct FreePlayView: View {
                 Circle()
                     .fill(Color.amber)
                     .frame(width: 6, height: 6)
-                // playedNotes 只有 (pitch, sec)，没有 velocity / 和弦属性——
-                // 只显真实拿得到的最近音名，绝不写「力度 74 · C4 挂留」
-                Text(SightReadSession.noteName(last.pitch))
+                // 真值底行「力度 74 · C4 挂留」：力度与音名现在是真实数据（playedNotes 带 velocity）；
+                // 「挂留」需要 noteOff 配对出的时长，仍是 onset 流没有——继续不写。
+                Text("力度 \(last.velocity) · \(SightReadSession.noteName(last.pitch))")
                     .font(.labelMono(10))
                     .foregroundStyle(Color.textMuted)
                     .monospacedDigit()
@@ -198,28 +250,31 @@ struct FreePlayView: View {
         return hub.mode == .simulated ? "模拟 MIDI IN" : "MIDI IN"
     }
 
-    // MARK: - C. 卡② 计量条（单卡三段 + 竖分隔线）
+    // MARK: - C. 卡② 计量条（单卡三段 + 竖分隔线；PRD 204 第二行补力度分布/音域）
 
     private var metricsCard: some View {
-        HStack(spacing: 12) {
-            metricGroup(title: "本次时长", value: format(sec: session.elapsedSec), valueColor: Color.textPrimary)
+        VStack(spacing: 10) {
+            HStack(spacing: 12) {
+                metricGroup(title: "本次时长", value: format(sec: session.elapsedSec), valueColor: Color.textPrimary)
 
-            Spacer(minLength: 0)
-            metricDivider
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
+                metricDivider
+                Spacer(minLength: 0)
 
-            metricGroup(title: "音符", value: "\(session.playedNotes.count)", valueColor: Color.amber)
+                metricGroup(title: "音符", value: "\(session.playedNotes.count)", valueColor: Color.amber)
 
-            Spacer(minLength: 0)
-            metricDivider
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
+                metricDivider
+                Spacer(minLength: 0)
 
-            HStack(spacing: 6) {
-                recordingDot
-                Text("录制中（仅 MIDI）")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.textMuted)
+                HStack(spacing: 6) {
+                    recordingDot
+                    Text("录制中（仅 MIDI）")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.textMuted)
+                }
             }
+            freePlayStatsRow
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -231,6 +286,57 @@ struct FreePlayView: View {
                 breathing = true
             }
         }
+    }
+
+    /// PRD 204 第二行：力度分布（5 桶真实计数）+ 音域（真实最低–最高）。
+    /// 一个音都没弹时力度分布如实显「暂无数据」、音域显「—」，不隐藏也不编造分布。
+    private var freePlayStatsRow: some View {
+        let stats = FreePlayStats.summarize(session.playedNotes)
+        return HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("力度分布")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.textMuted)
+                if stats.noteCount == 0 {
+                    Text("暂无数据")
+                        .font(.labelMono(10))
+                        .foregroundStyle(Color.s14Faint)
+                } else {
+                    HStack(alignment: .bottom, spacing: 4) {
+                        ForEach(0..<5, id: \.self) { bucket in
+                            velocityBucketBar(
+                                count: stats.velocityBuckets[bucket],
+                                maxCount: stats.velocityBuckets.max() ?? 0
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+            metricGroup(title: "音域", value: pitchRangeText(stats), valueColor: Color.textPrimary)
+        }
+    }
+
+    /// 单桶：上方真实计数（mono 9pt），下方琥珀条按计数占比定高；0 计数画 2pt 灰底短条
+    private func velocityBucketBar(count: Int, maxCount: Int) -> some View {
+        let height: CGFloat = count == 0 ? 2 : max(3, 20 * CGFloat(count) / CGFloat(max(maxCount, 1)))
+        return VStack(spacing: 2) {
+            Text("\(count)")
+                .font(.labelMono(9))
+                .foregroundStyle(count == 0 ? Color.s14Faint : Color.textMuted)
+                .monospacedDigit()
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(count == 0 ? Color.border : Color.amber.opacity(0.85))
+                .frame(width: 16, height: height)
+        }
+    }
+
+    /// 音域文本：真实最低–最高（如 C3–C6）；单音只显该音名；没弹过显「—」，绝不编区间
+    private func pitchRangeText(_ stats: FreePlayStats) -> String {
+        guard let low = stats.lowestPitch, let high = stats.highestPitch else { return "—" }
+        return low == high
+            ? SightReadSession.noteName(low)
+            : "\(SightReadSession.noteName(low))–\(SightReadSession.noteName(high))"
     }
 
     private func metricGroup(title: String, value: String, valueColor: Color) -> some View {
@@ -451,7 +557,7 @@ private enum RollLayout {
     static let fadeSec: Double = 3
     /// 音符块高（真值 5–6pt）
     static let noteHeight: CGFloat = 5.5
-    /// playedNotes 只有 onset 没有时长 → 固定窄宽。
+    /// playedNotes 只有 onset（pitch/velocity/sec）没有时长 → 固定窄宽。
     /// 真值示例里的 50–110pt 宽是写死的演示数据，不套用。
     static let onsetWidth: CGFloat = 14
     /// 音高轴至少跨一个八度，避免只弹一个音时塌成一行
@@ -463,7 +569,7 @@ private enum RollLayout {
 /// 卷帘：真实 playedNotes → 固定视窗、从右向左流动的琥珀音符块（pitch → 纵向行，sec → 横向时间）。
 /// 不做横向滚动：播放头钉在右侧，新音符从右侧进入、随时间左移、超出左边界被裁掉。
 struct PianoRollView: View {
-    let notes: [(pitch: UInt8, sec: Double)]
+    let notes: [(pitch: UInt8, velocity: UInt8, sec: Double)]
     let startedAt: Date?
 
     var body: some View {
@@ -511,7 +617,7 @@ struct PianoRollView: View {
 
     /// 音符块：琥珀横向渐变圆角条（左淡右亮，右端即播放方向），最近触发的最亮 + 发光
     private func drawNote(
-        _ note: (pitch: UInt8, sec: Double),
+        _ note: (pitch: UInt8, velocity: UInt8, sec: Double),
         in context: GraphicsContext,
         size: CGSize,
         axis: PitchAxis,
@@ -585,7 +691,7 @@ private struct PitchAxis {
         let y: CGFloat
     }
 
-    init?(notes: [(pitch: UInt8, sec: Double)], height: CGFloat) {
+    init?(notes: [(pitch: UInt8, velocity: UInt8, sec: Double)], height: CGFloat) {
         guard let minPitch = notes.map(\.pitch).min(),
               let maxPitch = notes.map(\.pitch).max() else { return nil }
 

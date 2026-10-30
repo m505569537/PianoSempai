@@ -26,8 +26,8 @@ struct TakeSummary: Equatable {
 @MainActor
 final class PracticeSession: ObservableObject {
     enum Phase: Equatable {
-        // paused = 用户主动暂停（S11 主圆钮「暂停/继续」），与 S11b 断连覆盖层区分：
-        // 断连只把 isConnected 置 false、phase 仍是 performing；暂停则真的停下心跳与判分。
+        // paused 现有两个来源：用户主动暂停（S11 主圆钮）与断线自动暂停（PRD：蓝牙断线自动暂停计时）。
+        // 两者共享 .paused，靠 interruptionPauseActive 区分——只有断线引起的暂停才在重连时自动恢复。
         case idle, counting, performing, paused, finished
     }
 
@@ -48,8 +48,9 @@ final class PracticeSession: ObservableObject {
     @Published private(set) var timeUp = false
     /// 演奏已进行的整秒数（每秒心跳驱动；进度条/计时读它才会刷新，而非现算 Date()）
     @Published private(set) var elapsedSec = 0
-    /// 自由弹奏音符流（S14 卷帘：pitch + 相对秒）
-    @Published private(set) var playedNotes: [(pitch: UInt8, sec: Double)] = []
+    /// 自由弹奏音符流（S14 卷帘：pitch + velocity + 相对秒）。
+    /// velocity 驱动 S14 统计（PRD 204：力度分布）——>0 已在 handle() 双保险过滤。
+    @Published private(set) var playedNotes: [(pitch: UInt8, velocity: UInt8, sec: Double)] = []
     /// 已完成遍数：区间 wrap 回起点（consumeFollow 内一遍结束）时 +1。
     /// 只服务交互层进度展示（顶栏副行 / 循环格 badge），不参与过关判定。
     /// 弹满 loopConfig.targetLoopCount（>0）时自动 finish()；计数在 start() 归零，每会话独立。
@@ -65,6 +66,9 @@ final class PracticeSession: ObservableObject {
     private(set) var midiEventCount = 0
     /// 断连期间不消费事件（判分暂停；已落盘数据不丢）
     private(set) var isConnected = true
+    /// 断线自动暂停进行中（PRD：重连断点继续）。与用户暂停区分：
+    /// 只有为断线而 pause() 的会话才在重连时自动 resume()；用户自己按的暂停绝不代恢复。
+    private var interruptionPauseActive = false
     /// 会话时长上限（今日所选分钟数；nil = 不限时）。到点置 timeUp，由视图收尾自动保存
     var timeLimitSec: Int?
     private var timer: Timer?
@@ -122,6 +126,7 @@ final class PracticeSession: ObservableObject {
         pauseStartedAt = nil
         totalPaused = 0
         interruptionStarts = []
+        interruptionPauseActive = false
         fileURL = try? TakeStore.makeFileURL()
         passStartWrongCount = 0
         if isFreePlay {
@@ -175,8 +180,9 @@ final class PracticeSession: ObservableObject {
         }
     }
 
-    /// 用户暂停（S11 主圆钮）。仅 performing 有效；counting 期间的暂停不在本期范围。
-    /// 停表并把暂停起点记下来，让 elapsedSec / finish() 时长把这段墙上时间排除掉。
+    /// 暂停（S11 主圆钮的用户暂停；setConnected 的断线自动暂停也走这里）。仅 performing 有效；
+    /// counting 期间的暂停不在本期范围。停表并把暂停起点记下来，让 elapsedSec / finish()
+    /// 时长把这段墙上时间排除掉。是否自动恢复由调用方记账（interruptionPauseActive）区分。
     func pause(now: Date = Date()) {
         guard phase == .performing else { return }
         phase = .paused
@@ -261,7 +267,7 @@ final class PracticeSession: ObservableObject {
             guard velocity > 0 else { return } // velocity=0 是 noteOff（双保险已在上游处理）
             let sec = startedAt.map { Date().timeIntervalSince($0) } ?? 0
             if playedNotes.count < 2000 {
-                playedNotes.append((pitch, sec))
+                playedNotes.append((pitch, velocity, sec))
             }
             if !isFreePlay {
                 consumeFollow(pitch: pitch)
@@ -313,13 +319,26 @@ final class PracticeSession: ObservableObject {
         }
     }
 
-    // MARK: 连接态（S11b：断连不算失败、不清零）
+    // MARK: 连接态（S11b：断连不算失败、不清零；PRD：断线自动暂停计时，重连断点继续）
+
+    /// 断线自动暂停是否生效中（视图横幅/测试读）。区分「断线引起的暂停」与「用户暂停」。
+    var isInterruptionPaused: Bool { interruptionPauseActive }
 
     func setConnected(_ connected: Bool) {
         guard connected != isConnected else { return }
         isConnected = connected
         if !connected, phase == .performing, let startedAt {
             interruptionStarts.append(Int(Date().timeIntervalSince(startedAt)))
+        }
+        // 断线 → 自动暂停计时（stop 心跳，elapsedSec 冻结）；预备拍/已暂停/已结束不动 phase。
+        // 仅记 interruptionPauseActive 的暂停才算「断线暂停」，重连时自动断点续弹。
+        if !connected, phase == .performing {
+            pause()
+            interruptionPauseActive = true
+        }
+        if connected, interruptionPauseActive {
+            interruptionPauseActive = false
+            resume()
         }
     }
 

@@ -2800,4 +2800,62 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(bars[0].currentHeat, 0.5, accuracy: 0.001)
         XCTAssertEqual(bars[1].measure, 2)
     }
+
+    // MARK: - S14 自由弹奏统计（PRD 204：时长/力度分布/音域；FreePlayStats 纯函数）
+
+    /// 手搓音符的便捷夹具：pitch/velocity + 相对秒（秒值不参与统计，占位即可）
+    private func freeNote(_ pitch: UInt8, _ velocity: UInt8, _ sec: Double = 0)
+        -> (pitch: UInt8, velocity: UInt8, sec: Double) {
+        (pitch, velocity, sec)
+    }
+
+    func testFreePlayStatsEmptyNotesGiveZerosAndNils() {
+        let stats = FreePlayStats.summarize([])
+        XCTAssertEqual(stats.noteCount, 0)
+        XCTAssertEqual(stats.velocityMin, 0, "没有音符时力度极值为 0（哨兵，不是真实力度）")
+        XCTAssertEqual(stats.velocityMax, 0)
+        XCTAssertEqual(stats.velocityBuckets, [0, 0, 0, 0, 0])
+        XCTAssertNil(stats.lowestPitch, "没有音符就没有音域，绝不编造区间")
+        XCTAssertNil(stats.highestPitch)
+    }
+
+    func testFreePlayStatsMinMaxBucketsAndPitchRange() {
+        // 桶边界（见 FreePlayStats.velocityBuckets 注释）：0=1–26 / 1=27–51 / 2=52–77 / 3=78–102 / 4=103–127
+        let notes = [
+            freeNote(48, 10),  // C3 · 力度 10 → 桶 0
+            freeNote(60, 40),  // C4 · 力度 40 → 桶 1
+            freeNote(72, 64),  // C5 · 力度 64 → 桶 2
+            freeNote(84, 90),  // C6 · 力度 90 → 桶 3
+            freeNote(67, 40),  // 力度 40 → 桶 1 重复
+            freeNote(55, 110), // G3 · 力度 110 → 桶 4
+        ]
+        let stats = FreePlayStats.summarize(notes)
+        XCTAssertEqual(stats.noteCount, 6)
+        XCTAssertEqual(stats.velocityMin, 10)
+        XCTAssertEqual(stats.velocityMax, 110)
+        XCTAssertEqual(stats.velocityBuckets, [1, 2, 1, 1, 1], "每音落一桶，计数真实")
+        XCTAssertEqual(stats.velocityBuckets.reduce(0, +), stats.noteCount, "桶计数之和 == 音符数")
+        XCTAssertEqual(stats.lowestPitch, 48, "音域下界取真实最低音")
+        XCTAssertEqual(stats.highestPitch, 84, "音域上界取真实最高音")
+    }
+
+    func testFreePlayStatsBoundaryVelocitiesLandInOuterBuckets() {
+        let notes = [freeNote(60, 1), freeNote(64, 127)]
+        let stats = FreePlayStats.summarize(notes)
+        XCTAssertEqual(stats.velocityMin, 1)
+        XCTAssertEqual(stats.velocityMax, 127)
+        XCTAssertEqual(stats.velocityBuckets.first, 1, "力度 1 落第一桶")
+        XCTAssertEqual(stats.velocityBuckets.last, 1, "力度 127 落最后一桶")
+        XCTAssertEqual(stats.velocityBuckets[1], 0)
+        XCTAssertEqual(stats.velocityBuckets[2], 0)
+        XCTAssertEqual(stats.velocityBuckets[3], 0)
+    }
+
+    func testFreePlayStatsSingleNoteRangeIsThatNoteOnly() {
+        let stats = FreePlayStats.summarize([freeNote(61, 74)])
+        XCTAssertEqual(stats.noteCount, 1)
+        XCTAssertEqual(stats.lowestPitch, 61)
+        XCTAssertEqual(stats.highestPitch, 61, "单音区间就是它自己（视图据此只显一个音名）")
+        XCTAssertEqual(stats.velocityBuckets, [0, 0, 1, 0, 0], "力度 74 落桶 2（52–77）")
+    }
 }

@@ -245,6 +245,12 @@ struct PracticeRoomView: View {
         .onChange(of: session.phase) { _, phase in
             UIApplication.shared.isIdleTimerDisabled = (phase == .performing || phase == .paused)
         }
+        // PRD：app 退后台/锁屏 → take 正常收尾保存（RootView 在 scenePhase == .background 时发通知）。
+        // finishAndSave 幂等：phase 不在 performing/counting/paused/timeUp 时只 dismiss，重复通知无害。
+        // 节拍器/录像由 finishAndSave 收尾、示范与相机会话归 onDisappear teardown（B6），这里不另停。
+        .onReceive(NotificationCenter.default.publisher(for: .pianoSempaiAppDidEnterBackground)) { _ in
+            finishAndSave()
+        }
         .confirmationDialog("退出练习？已弹的部分会保存为 take。", isPresented: $exitConfirm, titleVisibility: .visible) {
             Button("结束并保存") { finishAndSave() }
             Button("继续练习", role: .cancel) {}

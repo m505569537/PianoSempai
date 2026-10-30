@@ -8,10 +8,14 @@ import XCTest
 /// 3. 恢复后 `elapsedSec` 只算活跃时间——暂停区间被 `totalPaused` 扣掉，10s 活跃 + 5s 暂停 = 10；
 /// 4. `finish()` 时长用同一套公式，暂停的几分钟不计入 take duration（含「暂停中直接结束」）；
 /// 5. 暂停期间 `handle()` 不消费/不判分/不落盘，恢复后从保留的 followState 继续；
-/// 6. `timeUp` 按活跃时间算——暂停不烧倒计时；断连（isConnected=false）行为不受本期影响。
+/// 6. `timeUp` 按活跃时间算——暂停不烧倒计时；
+/// 7. 断线（isConnected=false）在演奏中 → 自动暂停计时（PRD：蓝牙断线自动暂停计时与判分），
+///    重连断点继续；用户自己按的暂停绝不代恢复；预备拍期间断线不动阶段。
 ///
 /// 时间全部经 `tick(now:)` / `pause(now:)` / `resume(now:)` / `finish(now:)` 注入，不 sleep、不看真实时钟。
 /// 注意：标记点与 playedNotes 的相对秒仍按墙上时钟 startedAt（本期不改它们的基准），测试同样锁住这点。
+/// 断线暂停例外：`setConnected` 不收 now，pause/resume 用真实时钟；断线→重连是同步相邻语句，
+/// 暂停区间为亚秒级，断言用 .5 秒刻度避开整数截断边界。
 final class PracticeSessionPauseTests: XCTestCase {
 
     private let region: [[UInt8]] = [[60], [62], [64]]
@@ -196,7 +200,7 @@ final class PracticeSessionPauseTests: XCTestCase {
         XCTAssertEqual(session.followState.measureIndex, 2, "小节 1 期望耗尽 → 推进到小节 2")
     }
 
-    // MARK: 6. timeUp 按活跃时间；断连行为不变
+    // MARK: 6. timeUp 按活跃时间
 
     @MainActor
     func testTimeUpUsesActiveElapsedNotWallClock() {
@@ -222,25 +226,121 @@ final class PracticeSessionPauseTests: XCTestCase {
         XCTAssertEqual(session.elapsedSec, 5)
     }
 
+    // MARK: 7. 断线自动暂停（PRD：自动暂停计时与判分，重连断点继续；用户暂停绝不代恢复）
+
     @MainActor
-    func testDisconnectBehaviorUnchangedByPauseWork() {
+    func testDisconnectWhilePerformingAutoPausesAndFreezesClock() {
+        let session = makePerformingSession()
+        defer { _ = session.finish() }
+        let start = session.startedAt!
+
+        session.tick(now: start.addingTimeInterval(10))
+        XCTAssertEqual(session.elapsedSec, 10, "前置：演奏到第 10 秒")
+
+        session.handle(MIDIEvent(kind: .noteOn(note: 60, velocity: 90), channel: 0, timeNanos: 1))
+        XCTAssertEqual(session.midiEventCount, 1, "前置：断连前事件照常消费")
+
+        session.setConnected(false)
+        XCTAssertEqual(session.phase, .paused, "演奏中断线 → 自动暂停计时（PRD）")
+        XCTAssertTrue(session.isInterruptionPaused, "这是断线暂停，不是用户暂停")
+        XCTAssertEqual(session.interruptionStarts.count, 1, "断点照常记录（现行为原样保留）")
+
+        // 判分照旧暂停：断连期间事件不消费
+        session.handle(MIDIEvent(kind: .noteOn(note: 62, velocity: 90), channel: 0, timeNanos: 2))
+        XCTAssertEqual(session.midiEventCount, 1, "断连期间不消费事件（判分暂停）")
+
+        // 时钟冻结：暂停中没有心跳，tick 被 phase 挡掉，墙上时间烧不掉预算
+        session.tick(now: start.addingTimeInterval(11))
+        session.tick(now: start.addingTimeInterval(120))
+        XCTAssertEqual(session.elapsedSec, 10, "断线暂停期间 elapsedSec 冻结")
+
+        session.setConnected(true)
+        XCTAssertEqual(session.phase, .performing, "重连断点继续")
+        XCTAssertFalse(session.isInterruptionPaused, "自动暂停标记已清")
+        XCTAssertEqual(session.interruptionStarts.count, 1, "重连不新增断点")
+
+        // 计时继续（既不是 0 也不是冻结的 10）：断线暂停区间是同步语句间的真实亚秒级时间，
+        // 给 ±1 秒容差——任何断言失败的上报耗时都会撑大这段真实区间，不能让它级联误报。
+        session.tick(now: start.addingTimeInterval(25.5))
+        XCTAssertGreaterThanOrEqual(session.elapsedSec, 24, "恢复后计时继续推进")
+        XCTAssertLessThanOrEqual(session.elapsedSec, 25, "断线暂停的亚秒级区间只带走不到 1 秒")
+    }
+
+    @MainActor
+    func testReconnectNeverAutoResumesUserPause() {
         let session = makePerformingSession()
         defer { _ = session.finish() }
 
-        session.handle(MIDIEvent(kind: .noteOn(note: 60, velocity: 90), channel: 0, timeNanos: 1))
+        session.pause(now: session.startedAt!.addingTimeInterval(3))
+        XCTAssertEqual(session.phase, .paused, "前置：用户暂停")
+
         session.setConnected(false)
-        session.handle(MIDIEvent(kind: .noteOn(note: 64, velocity: 90), channel: 0, timeNanos: 2))
-        XCTAssertEqual(session.midiEventCount, 1, "断连期间不消费事件（判分暂停）")
-        XCTAssertEqual(session.phase, .performing, "断连只置 isConnected=false，不改阶段")
-        XCTAssertEqual(session.interruptionStarts.count, 1, "断连标记 interruption 起点")
+        XCTAssertEqual(session.phase, .paused, "用户暂停中断线不改变阶段")
+        XCTAssertFalse(session.isInterruptionPaused, "用户暂停不是断线暂停")
 
         session.setConnected(true)
-        session.handle(MIDIEvent(kind: .noteOn(note: 62, velocity: 90), channel: 0, timeNanos: 3))
-        XCTAssertEqual(session.midiEventCount, 2, "重连后续录")
-        XCTAssertEqual(session.interruptionStarts.count, 1, "重连不新增断点")
+        XCTAssertEqual(session.phase, .paused, "重连绝不代用户恢复暂停")
+        XCTAssertFalse(session.isInterruptionPaused, "重连不清用户暂停的记账")
     }
 
-    // MARK: 7. 恢复不清零任何东西
+    @MainActor
+    func testDisconnectWhileManuallyPausedKeepsPhaseAndStartsUntouched() {
+        let session = makePerformingSession()
+        defer { _ = session.finish() }
+
+        session.pause()
+        session.setConnected(false)
+        XCTAssertEqual(session.phase, .paused, "已暂停中断线阶段不变")
+        XCTAssertEqual(session.interruptionStarts.count, 0, "断点只在演奏中断线时记录（现有条件 phase == .performing 原样保留）")
+
+        session.setConnected(true)
+        XCTAssertEqual(session.phase, .paused, "重连不代恢复")
+        XCTAssertEqual(session.interruptionStarts.count, 0)
+    }
+
+    @MainActor
+    func testTwoDisconnectReconnectCyclesRecordTwoInterruptions() {
+        let session = makePerformingSession()
+        defer { _ = session.finish() }
+
+        session.setConnected(false)
+        XCTAssertTrue(session.isInterruptionPaused)
+        session.setConnected(true)
+        XCTAssertEqual(session.phase, .performing, "第一轮重连恢复")
+
+        session.setConnected(false)
+        XCTAssertTrue(session.isInterruptionPaused, "第二轮断线同样自动暂停")
+        session.setConnected(true)
+
+        XCTAssertEqual(session.interruptionStarts.count, 2, "两轮断连记两个断点")
+        XCTAssertEqual(session.phase, .performing)
+        XCTAssertFalse(session.isInterruptionPaused)
+    }
+
+    @MainActor
+    func testDisconnectDuringCountInDoesNotTouchPhase() {
+        let session = PracticeSession()
+        session.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 72)
+        let metronome = MetronomeService()
+        session.start(metronome: metronome, countIn: true, metronomeOn: true)
+        XCTAssertEqual(session.phase, .counting, "前置：预备拍中")
+
+        session.setConnected(false)
+        XCTAssertEqual(session.phase, .counting, "预备拍期间断线不动阶段")
+        XCTAssertFalse(session.isInterruptionPaused, "预备拍不算断线暂停")
+        XCTAssertEqual(session.interruptionStarts.count, 0, "预备拍没有演奏中的断点可记")
+
+        session.setConnected(true)
+        XCTAssertEqual(session.phase, .counting)
+        XCTAssertFalse(session.isInterruptionPaused)
+
+        // 收尾，避免卡在 .counting（同 testPauseIsNoOpOutsidePerforming）
+        session.toggleMetronome(on: false, metronome: metronome)
+        metronome.stop()
+        _ = session.finish()
+    }
+
+    // MARK: 8. 恢复不清零任何东西
 
     @MainActor
     func testResumeKeepsMarksPlayedNotesAndCounters() {

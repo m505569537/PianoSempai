@@ -1,6 +1,12 @@
 import SwiftData
 import SwiftUI
 
+/// PRD 65：app 退后台/锁屏 → 进行中的 take 正常收尾保存（MIDI 采集按 iOS 限制不硬抗）。
+/// 练习室监听这个名字调 finishAndSave()；RootView 是唯一 post 点（scenePhase 只在根上读）。
+extension Notification.Name {
+    static let pianoSempaiAppDidEnterBackground = Notification.Name("pianoSempaiAppDidEnterBackground")
+}
+
 /// App 根视图：
 /// - onboarding 完成 → S06 App Frame（5 tab）
 /// - onboarding 未完成且未中途退出 → Onboarding 流程（S01–S05，全屏无 tab）
@@ -59,6 +65,10 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             // 周日练完进后台时会再刷一次：通知文案随之覆盖更新（含周日练习）
             guard phase == .background || phase == .inactive else { return }
+            if phase == .background {
+                // PRD：退后台 → 练习室把进行中的 take 正常收尾保存（练习室 onReceive 接）
+                NotificationCenter.default.post(name: .pianoSempaiAppDidEnterBackground, object: nil)
+            }
             Task { await ensureCoordinator().refresh() }
             Task { await ensureMonthlyCoordinator().refresh() }
         }
