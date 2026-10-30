@@ -37,13 +37,10 @@ struct ArchiveView: View {
     @State private var monthFilter: String?
     /// 周翻页锚点（落在目标周内的任意一天；默认本周，只做周粒度查询）
     @State private var weekAnchor = Date()
-    /// 问 Neko（S18 自由问答；fullScreenCover 天然隐藏 tab bar）
-    @State private var showNekoChat = false
     /// S17 导入 Zf 月度录像（fullScreenCover + NavigationStack：无 tab bar 的整页流程）
     @State private var showZFImport = false
     /// 导入成功后的单行 toast（不弹 modal）
     @State private var zfToast: String?
-    @Environment(\.modelContext) private var context
 
     private var settings: AppSettings? { settingsList.first }
 
@@ -151,9 +148,6 @@ struct ArchiveView: View {
             .padding(.bottom, 96)
         }
         .background(Color.canvas)
-        .overlay(alignment: .bottomTrailing) {
-            nekoFAB
-        }
         .overlay(alignment: .bottom) {
             if let zfToast {
                 zfToastBanner(zfToast)
@@ -168,10 +162,6 @@ struct ArchiveView: View {
             MonthlyReportView(initialPeriodKey: latestReport?.periodKey) { periodKey in
                 monthFilter = periodKey
             }
-        }
-        .fullScreenCover(isPresented: $showNekoChat) {
-            // S18 问 Neko：自由问答，不带 take 上下文（take 上下文由 S13 提供）
-            ChatView(mode: .freeform, context: context)
         }
         .fullScreenCover(isPresented: $showZFImport) {
             // S17 无 tab 的整页流程：cover 天然隐藏 tab bar；内部 NavigationStack 保持 push 语义
@@ -844,32 +834,6 @@ struct ArchiveView: View {
             }
             Spacer()
         }
-    }
-
-    // MARK: F. 问 Neko FAB（琥珀胶囊，悬浮于 tab bar 之上）
-
-    private var nekoFAB: some View {
-        Button {
-            showNekoChat = true
-        } label: {
-            HStack(spacing: 6) {
-                Text("问 Neko")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.canvas)
-                Image(systemName: "cat")
-                    .font(.system(size: 16))
-                    .foregroundStyle(Color.canvas)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(Color.amber, in: Capsule())
-            .shadow(color: Color.amber.opacity(0.2), radius: 12, y: 4)
-        }
-        .buttonStyle(ArchivePressScaleStyle())
-        .padding(.trailing, 16)
-        // 本视图自身已被 AppFrameView 的 tab bar safeAreaInset 顶上，bottom 12 即贴 tab 栏上方
-        .padding(.bottom, 12)
-        .accessibilityLabel("问 Neko")
     }
 
     // MARK: 日期格式（本地时区，跟随 WeekCalendar）

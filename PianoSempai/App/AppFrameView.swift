@@ -100,10 +100,10 @@ struct AppFrameView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 // 问 Neko FAB：独立悬浮于 tab 栏上方偏右（不进 5 tab）
-                // S20/S08/S23 视觉对齐：FAB 仅 S07 今日 / S11 练习两屏有真值；档案 tab 由
-                // ArchiveView 自带琥珀实色 FAB（S20 真值），曲库/我的无 FAB。
-                // 故全局 FAB 只在今日、练习两 tab 渲染，避免档案页出现两个 FAB。
-                if tab == .today || tab == .practice {
+                // S20 视觉统一（2026-10-23 定稿）：全局共用同一份琥珀实色胶囊实现，
+                // 仅今日 + 档案两 tab 渲染；练习 tab 无底部 FAB（其问 Neko 在练习室页头，S11）。
+                // 曲库/我的无 FAB。
+                if tab == .today || tab == .archive {
                     HStack {
                         Spacer()
                         NekoFAB { showChat = true }
@@ -223,18 +223,27 @@ private struct NekoFAB: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: "cat")
-                    .font(.system(size: 18))
+                    .font(.system(size: 16))
                 Text("问 Neko")
-                    .font(.titleMd)
+                    .font(.system(size: 12, weight: .semibold))
             }
-            .foregroundStyle(Color.amber)
+            .foregroundStyle(Color.canvas)
             .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(Color.cardElevated, in: Capsule())
-            .overlay(Capsule().strokeBorder(Color.amber.opacity(0.18), lineWidth: 1))
-            .shadow(color: Color.amber.opacity(0.15), radius: 12, y: 4) // 暖色底辉，不用冷色投影
+            .padding(.vertical, 8)
+            .background(Color.amber, in: Capsule())
+            .shadow(color: Color.amber.opacity(0.2), radius: 12, y: 4)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NekoFABPressStyle())
+        .accessibilityLabel("问 Neko")
+    }
+}
+
+/// active:scale-95 的 SwiftUI 等价（S20 真值：按压缩至 0.95）；文件私有，不跨文件复用样式
+private struct NekoFABPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
