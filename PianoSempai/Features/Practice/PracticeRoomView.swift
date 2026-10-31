@@ -251,10 +251,17 @@ struct PracticeRoomView: View {
         .onReceive(NotificationCenter.default.publisher(for: .pianoSempaiAppDidEnterBackground)) { _ in
             finishAndSave()
         }
-        .confirmationDialog("退出练习？已弹的部分会保存为 take。", isPresented: $exitConfirm, titleVisibility: .visible) {
+        .confirmationDialog(exitDialogTitle, isPresented: $exitConfirm, titleVisibility: .visible) {
             Button("结束并保存") { finishAndSave() }
             Button("继续练习", role: .cancel) {}
         }
+    }
+
+    /// 退出确认标题（G10）：等待会话明说「不计入练习时长」，不冒充普通练习 take。
+    private var exitDialogTitle: String {
+        session.mode == .wait
+            ? "结束等待练习？已弹的部分会保存（不计入练习时长）。"
+            : "退出练习？已弹的部分会保存为 take。"
     }
 
     // MARK: 内容列（连接态 / 断连态各一套版面，共用谱卡）
@@ -302,6 +309,7 @@ struct PracticeRoomView: View {
         HStack(spacing: 8) {
             nekoPill
             midiPill
+            practiceModePicker
             handModePicker
             Spacer(minLength: 8)
             headerTitle
@@ -360,6 +368,59 @@ struct PracticeRoomView: View {
         .padding(.vertical, 4)
         .background(Color.card, in: Capsule())
         .overlay(Capsule().strokeBorder(Color.amber.opacity(0.25), lineWidth: 1))
+    }
+
+    /// G10 模式胶囊：循环 / 等待（ADR-0013 决策一/五）。
+    /// - 循环 = 既有时钟路径，等待 = 弹对才前进；默认循环，选择不持久化（每房默认循环）。
+    /// - 只在 idle/finished 可切换（演奏中切模式会话语义混乱，禁用并置灰）。
+    /// - 只吃已解析谱（loadedScore != nil，与循环/跟弹同前提）；无谱 → 禁用 + 诚实说明。
+    private var practiceModePicker: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 4) {
+                ForEach([PracticeMode.loop, .wait], id: \.self) { mode in
+                    let isActive = session.mode == mode
+                    let chipDisabled = !canSwitchMode
+                    Button {
+                        switchPracticeMode(to: mode)
+                    } label: {
+                        Text(mode.title)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(isActive ? Color.amber : Color.textPrimary.opacity(0.7))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(isActive ? Color.white.opacity(0.10) : Color.clear, in: Capsule())
+                            .overlay(
+                                Capsule().strokeBorder(isActive ? Color.amber.opacity(0.30) : Color.white.opacity(0.10), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(chipDisabled)
+                    .opacity(chipDisabled ? 0.4 : 1)
+                }
+            }
+            if !canSwitchMode, session.phase != .idle, session.phase != .finished {
+                Text("演奏中不能切模式")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.textMuted)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    /// 模式切换可用性：谱已加载 且 不在演奏中（idle/finished 才可切）。
+    private var canSwitchMode: Bool {
+        loadedScore != nil && (session.phase == .idle || session.phase == .finished)
+    }
+
+    /// 切换模式：只允许 idle/finished；切等待时关闭节拍器声音（等待默认无声起步，
+    /// 用户仍可手动开）。配置（区间/速度）保持不动——等待模式沿用同一 region。
+    private func switchPracticeMode(to mode: PracticeMode) {
+        guard canSwitchMode else { return }
+        session.mode = mode
+        if mode == .wait, metronomeOn {
+            metronomeOn = false
+            metronome.stop()
+        }
     }
 
     /// P3 分手模式 chip 组：双手 / 右手 / 左手。
@@ -424,14 +485,15 @@ struct PracticeRoomView: View {
             completedLoopCount: session.completedLoopCount,
             targetLoopCount: session.loopConfig.targetLoopCount,
             bpm: session.tempoState.bpm,
-            finalPassPending: session.finalPassPending
+            finalPassPending: session.finalPassPending,
+            mode: session.mode,
+            waitLoopCount: session.waitLoopCount
         )
     }
 
-    /// 顶栏副行文案（纯函数，可单测；视图只喂真实数据）：
-    /// 谱已加载才给「区间」，BPM 恒在；仅当 targetLoopCount > 0 时追加「完成/目标 遍」；
-    /// 仅当时长目标达标待完整收尾（finalPassPending）时追加「已达标 · 弹完这遍完整收尾」。
-    /// 无目标遍数 → 不出现「遍」字；未达标 → 不出现「已达标」，文案与加此功能前逐字一致。
+    /// 顶栏副行（纯函数，可单测；视图只喂真实数据）：
+    /// - 循环模式：既有口径不变（区间 · BPM · 遍数进度 · 达标提示）。
+    /// - 等待模式：区间 · 「弹对才前进」（无速度概念，不给 BPM）+ 等待遍数。
     static func headerSubtitleText(
         scoreLoaded: Bool,
         startMeasure: Int,
@@ -439,11 +501,18 @@ struct PracticeRoomView: View {
         completedLoopCount: Int,
         targetLoopCount: Int,
         bpm: Int,
-        finalPassPending: Bool = false
+        finalPassPending: Bool = false,
+        mode: PracticeMode = .loop,
+        waitLoopCount: Int = 0
     ) -> String {
         var parts: [String] = []
         if scoreLoaded {
             parts.append("\(startMeasure)–\(endMeasure) 小节")
+        }
+        if mode == .wait {
+            parts.append("弹对才前进")
+            parts.append("第 \(max(1, waitLoopCount + 1)) 遍")
+            return parts.joined(separator: " · ")
         }
         parts.append("♩=\(bpm)")
         if let progress = loopProgressText(completedLoopCount: completedLoopCount, targetLoopCount: targetLoopCount) {
@@ -929,7 +998,9 @@ struct PracticeRoomView: View {
         }
         return Text(session.isFreePlay
             ? "自由跟弹 · 不判分"
-            : "下一小节：\(session.followState.measureIndex + 1)")
+            : session.mode == .wait
+                ? "等待模式 · 不判分"
+                : "下一小节：\(session.followState.measureIndex + 1)")
             .font(.labelMd)
             .foregroundStyle(Color.textMuted)
             .monospacedDigit()
@@ -1000,20 +1071,45 @@ struct PracticeRoomView: View {
                 highlighted: session.loopConfig.countIn,
                 action: { session.loopConfig.countIn.toggle() }
             )
-            tempoCell
-            dockCell(
-                icon: "repeat",
-                label: "循环",
-                value: session.loopConfig.cellLabel(totalMeasures: totalMeasures) ?? "",
-                valueColor: loopActive ? Color.amber : Color.textMuted,
-                highlighted: loopActive,
-                // 目标遍数 badge（P1）：仅 target>0 时显示「完成/目标」，如 3/5；无目标不占位
-                badge: Self.loopProgressText(
-                    completedLoopCount: session.completedLoopCount,
-                    targetLoopCount: session.loopConfig.targetLoopCount
-                ),
-                action: { if loadedScore != nil { showLoopSheet = true } } // S12：段落循环设置（需有谱）
-            )
+            // G10 等待模式：无速度概念 → 速度格替换为「回退」格（长按回退的点击版，可连点）。
+            if session.mode == .wait {
+                dockCell(
+                    icon: "arrow.uturn.backward",
+                    label: "回退",
+                    value: "上一小节",
+                    valueColor: Color.textMuted,
+                    highlighted: false,
+                    action: { session.retreatOneMeasure() }
+                )
+            } else {
+                tempoCell
+            }
+            if session.mode == .wait {
+                // 等待模式：循环设置不参与（无 count-in/gap/提速/目标语义），诚实隐藏循环格。
+                dockCell(
+                    icon: "repeat",
+                    label: "等待",
+                    value: "弹对前进",
+                    valueColor: Color.amber,
+                    highlighted: true,
+                    badge: session.waitLoopCount > 0 ? "\(session.waitLoopCount)" : nil,
+                    action: {}
+                )
+            } else {
+                dockCell(
+                    icon: "repeat",
+                    label: "循环",
+                    value: session.loopConfig.cellLabel(totalMeasures: totalMeasures) ?? "",
+                    valueColor: loopActive ? Color.amber : Color.textMuted,
+                    highlighted: loopActive,
+                    // 目标遍数 badge（P1）：仅 target>0 时显示「完成/目标」，如 3/5；无目标不占位
+                    badge: Self.loopProgressText(
+                        completedLoopCount: session.completedLoopCount,
+                        targetLoopCount: session.loopConfig.targetLoopCount
+                    ),
+                    action: { if loadedScore != nil { showLoopSheet = true } } // S12：段落循环设置（需有谱）
+                )
+            }
             dockCell(
                 icon: "flag",
                 label: "标记",
@@ -1208,10 +1304,19 @@ struct PracticeRoomView: View {
         switch session.phase {
         case .idle, .finished:
             metronome.onCountInFinished = { session.beginPerforming() }
-            session.start(metronome: metronome, countIn: true, metronomeOn: metronomeOn)
-            if metronomeOn, session.phase == .performing {
-                // 预备拍关着：这里补一次无预备拍的 start
-                metronome.start(bpm: session.tempoState.bpm, countInBars: 0)
+            // 等待模式：无 count-in（ADR-0013 决策四），直接开弹；
+            // 节拍器开关照常尊重用户选择（默认关——switchPracticeMode 已静音）。
+            if session.mode == .wait {
+                session.start(metronome: metronome, countIn: false, metronomeOn: metronomeOn)
+                if metronomeOn {
+                    metronome.start(bpm: session.tempoState.bpm, countInBars: 0)
+                }
+            } else {
+                session.start(metronome: metronome, countIn: true, metronomeOn: metronomeOn)
+                if metronomeOn, session.phase == .performing {
+                    // 预备拍关着：这里补一次无预备拍的 start
+                    metronome.start(bpm: session.tempoState.bpm, countInBars: 0)
+                }
             }
             // S15 已校准机位 → 与练习同起；录像失败只丢视频，不拦练习（ADR-0010）
             if RecordingDecision.shouldStart(armed: recordArmed, isConnected: hub.isConnected) {
@@ -1234,9 +1339,9 @@ struct PracticeRoomView: View {
     }
 
     /// 识别指示（真值 §6.2）：只在「真的在判分」时出现 —— performing 且 MIDI 已连接。
-    /// 暂停（.paused）/断连都不亮，不冒充"在听"。
+    /// 暂停（.paused）/断连都不亮，不冒充"在听"；等待模式永不亮（不判分，ADR-0013）。
     private var isRecognizing: Bool {
-        session.phase == .performing && hub.isConnected
+        session.phase == .performing && hub.isConnected && session.mode != .wait
     }
 
     private var recognitionIndicator: some View {
@@ -1352,6 +1457,8 @@ struct PracticeRoomView: View {
             // M5b：take 挂到曲目与谱，才有分析/过关的归属（SPEC §10）
             pieceId: effectivePiece?.entityId,
             scoreFileId: scoreFile?.entityId,
+            // G10 / ADR-0013：等待会话落硬开关（判分链/时长口径隔离的唯一依据）
+            isWaitSession: session.mode == .wait,
             in: context
         )
         // 录像会话：照常判分，但不参与过关（ADR-0010 决策三）。
@@ -1361,6 +1468,8 @@ struct PracticeRoomView: View {
             take.isRecordingSession = true
             take.isPassEligible = false
         }
+        // 等待会话：不判分不出分析（ADR-0013 决策三），跳过 triggerAnalysis。
+        let waitSession = session.mode == .wait
         // 先落库再分析：pieceTakeHistory 要能查到这条新 take（连续计数口径）
         try? context.save()
 
@@ -1393,7 +1502,10 @@ struct PracticeRoomView: View {
             RewardPavingStore.markPavingCompleted(paving, in: context)
         }
         finishedSummary = summary
-        triggerAnalysis(for: take)
+        // 等待会话不触发分析（ADR-0013 决策三：不判分，连假分析行都不建）
+        if !waitSession {
+            triggerAnalysis(for: take)
+        }
     }
 
     /// 分析编排（SPEC §10）：在 persist 成功后触发，**不**塞进 persist（保持其纯落库）。

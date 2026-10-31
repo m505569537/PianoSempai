@@ -2499,6 +2499,51 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(pending, "1–3 小节 · ♩=72 · 1/3 遍 · 已达标 · 弹完这遍完整收尾")
     }
 
+    // MARK: G10 Stage B — 等待模式顶栏副行（ADR-0013 决策四：无速度概念）
+
+    @MainActor
+    func testHeaderSubtitleWaitModeShowsWaitSemantics() {
+        let text = PracticeRoomView.headerSubtitleText(
+            scoreLoaded: true, startMeasure: 1, endMeasure: 3,
+            completedLoopCount: 0, targetLoopCount: 0, bpm: 72,
+            mode: .wait, waitLoopCount: 0
+        )
+        XCTAssertEqual(text, "1–3 小节 · 弹对才前进 · 第 1 遍", "等待模式：区间 + 等待语义 + 当前遍，无 BPM")
+        XCTAssertFalse(text.contains("♩"), "等待模式不显示速度（tempoState 不参与）")
+
+        // wrap 过 2 遍后：遍数跟进
+        let wrapped = PracticeRoomView.headerSubtitleText(
+            scoreLoaded: true, startMeasure: 3, endMeasure: 8,
+            completedLoopCount: 0, targetLoopCount: 0, bpm: 72,
+            mode: .wait, waitLoopCount: 2
+        )
+        XCTAssertEqual(wrapped, "3–8 小节 · 弹对才前进 · 第 3 遍")
+    }
+
+    @MainActor
+    func testWaitSessionSubtitleAndRecallLoopModeUnchanged() {
+        // 循环模式显式传入（默认值路径的回归锁定）：与旧文案逐字一致
+        let loop = PracticeRoomView.headerSubtitleText(
+            scoreLoaded: true, startMeasure: 1, endMeasure: 3,
+            completedLoopCount: 0, targetLoopCount: 0, bpm: 72,
+            mode: .loop, waitLoopCount: 5
+        )
+        XCTAssertEqual(loop, "1–3 小节 · ♩=72", "循环模式不受 waitLoopCount 影响，文案不变")
+    }
+
+    @MainActor
+    func testWaitSessionStartSkipsCountIn() {
+        let session = PracticeSession()
+        session.mode = .wait
+        session.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 72)
+        // countIn=true + loopConfig.countIn=true + metronomeOn=true 的最坏组合也要直接 performing
+        session.loopConfig.countIn = true
+        let metronome = MetronomeService()
+        session.start(metronome: metronome, countIn: true, metronomeOn: true)
+        XCTAssertEqual(session.phase, .performing, "等待模式无视 count-in 配置：弹对才前进没有预备拍")
+        _ = session.finish()
+    }
+
     func testTargetLoopPickSelectionSequence() {
         // chip 选择序列：不限 → 0，选 3 → 3，选 5 → 5，选 10 → 10
         XCTAssertEqual(TargetLoopPick.none.loopCount, 0, "「不限」= 0（不限遍数）")
