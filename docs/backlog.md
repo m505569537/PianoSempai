@@ -160,6 +160,7 @@
 | V9 | 视频保留规则持久化（设置页「每曲最近 8 条 / 不自动清理」） | S23 | done | `RetentionRuleSheet` 原先只用 `@State`，退页即丢。2026-10-22 已修：`AppSettings.videoRetentionMode` 落库 + 行文案读真实设置；保存视频后按 pieceId 分组执行 `VideoRetentionService` 淘汰（`651ca8e`）。 |
 | V10 | 录像闭环真机验收（相机预览/校准四步/录制随练习/MIDI 配对/相册写回/档案角标与回看/删除与 LRU） | ADR-0010 | open | 代码与单测已绿（851/0），但相机路径在模拟器无法执行。**步骤见 `docs/acceptance/2026-10-22-device-acceptance.md` §1（V10-1…8）**；验收前不要对外宣称该批次已验收。 |
 | V11 | V3 真 key 端到端（Files API 上传→file_id→回答→DELETE；失败转移；删除开关 OFF 行为） | ADR-0011 | open | 单测可覆盖请求构造与状态机（注入假 URLSession），但真实账号/模型开通状态只能在用户配置 key 的真机上验证。需先在方舟控制台开通 `doubao-seed-2-1-pro` 并确认 key 有效。**步骤见 `docs/acceptance/2026-10-22-device-acceptance.md` §2（V11-1…9）**。 |
+| V13 | 等待模式真机验收（进房切等待、弹错不动光标、小节回退、一遍完成遍数+1、完成收尾不进今日时长、退出确认文案） | ADR-0013 | open | 代码与单测已绿（904/0，Stage A `da304b8` + Stage B `c4f078b`）。真机核对 5 项：①顶栏胶囊切「等待」后无 count-in 直弹；②乱弹错音光标原地不动、`nextMeasureLabel` 显「等待模式 · 不判分」；③坞内「回退」格点击光标退上一小节；④弹完整个 region 遍数 +1 且期望重置可再弹；⑤「结束并保存」后今日页热力格/周 streak 不因等待会话上涨，档案页 take 存在但无分析行。 |
 
 本批执行顺序：V1 采集+V2 回看（2026-10-22 代码完成，待真机验收 V10）→ V3 发送闸口 → V7 Zf 导入；V8 手型单独成批（需先评估 MediaPipe SDK 体积与真机性能）。
 
@@ -206,7 +207,7 @@
 | # | 需求 | 来源 | 状态 | 说明 / 阻塞 |
 |---|---|---|---|---|
 | G9 | 指引页补「途径 D：在线 AI 转谱服务」 | 二轮复查 | P1 | done | `PDFLibraryView` 指引 tab 在途径 B/C 之间插入途径 D 卡（反谱 / Ace Studio / Songscription，PDF·图片·录音 → MusicXML，复杂谱推荐走此路）；途径 B 现实预期同步改导流「走途径 A 或 D」。诚实口径：服务质量可能变化以实际体验为准、转换结果仍走自查清单、版权提示同途径 A、app 不提供上传/下载入口。无新模型无服务端。 |
-| G10 | 等待模式（弹对才继续，wait mode） | flowkey / Anything Piano / Synthesia 均有 | needs-decision | 产品先拍板：作为 S12 循环模式新档位（弹对前进 vs 现有时钟循环）还是独立会话形态；暂停语义（等待时计时/节拍器/遍数如何算）。技术路线现成：`NoteAligner` 实时逐音对齐已存在（P2 琥珀着色当前为近似标记，注释明确「精确命中后续接 NoteAligner」），把其实时结果接到循环推进逻辑即可。依赖 M5 判分链，需单独 ADR。 |
+| G10 | 等待模式（弹对才继续，wait mode） | flowkey / Anything Piano / Synthesia 均有 | P1 | Stage A/B done · V13 真机验收 open | ADR-0013（2026-10-31，五项口径拍板：独立模式/隔离判分链/暂停语义）。**Stage A** `da304b8`：WaitModeEngine 纯函数推进（期望消耗/弹错不动光标/wrap 计遍/回退重置小节期望）+ PracticeSession.wait 分支（无 count-in、tick 只走表）+ Take.isWaitSession 硬开关接线 8 处（isPassEligible 恒 false、CourseEngine、处方 scoping、pieceTakeHistory、weekStreak、weeklyGoalStreak、warmup、周报月报全部排除等待会话）。**Stage B** `c4f078b`：顶栏循环/等待胶囊（仅 idle/finished 且有谱可切）、等待副行「弹对才前进·第 N 遍」（无 BPM）、五格坞等待形态（速度格→回退格、循环格→等待格）、退出确认明说「不计入练习时长」、识别指示不亮（不冒充在听）、收尾跳过分析不建分析行。测试 887→904（+17）。**遗留 V13**：真机验收（见 acceptance）。 |
 | G11 | MusicXML 指法解析（`<technical><fingering>`） | 一轮 D 项补充 | blocked | 上游 `swift-sheet-music`（pin 2a3a6f7）MSCX 层已有完整 fingering 编解码（`MSCXDecoder+Fingering` 等），但 MusicXML 解码器（`MusicXMLDecoder+Note.swift`）不解析 `<notations><technical><fingering>`——导入车尔尼/拜厄等带指法谱后指法全丢。需改上游库（Decoder→Score 模型→布局层传递），成本在依赖方。已提上游 issue：jiyimeta/swift-sheet-music#25（2026-10-31），等上游响应再排期。**绕行已可用**：ScoreLoader 按容器嗅探分发，`.mscz`/`.mscx` 走 MSCX 解析器指法不丢，仅 `.musicxml`/`.mxl` 丢；指引页途径 A/D 已加「带指法优先下 .mscz / 转完另存 .mscz」提示。落地后再考虑练习室指法显示。 |
 | G12 | 删除 `wip/m6-practice` 残留分支 | 本轮核实 | open | `git log main..wip/m6-practice` 为空——分支是 main 祖先，9/19 的 WIP（练习室五服务）已在 main 全部重写演进（PracticeSession 269→418 行等），无任何独有工作。确认无用后 `git branch -d wip/m6-practice` 即可。 |
 
