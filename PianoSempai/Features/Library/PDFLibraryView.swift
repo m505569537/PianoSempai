@@ -430,6 +430,7 @@ struct PDFLibraryView: View {
                 .foregroundStyle(Color.textPrimary)
             guideBody("直接找别人已经做好的 MusicXML / .mxl / .mscz 文件，下载后即可导入：")
             guideBody("· MuseScore 曲库（musescore.com）：大量用户分享的曲谱，可直接下载 .mscz / .musicxml")
+            guideBody("指法提示：.mscz / .mscx 导入指法可完整保留；.musicxml / .mxl 导入会丢指法（上游解析器已知限制，见 swift-sheet-music#25）。带指法的谱优先下 .mscz。")
             guideBody("· Mutopia Project（mutopaproject.org）：公版古典曲库，提供 .mid / .ly 等源文件")
             guideBody("· IMSLP（imslp.org）：以公版扫描谱为主，部分曲目附带 MusicXML / MIDI 附件")
             guideBody("版权提示：公版古典作曲家的作品可自由使用；久石让、坂本龙一等现代作品请以自己持有、自行导入为限，app 不提供任何下载入口。")
@@ -464,6 +465,7 @@ struct PDFLibraryView: View {
             guideBody("· Ace Studio（acestudio.ai/zh）：PDF / 图片转 MusicXML")
             guideBody("· Songscription（songscription.ai）：录音 / 链接转乐谱与 MusicXML")
             guideBody("一般流程：上传 → 等待转换 → 在线预览核对 → 下载 .musicxml → AirDrop 或「文件」App 传回 iPhone → 本 app「曲库 → 导入乐谱」。多数服务按条数或按期收费，服务质量可能变化，以实际体验为准；转换结果同样要走一遍下面的自查清单。")
+            guideBody("保指法技巧：在线服务导出的一般是 .musicxml，指法信息会丢。转完在 Mac 端 MuseScore 打开，另存为 .mscz 再导入本 app，指法可完整保留（.mscz / .mscx 导入走工程文件解析，指法不丢；.musicxml / .mxl 导入会丢指法，上游解析器已知限制）。")
             guideBody("版权提示同途径 A：限自己持有的谱与录音自行转换，app 不提供任何上传/下载入口。")
         }
     }

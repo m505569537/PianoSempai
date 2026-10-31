@@ -207,7 +207,7 @@
 |---|---|---|---|---|
 | G9 | 指引页补「途径 D：在线 AI 转谱服务」 | 二轮复查 | P1 | done | `PDFLibraryView` 指引 tab 在途径 B/C 之间插入途径 D 卡（反谱 / Ace Studio / Songscription，PDF·图片·录音 → MusicXML，复杂谱推荐走此路）；途径 B 现实预期同步改导流「走途径 A 或 D」。诚实口径：服务质量可能变化以实际体验为准、转换结果仍走自查清单、版权提示同途径 A、app 不提供上传/下载入口。无新模型无服务端。 |
 | G10 | 等待模式（弹对才继续，wait mode） | flowkey / Anything Piano / Synthesia 均有 | needs-decision | 产品先拍板：作为 S12 循环模式新档位（弹对前进 vs 现有时钟循环）还是独立会话形态；暂停语义（等待时计时/节拍器/遍数如何算）。技术路线现成：`NoteAligner` 实时逐音对齐已存在（P2 琥珀着色当前为近似标记，注释明确「精确命中后续接 NoteAligner」），把其实时结果接到循环推进逻辑即可。依赖 M5 判分链，需单独 ADR。 |
-| G11 | MusicXML 指法解析（`<technical><fingering>`） | 一轮 D 项补充 | blocked | 上游 `swift-sheet-music`（pin 2a3a6f7）MSCX 层已有完整 fingering 编解码（`MSCXDecoder+Fingering` 等），但 MusicXML 解码器（`MusicXMLDecoder+Note.swift`）不解析 `<notations><technical><fingering>`——导入车尔尼/拜厄等带指法谱后指法全丢。需改上游库（Decoder→Score 模型→布局层传递），成本在依赖方。已提上游 issue：jiyimeta/swift-sheet-music#25（2026-10-31），等上游响应再排期。落地后再考虑练习室指法显示。 |
+| G11 | MusicXML 指法解析（`<technical><fingering>`） | 一轮 D 项补充 | blocked | 上游 `swift-sheet-music`（pin 2a3a6f7）MSCX 层已有完整 fingering 编解码（`MSCXDecoder+Fingering` 等），但 MusicXML 解码器（`MusicXMLDecoder+Note.swift`）不解析 `<notations><technical><fingering>`——导入车尔尼/拜厄等带指法谱后指法全丢。需改上游库（Decoder→Score 模型→布局层传递），成本在依赖方。已提上游 issue：jiyimeta/swift-sheet-music#25（2026-10-31），等上游响应再排期。**绕行已可用**：ScoreLoader 按容器嗅探分发，`.mscz`/`.mscx` 走 MSCX 解析器指法不丢，仅 `.musicxml`/`.mxl` 丢；指引页途径 A/D 已加「带指法优先下 .mscz / 转完另存 .mscz」提示。落地后再考虑练习室指法显示。 |
 | G12 | 删除 `wip/m6-practice` 残留分支 | 本轮核实 | open | `git log main..wip/m6-practice` 为空——分支是 main 祖先，9/19 的 WIP（练习室五服务）已在 main 全部重写演进（PracticeSession 269→418 行等），无任何独有工作。确认无用后 `git branch -d wip/m6-practice` 即可。 |
 
 ---
