@@ -199,6 +199,19 @@
 
 ---
 
+## 2026-10-31 二轮竞品复查（2026 下半年新趋势）
+
+来源：在一轮调研（`docs/competitive-gap.md`，2026-10-09）基础上复查 2026 下半年动向。「AI 听录音/PDF 转谱」类产品（Anything Piano / Songscription / 反谱 / Ace Studio）成为最大新变量，打的正是本产品「最常弹的曲子只有 PDF、用不上练习室」的战略矛盾。一轮清单 G1–G8 已全部 done（本轮逐条 grep 核实）。编号 G9 起。
+
+| # | 需求 | 来源 | 状态 | 说明 / 阻塞 |
+|---|---|---|---|---|
+| G9 | 指引页补「途径 D：在线 AI 转谱服务」 | 二轮复查 | P1 | done | `PDFLibraryView` 指引 tab 在途径 B/C 之间插入途径 D 卡（反谱 / Ace Studio / Songscription，PDF·图片·录音 → MusicXML，复杂谱推荐走此路）；途径 B 现实预期同步改导流「走途径 A 或 D」。诚实口径：服务质量可能变化以实际体验为准、转换结果仍走自查清单、版权提示同途径 A、app 不提供上传/下载入口。无新模型无服务端。 |
+| G10 | 等待模式（弹对才继续，wait mode） | flowkey / Anything Piano / Synthesia 均有 | needs-decision | 产品先拍板：作为 S12 循环模式新档位（弹对前进 vs 现有时钟循环）还是独立会话形态；暂停语义（等待时计时/节拍器/遍数如何算）。技术路线现成：`NoteAligner` 实时逐音对齐已存在（P2 琥珀着色当前为近似标记，注释明确「精确命中后续接 NoteAligner」），把其实时结果接到循环推进逻辑即可。依赖 M5 判分链，需单独 ADR。 |
+| G11 | MusicXML 指法解析（`<technical><fingering>`） | 一轮 D 项补充 | blocked | 上游 `swift-sheet-music`（pin 2a3a6f7）MSCX 层已有完整 fingering 编解码（`MSCXDecoder+Fingering` 等），但 MusicXML 解码器（`MusicXMLDecoder+Note.swift`）不解析 `<notations><technical><fingering>`——导入车尔尼/拜厄等带指法谱后指法全丢。需改上游库（Decoder→Score 模型→布局层传递），成本在依赖方，先给上游提 issue 评估。落地后再考虑练习室指法显示。 |
+| G12 | 删除 `wip/m6-practice` 残留分支 | 本轮核实 | open | `git log main..wip/m6-practice` 为空——分支是 main 祖先，9/19 的 WIP（练习室五服务）已在 main 全部重写演进（PracticeSession 269→418 行等），无任何独有工作。确认无用后 `git branch -d wip/m6-practice` 即可。 |
+
+---
+
 ## 变更记录
 - 2026-10-19（巡检沉淀，无代码改动）：Hermes 巡检确认工作区干净、HEAD `817a73a`、测试函数 766 与 766/0 基线一致；剩余 10 条 blocked（W2/W3/W6/L5/M1/C3/V1/V2/V3/V7）、0 条 needs-decision。真机项仍挂起（开发证书 2026-09-27 过期、无 iPhone 连接）。进度日志同步到 vault `Projects/piano-sempai/progress.md`（此前停在 10-12）。
 - 2026-10-12（对账同步，无新代码）：P5 状态改 done（坞内预备拍控件格 0fca3d4 已提交，表漏更新）；第八节 S21 整节按降级版落地状态对账——C1/C2/C4 改 done、C3 收窄为「仅逐句曲线 blocked」（双 take 选择器/同段配对/六维真实雷达/速度单点/热力双条/delta 已落地），并移除「须先 Grill」限制（降级口径已产品确认）。

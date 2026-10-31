@@ -407,6 +407,7 @@ struct PDFLibraryView: View {
 
             pathACard
             pathBCard
+            pathDCard
             pathCCard
             selfCheckCard
 
@@ -448,7 +449,22 @@ struct PDFLibraryView: View {
             guideBody("4. 用播放键听一遍，对照原谱")
             guideBody("5. File → Export → MusicXML（.musicxml / .mxl）")
             guideBody("6. AirDrop 或「文件」App 传回 iPhone，回到本 app「曲库 → 导入乐谱」")
-            guideBody("现实预期：简单钢琴谱（单声部 / 柱式和弦）10 分钟内能转好；复杂多声部、音符密集的谱识别错误多、改起来不划算，建议直接走途径 A。")
+            guideBody("现实预期：简单钢琴谱（单声部 / 柱式和弦）10 分钟内能转好；复杂多声部、音符密集的谱识别错误多、改起来不划算，建议直接走途径 A 或途径 D。")
+        }
+    }
+
+    /// 途径 D：在线 AI 转谱服务（PDF/录音 → MusicXML，比本机免费 OMR 省事）
+    private var pathDCard: some View {
+        guideCard {
+            Text("途径 D · 在线 AI 转谱服务（复杂谱推荐）")
+                .font(.titleMd)
+                .foregroundStyle(Color.textPrimary)
+            guideBody("把 PDF / 图片 / 录音交给在线 AI 转谱服务，直接得到 MusicXML。这类服务 2026 年已比较成熟，对复杂多声部谱的识别普遍好于本机免费 OMR：")
+            guideBody("· 反谱（miaogaichong.com）：PDF / 音频输入，输出五线谱 / MusicXML / MIDI")
+            guideBody("· Ace Studio（acestudio.ai/zh）：PDF / 图片转 MusicXML")
+            guideBody("· Songscription（songscription.ai）：录音 / 链接转乐谱与 MusicXML")
+            guideBody("一般流程：上传 → 等待转换 → 在线预览核对 → 下载 .musicxml → AirDrop 或「文件」App 传回 iPhone → 本 app「曲库 → 导入乐谱」。多数服务按条数或按期收费，服务质量可能变化，以实际体验为准；转换结果同样要走一遍下面的自查清单。")
+            guideBody("版权提示同途径 A：限自己持有的谱与录音自行转换，app 不提供任何上传/下载入口。")
         }
     }
 
