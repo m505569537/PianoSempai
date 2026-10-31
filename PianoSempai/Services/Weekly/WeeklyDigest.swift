@@ -49,7 +49,7 @@ enum WeeklyDigestBuilder {
 
         let inWeek = takes.filter { $0.startedAt >= weekStart && $0.startedAt < weekEnd }
         let valid = inWeek
-            .filter { $0.hasMidi && $0.durationSec >= minimumDurationSec }
+            .filter { $0.hasMidi && !$0.isWaitSession && $0.durationSec >= minimumDurationSec }
             .sorted { $0.startedAt < $1.startedAt }
 
         let totalDurationSec = valid.reduce(0) { $0 + $1.durationSec }

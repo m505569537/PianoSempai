@@ -29,7 +29,7 @@ enum MonthlyReportBuilder {
             .filter { $0.startedAt >= monthStart && $0.startedAt < monthEnd }
             .sorted { $0.startedAt < $1.startedAt }
         // 有效练习口径与周报完全一致：有 MIDI 且 ≥10 分钟（任务练习与自由弹奏都计）
-        let valid = inMonth.filter { $0.hasMidi && $0.durationSec >= WeeklyDigestBuilder.minimumDurationSec }
+        let valid = inMonth.filter { $0.hasMidi && !$0.isWaitSession && $0.durationSec >= WeeklyDigestBuilder.minimumDurationSec }
 
         let validDays = Set(valid.map { MonthlyCalendar.calendar.startOfDay(for: $0.startedAt) }).count
         let totalDurationSec = valid.reduce(0) { $0 + $1.durationSec }

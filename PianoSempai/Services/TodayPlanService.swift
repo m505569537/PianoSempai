@@ -46,7 +46,7 @@ enum TodayPlanService {
         let weekStart = cal.dateInterval(of: .weekOfYear, for: today)?.start ?? today
 
         var minutes = [Int](repeating: 0, count: 7)
-        for take in takes where take.hasMidi {
+        for take in takes where take.hasMidi && !take.isWaitSession {
             guard let interval = cal.dateInterval(of: .day, for: take.startedAt) else { continue }
             let dayOffset = cal.dateComponents([.day], from: weekStart, to: interval.start).day ?? -1
             guard (0..<7).contains(dayOffset) else { continue }
@@ -62,11 +62,12 @@ enum TodayPlanService {
     }
 
     /// 今日热身已练分钟（T2：从 Take.taskType="warmup" 聚合 durationSec；无热身 take = 0）。
+    /// 等待会话不计（ADR-0013：学谱摸谱不算练琴时长）。
     static func warmupElapsedMin(takes: [Take], today: Date, calendar: Calendar = .current) -> Int {
         let dayStart = calendar.startOfDay(for: today)
         let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
         return takes
-            .filter { $0.taskType == "warmup" && $0.startedAt >= dayStart && $0.startedAt < dayEnd }
+            .filter { $0.taskType == "warmup" && !$0.isWaitSession && $0.startedAt >= dayStart && $0.startedAt < dayEnd }
             .reduce(0) { $0 + $1.durationSec / 60 }
     }
 
@@ -93,8 +94,8 @@ enum TodayPlanService {
             return WeeklyGoalStreak(currentConsecutiveWeeks: 0, longestWeeks: 0)
         }
 
-        // 只看有 MIDI 且所在周严格早于本周的 take（本周不计入）
-        let midiTakes = takes.filter { $0.hasMidi && $0.startedAt < currentWeekStart }
+        // 只看有 MIDI 且所在周严格早于本周的 take（本周不计入）；等待会话不计有效练习（ADR-0013）
+        let midiTakes = takes.filter { $0.hasMidi && !$0.isWaitSession && $0.startedAt < currentWeekStart }
         guard let firstWeekStart = midiTakes.compactMap({ cal.dateInterval(of: .weekOfYear, for: $0.startedAt)?.start }).min() else {
             return WeeklyGoalStreak(currentConsecutiveWeeks: 0, longestWeeks: 0)
         }

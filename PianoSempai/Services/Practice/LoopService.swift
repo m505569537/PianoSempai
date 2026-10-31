@@ -27,8 +27,21 @@ struct LoopConfig: Equatable {
     /// 与 targetLoopCount 相互独立（各自可为 0 = 关）；两者都 > 0 时谁先达标谁触发——
     /// 遍数在引擎 wrap 时判、时长在 tick 里判，先到者收尾，绝不双重 finish。
     var targetLoopMinutes: Int = 0
-
     var measureCount: Int { endMeasure - startMeasure + 1 }
+}
+
+/// 练习室会话形态（G10 / ADR-0013）：循环（时钟驱动，既有路径）或等待（弹对才前进）。
+/// 等待模式下 count-in / gapSec / 提速逻辑 / 目标遍数全部不参与；推进由 WaitModeEngine 负责。
+enum PracticeMode: String, CaseIterable {
+    case loop
+    case wait
+
+    var title: String {
+        switch self {
+        case .loop: return "循环"
+        case .wait: return "等待"
+        }
+    }
 }
 
 struct LoopTempoState: Equatable {

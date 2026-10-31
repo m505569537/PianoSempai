@@ -269,6 +269,11 @@ final class Take {
     var isPassEligible: Bool = false
     /// 录像会话（侧拍）：照常判分，但不参与过关——连续计数 / 处方 / 状态机全部跳过
     var isRecordingSession: Bool = false
+    /// 等待模式会话（G10 / ADR-0013）：学谱摸谱「弹对才前进」。不判分（跳过分析，
+    /// canEvaluate 恒缺省）、不计有效练习时长（weekStreak / weeklyGoalStreak /
+    /// warmupElapsedMin 排除）、不进处方 scoping / CourseEngine / pieceTakeHistory；
+    /// Raw MIDI 事件照常落盘（将来「摸谱轨迹」类分析的真值）。
+    var isWaitSession: Bool = false
     /// 自由弹奏一句话 / take 标题
     var title: String = ""
     /// 视频附件相对路径（Documents 下，如 videos/2026/10/video-<uuid>.mov）；nil = 无视频
@@ -281,7 +286,7 @@ final class Take {
     var sourceAssetIdentifier: String? = nil
 
     /// 显式 init（@Model 宏 init 综合不稳定，显式提供）
-    init(entityId: UUID = UUID(), startedAt: Date = Date(), endedAt: Date? = nil, durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false, midiFileURL: String = "", measureFrom: Int? = nil, measureTo: Int? = nil, tempoAvg: Int = 0, noteCount: Int = 0, wrongNoteCount: Int = 0, pedalEventCount: Int = 0, midiEventCount: Int = 0, interruptionRanges: [Int] = [], wrongNoteRecords: [String] = [], pieceId: UUID? = nil, scoreFileId: UUID? = nil, analysisId: UUID? = nil, isPassEligible: Bool = false, title: String = "", videoFileURL: String? = nil, videoDurationSec: Int = 0, videoStartedAtOffset: Double = 0, isRecordingSession: Bool = false, sourceAssetIdentifier: String? = nil) {
+    init(entityId: UUID = UUID(), startedAt: Date = Date(), endedAt: Date? = nil, durationSec: Int = 0, taskType: String = "", hasMidi: Bool = false, isFreePlay: Bool = false, midiFileURL: String = "", measureFrom: Int? = nil, measureTo: Int? = nil, tempoAvg: Int = 0, noteCount: Int = 0, wrongNoteCount: Int = 0, pedalEventCount: Int = 0, midiEventCount: Int = 0, interruptionRanges: [Int] = [], wrongNoteRecords: [String] = [], pieceId: UUID? = nil, scoreFileId: UUID? = nil, analysisId: UUID? = nil, isPassEligible: Bool = false, title: String = "", videoFileURL: String? = nil, videoDurationSec: Int = 0, videoStartedAtOffset: Double = 0, isRecordingSession: Bool = false, isWaitSession: Bool = false, sourceAssetIdentifier: String? = nil) {
         self.entityId = entityId
         self.startedAt = startedAt
         self.endedAt = endedAt
@@ -308,6 +313,7 @@ final class Take {
         self.videoDurationSec = videoDurationSec
         self.videoStartedAtOffset = videoStartedAtOffset
         self.isRecordingSession = isRecordingSession
+        self.isWaitSession = isWaitSession
         self.sourceAssetIdentifier = sourceAssetIdentifier
     }
 }

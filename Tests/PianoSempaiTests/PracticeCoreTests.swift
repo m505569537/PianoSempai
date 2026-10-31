@@ -2913,4 +2913,227 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(stats.highestPitch, 61, "单音区间就是它自己（视图据此只显一个音名）")
         XCTAssertEqual(stats.velocityBuckets, [0, 0, 1, 0, 0], "力度 74 落桶 2（52–77）")
     }
+
+    // MARK: G10 等待模式（ADR-0013）— WaitModeEngine 推进/回退/进度口径
+
+    private func waitConsume(
+        _ state: ScoreFollowState, _ pitches: [UInt8],
+        end: Int = 2, loops: Int = 0
+    ) -> (ScoreFollowState, WaitModeOutcome?, Int) {
+        var s = state
+        var last: WaitModeOutcome?
+        var n = loops
+        for p in pitches {
+            let r = WaitModeEngine.consume(s, pitch: p, expectedPerMeasure: region, endMeasureIndex: end, loopCompletedCount: n)
+            s = r.state
+            last = r.outcome
+            n = r.loopCompletedCount
+        }
+        return (s, last, n)
+    }
+
+    func testWaitModeHitConsumesAndAdvances() {
+        let s0 = ScoreFollowEngine.initialState(expectedPerMeasure: region)
+        let (s1, o1, _) = waitConsume(s0, [60])
+        XCTAssertEqual(o1, .hit(measureAdvanced: false), "小节未耗尽不推进")
+        XCTAssertEqual(s1.measureIndex, 0)
+
+        let (s2, o2, _) = waitConsume(s1, [64])
+        XCTAssertEqual(o2, .hit(measureAdvanced: true), "小节 0 期望耗尽 → 推进小节 1")
+        XCTAssertEqual(s2.measureIndex, 1)
+        XCTAssertEqual(s2.matchedCount, 2)
+    }
+
+    func testWaitModeMissKeepsCursorAndRecordsWrong() {
+        let s0 = ScoreFollowEngine.initialState(expectedPerMeasure: region)
+        // 弹 72（小节 0 无此期望）→ miss：错音照记、光标不动（ADR-0013 决策二）
+        let (s1, o1, _) = waitConsume(s0, [72])
+        XCTAssertEqual(o1, .miss)
+        XCTAssertEqual(s1.measureIndex, 0, "弹错光标原地不动")
+        XCTAssertEqual(s1.wrongNotes.count, 1)
+        XCTAssertEqual(s1.wrongNotes.first?.measure, 1)
+        XCTAssertEqual(s1.matchedCount, 0)
+
+        // miss 后弹对照常推进：错音不阻塞进度
+        let (s2, o2, _) = waitConsume(s1, [60])
+        XCTAssertEqual(o2, .hit(measureAdvanced: false))
+        XCTAssertEqual(s2.matchedCount, 1)
+    }
+
+    func testWaitModeWrongOrderStillCountsAsHit() {
+        let s0 = ScoreFollowEngine.initialState(expectedPerMeasure: region)
+        // 音序不敏感（与 ScoreFollowEngine 同构）：先 64 后 60 也推进
+        let (s1, o1, _) = waitConsume(s0, [64, 60])
+        XCTAssertEqual(s1.measureIndex, 1)
+        XCTAssertEqual(o1, .hit(measureAdvanced: true))
+        XCTAssertEqual(s1.wrongNotes.count, 0)
+    }
+
+    func testWaitModePassCompletionWrapsAndCountsLoop() {
+        let s0 = ScoreFollowEngine.initialState(expectedPerMeasure: region)
+        // 小节0(60,64) 小节1(67,72) 小节2(65)：逐音弹完整个 region
+        let (s1, o1, loops) = waitConsume(s0, [60, 64, 67, 72, 65])
+        XCTAssertEqual(loops, 1, "终点小节耗尽 = 一遍完成，遍数 +1")
+        XCTAssertEqual(o1, .passCompleted)
+        XCTAssertEqual(s1.measureIndex, 0, "wrap 回起点")
+        XCTAssertEqual(s1.remaining[0], region[0], "期望音已重置，可再弹一遍")
+        // 第二遍照常计数
+        let (_, _, loops2) = waitConsume(s1, [60, 64, 67, 72, 65], loops: loops)
+        XCTAssertEqual(loops2, 2)
+    }
+
+    func testWaitModeRetreatResetsTargetMeasureExpectations() {
+        let s0 = ScoreFollowEngine.initialState(expectedPerMeasure: region)
+        let (s1, _, _) = waitConsume(s0, [60, 64, 67]) // 小节0 弹完、小节1 弹掉 67
+        XCTAssertEqual(s1.measureIndex, 1)
+        // 回退到小节 0：期望重置为全量（ADR-0013 决策二「重弹这一小节」）
+        let s2 = WaitModeEngine.retreat(s1, expectedPerMeasure: region, startMeasureIndex: 0, endMeasureIndex: 2)
+        XCTAssertEqual(s2.measureIndex, 0)
+        XCTAssertEqual(s2.remaining[0], region[0])
+        // 起点小节不回退（原地不动）
+        let s3 = WaitModeEngine.retreat(s2, expectedPerMeasure: region, startMeasureIndex: 0, endMeasureIndex: 2)
+        XCTAssertEqual(s3.measureIndex, 0)
+    }
+
+    func testWaitModeProgressText() {
+        XCTAssertEqual(
+            WaitModeEngine.progressText(measureIndex: 0, startMeasure: 3, endMeasure: 8, loopCompletedCount: 0),
+            "小节 3/8 · 第 1 遍")
+        XCTAssertEqual(
+            WaitModeEngine.progressText(measureIndex: 2, startMeasure: 1, endMeasure: 8, loopCompletedCount: 3),
+            "小节 3/8 · 第 4 遍")
+        XCTAssertEqual(
+            WaitModeEngine.progressText(measureIndex: 99, startMeasure: 1, endMeasure: 8, loopCompletedCount: 0),
+            "小节 8/8 · 第 1 遍", "越界保护：夹到 region 末小节")
+    }
+
+    // MARK: G10 等待模式 — PracticeSession 会话分支（tick 不驱动推进、隔离口径）
+
+    @MainActor
+    private func makeWaitSession() -> PracticeSession {
+        let session = PracticeSession()
+        session.mode = .wait
+        session.configure(scoreName: "样例", expectedPerMeasure: region, startBPM: 72)
+        session.start(metronome: MetronomeService(), countIn: true, metronomeOn: false)
+        XCTAssertEqual(session.phase, .performing, "等待模式无 count-in，直接 performing")
+        return session
+    }
+
+    @MainActor
+    func testWaitSessionTickAdvancesTimeOnly() {
+        let session = makeWaitSession()
+        defer { _ = session.finish() }
+        let start = session.startedAt!
+        // 时长照走（ADR-0013 决策四：会话内可见「本次 N 分钟」）
+        session.tick(now: start.addingTimeInterval(5))
+        XCTAssertEqual(session.elapsedSec, 5)
+        // 弹一个音推进光标后，tick 不得触发任何推进/收尾；无时长目标即无 finalPassPending
+        session.handle(MIDIEvent(kind: .noteOn(note: 60, velocity: 90), channel: 0, timeNanos: 1))
+        session.tick(now: start.addingTimeInterval(10))
+        XCTAssertFalse(session.finalPassPending, "等待模式无时长目标")
+        XCTAssertFalse(session.timeUp, "等待模式无自动到点收尾")
+        XCTAssertEqual(session.lastWaitOutcome, .hit(measureAdvanced: false))
+    }
+
+    @MainActor
+    func testWaitSessionWrongNoteDoesNotAdvanceCursor() {
+        let session = makeWaitSession()
+        defer { _ = session.finish() }
+        session.handle(MIDIEvent(kind: .noteOn(note: 72, velocity: 90), channel: 0, timeNanos: 1))
+        XCTAssertEqual(session.lastWaitOutcome, .miss)
+        XCTAssertEqual(session.followState.measureIndex, 0, "弹错光标不动")
+        XCTAssertEqual(session.followState.wrongNotes.count, 1)
+        // 回退到起点小节：原地不动
+        session.retreatOneMeasure()
+        XCTAssertEqual(session.followState.measureIndex, 0)
+    }
+
+    @MainActor
+    func testWaitSessionRetreatResetsMeasure() {
+        let session = makeWaitSession()
+        defer { _ = session.finish() }
+        for p in [UInt8(60), 64] {
+            session.handle(MIDIEvent(kind: .noteOn(note: p, velocity: 90), channel: 0, timeNanos: 1))
+        }
+        XCTAssertEqual(session.followState.measureIndex, 1)
+        session.retreatOneMeasure()
+        XCTAssertEqual(session.followState.measureIndex, 0, "回退到上一小节")
+        XCTAssertEqual(session.followState.remaining[0], region[0], "该小节期望重置为全量")
+        XCTAssertNil(session.lastWaitOutcome, "回退后裁决清空（不残留旧 hit/miss）")
+    }
+
+    @MainActor
+    func testWaitSessionFinishMarksTakeWaitSession() throws {
+        let session = makeWaitSession()
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: Take.self, configurations: config)
+        let context = ModelContext(container)
+        for p in [UInt8(60), 64] {
+            session.handle(MIDIEvent(kind: .noteOn(note: p, velocity: 90), channel: 0, timeNanos: 1))
+        }
+        let summary = session.finish()
+        let take = PracticeSession.persist(
+            summary, taskType: "main", isFreePlay: false,
+            startedAt: session.startedAt ?? Date(), interruptions: [], title: "",
+            pieceId: nil, scoreFileId: nil,
+            isWaitSession: true,
+            in: context
+        )
+        try context.save()
+        XCTAssertTrue(take.isWaitSession, "等待会话落库必须带 isWaitSession（判分链隔离的硬开关）")
+        XCTAssertFalse(take.isPassEligible, "等待会话永不参与过关")
+    }
+
+    // MARK: G10 等待模式 — 时长口径隔离（ADR-0013 决策三：不计有效练习）
+
+    private func waitTake(startedAt: Date, durationSec: Int) -> Take {
+        Take(
+            startedAt: startedAt, durationSec: durationSec, taskType: "main",
+            hasMidi: true, isWaitSession: true
+        )
+    }
+
+    func testWaitSessionExcludedFromWeekStreakMinutes() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.firstWeekday = 2
+        let today = cal.date(from: DateComponents(year: 2026, month: 10, day: 31))! // 周六
+        let monday = cal.date(byAdding: .day, value: -5, to: today)!
+        let normal = Take(startedAt: monday, durationSec: 600, taskType: "main", hasMidi: true)
+        let wait = waitTake(startedAt: monday, durationSec: 3600)
+        let streak = TodayPlanService.weekStreak(takes: [normal, wait], today: today, calendar: cal)
+        XCTAssertEqual(streak.minutesPerDay[0], 10, "等待会话的 60 分钟不计入：只数正常 take 的 10 分钟")
+    }
+
+    func testWaitSessionExcludedFromWeeklyGoalStreak() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.firstWeekday = 2
+        let today = cal.date(from: DateComponents(year: 2026, month: 10, day: 31))!
+        // 上周只有一条等待会话（60 分钟）→ 若不隔离会误判达标
+        let lastWeekMonday = cal.date(byAdding: .day, value: -12, to: today)!
+        let wait = waitTake(startedAt: lastWeekMonday, durationSec: 3600)
+        let r = TodayPlanService.weeklyGoalStreak(takes: [wait], weeklyGoal: 3, today: today, calendar: cal)
+        XCTAssertEqual(r.currentConsecutiveWeeks, 0, "等待会话不算有效练习日：上周不达标")
+    }
+
+    func testWaitSessionExcludedFromWarmupElapsed() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.firstWeekday = 2
+        let today = cal.date(from: DateComponents(year: 2026, month: 10, day: 31))!
+        let warmupWait = Take(startedAt: today, durationSec: 300, taskType: "warmup", hasMidi: true, isWaitSession: true)
+        XCTAssertEqual(TodayPlanService.warmupElapsedMin(takes: [warmupWait], today: today, calendar: cal), 0,
+                       "等待会话即使 taskType=warmup 也不计热身分钟")
+    }
+
+    func testWaitSessionExcludedFromWeeklyDigestAndMonthly() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.firstWeekday = 2
+        let now = cal.date(from: DateComponents(year: 2026, month: 10, day: 31))!
+        let waitLong = waitTake(startedAt: now, durationSec: 1200) // 20 分钟，超过 minimumDurationSec
+        let digest = WeeklyDigestBuilder.build(takes: [waitLong], pieces: [], goal: 3, now: now)
+        XCTAssertEqual(digest.totalDurationSec, 0, "等待会话不进周报时长")
+        XCTAssertEqual(digest.sessions, 0, "等待会话不算有效练习次数")
+        // 月报口径同周报（ MonthlyReportBuilder 复用同一 hasMidi && !isWaitSession && ≥10min 过滤）
+        let monthValid = [waitLong].filter { $0.hasMidi && !$0.isWaitSession && $0.durationSec >= WeeklyDigestBuilder.minimumDurationSec }
+        XCTAssertTrue(monthValid.isEmpty, "等待会话被月报有效口径排除")
+    }
 }

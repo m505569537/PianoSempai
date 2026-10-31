@@ -75,6 +75,13 @@ final class PracticeSession: ObservableObject {
     private var interruptionPauseActive = false
     /// 会话时长上限（今日所选分钟数；nil = 不限时）。到点置 timeUp，由视图收尾自动保存
     var timeLimitSec: Int?
+    /// 会话形态（G10 / ADR-0013）：.loop = 既有时钟循环；.wait = 弹对才前进。
+    /// 视图在 start() 前设置；等待模式下 tick 只推进计时不驱动任何推进逻辑。
+    var mode: PracticeMode = .loop
+    /// 等待模式遍数（终点小节耗尽 wrap 时 +1；纯展示，不进判定）。start() 归零。
+    @Published private(set) var waitLoopCount: Int = 0
+    /// 等待模式最近一次引擎裁决（视图据此做命中反馈/错音提示；非等待模式恒 nil）
+    @Published private(set) var lastWaitOutcome: WaitModeOutcome?
     private var timer: Timer?
     /// 暂停记账（S11）：pauseStartedAt 为正在进行的暂停起点，totalPaused 为已累计暂停秒数。
     /// 两者只服务于「活跃时间」= now - startedAt - 暂停；addMark()/playedNotes 仍按墙上时钟 startedAt。
@@ -128,6 +135,8 @@ final class PracticeSession: ObservableObject {
         // 遍数进度每会话独立：上一会话弹了几遍不带进这一次（finish() 不清零，这里清）
         completedLoopCount = 0
         finalPassPending = false
+        waitLoopCount = 0
+        lastWaitOutcome = nil
         pauseStartedAt = nil
         totalPaused = 0
         interruptionStarts = []
@@ -135,6 +144,10 @@ final class PracticeSession: ObservableObject {
         fileURL = try? TakeStore.makeFileURL()
         passStartWrongCount = 0
         if isFreePlay {
+            beginPerforming()
+        } else if mode == .wait {
+            // 等待模式：无 count-in、无节拍器预备拍（ADR-0013 决策四）；
+            // 节拍器开关由视图按 metronomeOn 自行决定是否启动常驻打拍。
             beginPerforming()
         } else if countIn && loopConfig.countIn && metronomeOn {
             phase = .counting
@@ -229,6 +242,9 @@ final class PracticeSession: ObservableObject {
         if let limit = timeLimitSec, elapsedSec >= limit {
             timeUp = true
         }
+        // 等待模式：时钟只推进计时，不驱动任何推进/收尾逻辑（ADR-0013 决策四：
+        // 无时长目标、无完整收尾遍概念；收尾只有用户手动「完成」一条路）。
+        if mode == .wait { return }
         // PRD：循环「或 5 分钟」——活跃时长达标不立即 finish，等当前遍 wrap 完整收尾。
         // 已 pending 就不再重复置位；达标后用户继续弹的每一秒 pending 保持 true，直到 wrap。
         if loopConfig.mode == .loop, !isFreePlay,
@@ -284,7 +300,11 @@ final class PracticeSession: ObservableObject {
                 playedNotes.append((pitch, velocity, sec))
             }
             if !isFreePlay {
-                consumeFollow(pitch: pitch)
+                if mode == .wait {
+                    consumeWait(pitch: pitch)
+                } else {
+                    consumeFollow(pitch: pitch)
+                }
             }
         case .sustainPedal:
             pedalCount += 1
@@ -322,6 +342,36 @@ final class PracticeSession: ObservableObject {
                 _ = finish(now: Date())
             }
         }
+    }
+
+    // MARK: 等待模式（G10 / ADR-0013）
+
+    /// 等待模式 noteOn 消费：推进交给 WaitModeEngine（弹错不动光标），
+    /// 遍数只在引擎 wrap（.passCompleted）时 +1；无自动收尾——目标遍数在等待模式下不参与。
+    private func consumeWait(pitch: UInt8) {
+        let endIndex = loopConfig.endMeasure - 1
+        let result = WaitModeEngine.consume(
+            followState, pitch: pitch,
+            expectedPerMeasure: expectedPerMeasure,
+            endMeasureIndex: endIndex,
+            loopCompletedCount: waitLoopCount
+        )
+        followState = result.state
+        lastWaitOutcome = result.outcome
+        waitLoopCount = result.loopCompletedCount
+    }
+
+    /// 等待模式长按回退：光标退到上一小节并重置该小节期望（ADR-0013 决策二）。
+    /// 仅等待模式有效；起点小节原地不动。
+    func retreatOneMeasure() {
+        guard mode == .wait, phase == .performing || phase == .paused else { return }
+        followState = WaitModeEngine.retreat(
+            followState,
+            expectedPerMeasure: expectedPerMeasure,
+            startMeasureIndex: loopConfig.startMeasure - 1,
+            endMeasureIndex: loopConfig.endMeasure - 1
+        )
+        lastWaitOutcome = nil
     }
 
     private static func kindString(_ kind: MIDIEvent.Kind) -> String {
@@ -389,6 +439,7 @@ final class PracticeSession: ObservableObject {
         title: String,
         pieceId: UUID? = nil,
         scoreFileId: UUID? = nil,
+        isWaitSession: Bool = false,
         in context: ModelContext
     ) -> Take {
         let take = Take(
@@ -410,7 +461,8 @@ final class PracticeSession: ObservableObject {
             wrongNoteRecords: summary.wrongNotes.map { "\($0.measure):\($0.actualPitch)" },
             pieceId: pieceId,
             scoreFileId: scoreFileId,
-            title: title
+            title: title,
+            isWaitSession: isWaitSession
         )
         context.insert(take)
         return take
