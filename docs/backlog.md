@@ -108,7 +108,7 @@
 
 | # | 需求 | 来源 | 状态 | 说明 / 阻塞 |
 |---|---|---|---|---|
-| M1 | 纸质谱面谱条真实渲染（替换示意/占位） | S13b | blocked | 无来源不画假谱条；接真实谱渲染能力。当前为红虚线圈诚实占位。 |
+| M1 | 纸质谱面谱条真实渲染（替换示意/占位） | S13b | done（V14 真机肉眼项 open） | 2026-11-03 解锁落地（`3552539`）：blocked 前提「无真实谱渲染能力」已不成立——SheetMusicUI ScoreView + SightReadSession.clippedScore（裁剪+首小节调号/拍号/谱号回填）均已在工程内。S13bMarkSheet 新增 score 参数（默认 nil 向后兼容），练习室传 loadedScore：真实谱条=疑点小节 ±1 裁剪片段（staffSize 20 纸纹底）+ 疑点小节红虚线圈（等宽近似定位，不逐符头）；无谱/自由弹奏回退红虚线占位（原形态逐字保留），两种形态都不画假符头。+3 测试，907/0。红圈对位精度与换行场景留 V14 真机肉眼核对。 |
 | M4 | 副标 take 时间数据 | S13b | done | TakeAnalysisService.formatTakeTime + takeTimeFormatter；PracticeRoomView/TakeReportView 均传真实 take.startedAt；S13bMarkSheet 加显式 init 暴露 takeTime；无 endedAt 时诚实返回 HH:mm，有时长追加 (N min)。+0 测试（视图层），766/0 全绿。2026-10-15 完成。 |
 | M8 | 提交成功态 / 提交后规则 | S13b | done | 产品确认：维持现状，提交后关闭抽屉。2026-10-12 确认。 |
 | M9 | includeWithNeko 纳入导出 DTO | S13b | done | ErrorMarkDTO 加 includeWithNeko，collect/restore 全链路补齐；自定义 init(from:) decodeIfPresent ?? false，旧包向后兼容不升 formatVersion。+3 测试含 round-trip，744/0。 |
@@ -161,6 +161,7 @@
 | V10 | 录像闭环真机验收（相机预览/校准四步/录制随练习/MIDI 配对/相册写回/档案角标与回看/删除与 LRU） | ADR-0010 | open | 代码与单测已绿（851/0），但相机路径在模拟器无法执行。**步骤见 `docs/acceptance/2026-10-22-device-acceptance.md` §1（V10-1…8）**；验收前不要对外宣称该批次已验收。 |
 | V11 | V3 真 key 端到端（Files API 上传→file_id→回答→DELETE；失败转移；删除开关 OFF 行为） | ADR-0011 | open | 单测可覆盖请求构造与状态机（注入假 URLSession），但真实账号/模型开通状态只能在用户配置 key 的真机上验证。需先在方舟控制台开通 `doubao-seed-2-1-pro` 并确认 key 有效。**步骤见 `docs/acceptance/2026-10-22-device-acceptance.md` §2（V11-1…9）**。 |
 | V13 | 等待模式真机验收（进房切等待、弹错不动光标、小节回退、一遍完成遍数+1、完成收尾不进今日时长、退出确认文案） | ADR-0013 | open | 代码与单测已绿（904/0，Stage A `da304b8` + Stage B `c4f078b`）。真机核对 5 项：①顶栏胶囊切「等待」后无 count-in 直弹；②乱弹错音光标原地不动、`nextMeasureLabel` 显「等待模式 · 不判分」；③坞内「回退」格点击光标退上一小节；④弹完整个 region 遍数 +1 且期望重置可再弹；⑤「结束并保存」后今日页热力格/周 streak 不因等待会话上涨，档案页 take 存在但无分析行。 |
+| V14 | S13b 真实谱条真机肉眼核对（红圈对位/多行换行场景/无谱回退占位） | M1 | open | 代码与单测已绿（907/0，`3552539`）。真机核对 3 项：①练习室标谱错，抽屉谱条显真谱且红圈大致落在疑点小节；②疑点在换行边界附近时红圈仍在片段视觉带内（等宽近似定位的已知取舍，歪得离谱才算 bug）；③无谱曲目（车尔尼599 等）标记时回退红虚线占位不崩。 |
 
 本批执行顺序：V1 采集+V2 回看（2026-10-22 代码完成，待真机验收 V10）→ V3 发送闸口 → V7 Zf 导入；V8 手型单独成批（需先评估 MediaPipe SDK 体积与真机性能）。
 
