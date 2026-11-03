@@ -1,26 +1,46 @@
+import SheetMusicCore
+import SheetMusicLoader
+import SheetMusicUI
 import SwiftData
 import SwiftUI
 
 // MARK: - S13b 标记疑似谱面错误（Sheet）
 // 真值：docs/design-reference/screens/S13b-score-error-mark/code.html（2d65df0c…）。
 // 红线：只说「标记后不会扣分」——真值 §d 没有「不影响过关」字样，不得自行加字。
-// 假数据红线：真实谱面渲染是 backlog（M1），谱条只画「疑点区域」的诚实占位，
-// 不画五线谱/红色符头/「疑点和弦」callout。
+// M1（2026-11-03）：谱条升级为真实谱面渲染——练习室已加载的 Score 裁出「疑点小节 ±1」
+// 片段（复用 SightReadSession.clippedScore 的裁剪+调号/拍号/谱号回填），红圈标到疑点
+// 小节上。score 为 nil（无谱/加载失败/自由弹奏）→ 回退红虚线诚实占位，两种形态都
+// 不画假符头/假「疑点和弦」callout。
 
 struct S13bMarkSheet: View {
     let scoreName: String
     let measure: Int
     /// 真实 take 时间文案（如「今天 20:31 的 take」）。没有真实值就不渲染，不编造时间。
     let takeTime: String?
+    /// M1：练习室已解析的完整谱（nil = 无谱/自由弹奏 → 红虚线占位回退）
+    let score: Score?
     /// 提交回调（视图层负责落库）；第三参 = 「同时在下次问 Neko 时带上这个标记」的勾选态
     let onSubmit: (_ type: String, _ note: String, _ includeWithNeko: Bool) -> Void
     @Environment(\.dismiss) private var dismiss
 
-    init(scoreName: String, measure: Int, takeTime: String? = nil, onSubmit: @escaping (_ type: String, _ note: String, _ includeWithNeko: Bool) -> Void) {
+    init(scoreName: String, measure: Int, takeTime: String? = nil, score: Score? = nil, onSubmit: @escaping (_ type: String, _ note: String, _ includeWithNeko: Bool) -> Void) {
         self.scoreName = scoreName
         self.measure = measure
         self.takeTime = takeTime
+        self.score = score
         self.onSubmit = onSubmit
+    }
+
+    /// M1：谱条裁剪区间 = 疑点小节 ±1（1-based 闭区间）；clippedScore 内部会按总小节数 clamp。
+    /// 非 private：区间/定位是纯逻辑，单测锁定（PracticeCoreTests M1 组）。
+    var stripMeasureRange: ClosedRange<Int> {
+        let m = max(1, measure)
+        return (m - 1)...(m + 1)
+    }
+
+    /// M1：疑点小节在裁剪片段内的位置（1-based，红圈定位用）
+    var suspectIndexInStrip: Int {
+        measure - stripMeasureRange.lowerBound + 1
     }
 
     enum MarkType: String, CaseIterable {
@@ -172,24 +192,12 @@ struct S13bMarkSheet: View {
                     .frame(height: 1)
             }
 
-            // TODO: M1 real score-strip rendering
-            // 真实谱面（五线谱/符头/小节线）要等 M1 的谱面渲染，这里只标「疑点区域」：
-            // 一个红虚线圈 + 诚实文字。不画假谱面、假红色符头、「疑点和弦」callout。
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.danger.opacity(0.12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .strokeBorder(Color.danger, style: StrokeStyle(lineWidth: 1.5, dash: [3.5, 2.5]))
-                )
-                .overlay {
-                    Text("第 \(measure) 小节 · 疑点位置")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.s13bSuspectInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(width: 132, height: 56)
-                .frame(maxWidth: .infinity)
-                .frame(height: 88)
+            // M1：真实谱条（有谱且部件非空）；无谱 → 红虚线诚实占位回退
+            if let score, !score.parts.isEmpty {
+                realScoreStrip(score: score)
+            } else {
+                placeholderStrip
+            }
         }
         .padding(10)
         .frame(maxWidth: .infinity)
@@ -202,6 +210,89 @@ struct S13bMarkSheet: View {
         }
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.s13bPaperBorder, lineWidth: 1))
     }
+
+    // MARK: M1 真实谱条（疑点小节 ±1 裁剪片段 + 红圈标疑点小节）
+
+    @State private var stripScore: Score?
+    @State private var stripBuildFailed = false
+
+    private func buildStripScore(from score: Score) -> Score {
+        SightReadSession.clippedScore(of: score, measures: stripMeasureRange)
+    }
+
+    /// 真实谱条：裁剪片段经 ScoreView 渲染在纸纹底上，疑点小节叠红圈（半透明描边，
+    /// 不遮挡符头）。谱面只读展示，无选择/无光标/无点击。
+    private func realScoreStrip(score: Score) -> some View {
+        let clipped = buildStripScore(from: score)
+        return VStack(alignment: .leading, spacing: 0) {
+            ScoreView(
+                score: clipped,
+                options: Self.stripOptions,
+                availableWidth: UIScreen.main.bounds.width - 80,
+            )
+            .frame(maxWidth: .infinity, minHeight: 96, alignment: .top)
+            .overlay {
+                // 疑点小节红圈：按裁剪片段内小节数等宽近似定位（单行 system 场景足够诚实——
+                // 圈的是「这一小节区域」，不是逐符头精确定位；多行换行时圈仍落在片段视觉带内）。
+                GeometryReader { proxy in
+                    let stripMeasures = max(1, stripMeasureRange.count)
+                    let slot = proxy.size.width / CGFloat(stripMeasures)
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(Color.danger, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                        .background(Color.danger.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                        .frame(
+                            width: slot,
+                            height: proxy.size.height * 0.82
+                        )
+                        .offset(x: slot * CGFloat(suspectIndexInStrip - 1) + slot * 0.08)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .allowsHitTesting(false)
+            }
+            Text("红色圈出第 \(measure) 小节（前后各附 1 小节帮助对照）")
+                .font(.system(size: 10))
+                .foregroundStyle(Color.s13bPaperLegend)
+                .padding(.top, 4)
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity)
+        .background {
+            ZStack {
+                Color.s13bPaper
+                PaperDotTexture()
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.s13bPaperBorder, lineWidth: 1))
+    }
+
+    /// 无谱回退：红虚线诚实占位（原 M1 前形态，逐字保留）
+    private var placeholderStrip: some View {
+        RoundedRectangle(cornerRadius: 14)
+            .fill(Color.danger.opacity(0.12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(Color.danger, style: StrokeStyle(lineWidth: 1.5, dash: [3.5, 2.5]))
+            )
+            .overlay {
+                Text("第 \(measure) 小节 · 疑点位置")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.s13bSuspectInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(width: 132, height: 56)
+            .frame(maxWidth: .infinity)
+            .frame(height: 88)
+    }
+
+    /// M1 谱条渲染参数：小字号谱（staffSize 20，比练习室 28 小一号，抽屉里紧凑），
+    /// 关换行徽章（同练习室口径：换行是显示偏好不是原稿标记）。
+    private static let stripOptions: ScoreViewOptions = {
+        var options = ScoreViewOptions(staffSize: 20, wrapToViewWidth: true, breakPolicy: .honor)
+        options.breakIndicatorVisibility = .none
+        options.includeTitleFrame = false
+        return options
+    }()
 
     // MARK: §4 说明框
 

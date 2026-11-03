@@ -2480,6 +2480,32 @@ final class PracticeCoreTests: XCTestCase {
         XCTAssertEqual(PracticeRoomView.loopProgressText(completedLoopCount: 3, targetLoopCount: 3), "3/3")
     }
 
+    // MARK: M1 — S13b 真实谱条（裁剪区间/疑点定位；渲染本体走 ScoreView，真机肉眼核对）
+
+    func testS13bStripMeasureRangeIsSuspectPlusMinusOne() {
+        // 构造 sheet 只为访问区间纯逻辑（init 全默认参，无副作用）
+        let sheet = S13bMarkSheet(scoreName: "样例", measure: 7, takeTime: nil, score: nil) { _, _, _ in }
+        XCTAssertEqual(sheet.stripMeasureRange, 6...8, "疑点小节 ±1")
+        XCTAssertEqual(sheet.suspectIndexInStrip, 2, "疑点在片段内居中")
+    }
+
+    func testS13bStripRangeClampsAtPieceStart() {
+        let sheet = S13bMarkSheet(scoreName: "样例", measure: 1, takeTime: nil, score: nil) { _, _, _ in }
+        XCTAssertEqual(sheet.stripMeasureRange, 0...2, "起点小节：区间下探到 0，由 clippedScore clamp 到 1...")
+        XCTAssertEqual(sheet.suspectIndexInStrip, 2, "clamp 后疑点落片段第 2 位（第 1 位是 clamp 补位）")
+    }
+
+    func testS13bStripClippingProducesRealMeasures() throws {
+        let score = makeMiniScore(measureCount: 6)
+        let sheet = S13bMarkSheet(scoreName: "样例", measure: 3, takeTime: nil, score: score) { _, _, _ in }
+        let clipped = SightReadSession.clippedScore(of: score, measures: sheet.stripMeasureRange)
+        let staff = try XCTUnwrap(clipped.parts.first?.staves.first)
+        XCTAssertEqual(staff.measures.count, 3, "2...4（1-based）→ 3 小节")
+        // fixture 第 i 小节（0-based）音高 = 60+i；1-based 2...4 = 0-based 1...3 → 61/62/63
+        XCTAssertEqual(chordPitches(of: clipped), [61, 62, 63], "内容对应疑点小节 ±1")
+        XCTAssertTrue(sheet.stripMeasureRange.contains(3), "疑点小节必须在谱条区间内")
+    }
+
     @MainActor
     func testHeaderSubtitleAppendsFinalPassHintOnlyWhenPending() {
         // 未达标（默认 false）：文案与加此功能前逐字一致

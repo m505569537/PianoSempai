@@ -175,7 +175,9 @@ struct PracticeRoomView: View {
             S13bMarkSheet(
                 scoreName: displayTitle,
                 measure: session.followState.measureIndex + 1,
-                takeTime: session.startedAt.map { TakeReportPresentation.takeTimeFormatter.string(from: $0) }
+                takeTime: session.startedAt.map { TakeReportPresentation.takeTimeFormatter.string(from: $0) },
+                // M1：传练习室已解析谱（nil 安全；自由弹奏/无谱 → 抽屉内红虚线占位回退）
+                score: loadedScore
             ) { type, note, includeWithNeko in
                 context.insert(ScoreErrorMark(
                     scoreName: displayTitle,
