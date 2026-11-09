@@ -40,8 +40,6 @@ final class FingeringProbeTests: XCTestCase {
 /// 布局走练习室真实路径（PracticeScoreScrollView.rebuild 自动档逐字镜像：
 /// install → ScoreLineBreaker.apply(自动) → LayoutEngine.layout），
 /// 不发明第二条布局路径。红线同 G7：只读叠加，不碰判分链。
-final class FingeringOverlayTests: XCTestCase {
-
     // MARK: 布局 harness（镜像 PracticeScoreScrollView.rebuild）
 
     /// 练习室 rebuild 自动档路径：先装 CoreText 字体度量（DEBUG 下不装会命中
@@ -50,7 +48,7 @@ final class FingeringOverlayTests: XCTestCase {
     /// （honor + 无 break 徽章）；宽度 330 同 ScoreLineFitTests 的假设。
     /// 返回 (displayScore, document) 二元组——app 侧 builder 正是用同一份
     /// displayScore + document 调用（noteID 必须同源）。
-    private func layOutForPractice(_ score: Score) -> (displayScore: Score, document: LayoutDocument) {
+fileprivate func layOutForPractice(_ score: Score) -> (displayScore: Score, document: LayoutDocument) {
         _ = SheetMusicLayoutApple.install
         let laid = ScoreLineBreaker.apply(to: score, measuresPerLine: 0)
         var options = ScoreViewOptions(staffSize: 28, wrapToViewWidth: true, breakPolicy: .honor)
@@ -59,7 +57,7 @@ final class FingeringOverlayTests: XCTestCase {
         return (laid, document)
     }
 
-    private func loadFixture() throws -> Score {
+fileprivate func loadFixture() throws -> Score {
         let url = Bundle(for: FingeringProbeTests.self)
             .url(forResource: "FingeringFixture", withExtension: "mscz")
         let fixture = try XCTUnwrap(url, "FingeringFixture.mscz missing from test bundle")
@@ -86,7 +84,7 @@ final class FingeringOverlayTests: XCTestCase {
     }
 
     /// document 几何里普通 `.chord` 的音符总数（与 builder 同一 11 槽位遍历）。
-    private func chordNoteCount(in document: LayoutDocument) -> Int {
+fileprivate func chordNoteCount(in document: LayoutDocument) -> Int {
         var count = 0
         for system in document.systems {
             for measure in system.measures {
@@ -98,6 +96,8 @@ final class FingeringOverlayTests: XCTestCase {
         }
         return count
     }
+
+final class FingeringOverlayTests: XCTestCase {
 
     // MARK: 测试
 
@@ -152,5 +152,38 @@ final class FingeringOverlayTests: XCTestCase {
         XCTAssertEqual(
             FingeringAnnotationBuilder.noteFrame(centerX: 10, centerY: 20, sp: 4),
             NumberedAnnotationBuilder.noteFrame(centerX: 10, centerY: 20, sp: 4))
+    }
+}
+
+/// G11 Stage B（ADR-0014）：练习室「指法」开关接线测试。@State 无法在单测里
+/// 直接驱动，按 brief 口径只锁类型层数据路径：空标注视图 init/body smoke +
+/// fixture 布局后 builder 非空，以及双开关独立性契约（同一 (displayScore,
+/// document) 上两套标注数据各自成立、互不干扰——简谱标上方/指法标下方零几何
+/// 冲突的前提）。开关状态本身由 PracticeScoreScrollView 的 `if showFingerings`
+/// 纯派生，无需首启副作用（G6 耳训教训不适用）。
+final class FingeringToggleTests: XCTestCase {
+
+    /// 视图 init smoke（编译即门槛，不做 UI 快照）：空标注视图可构造、body 可
+    /// 求值；数据路径：fixture 经练习室真实布局 → builder 非空，开关打开即有
+    /// 内容可画。
+    func testOverlayViewSmokeAndDataPathNonEmpty() throws {
+        let view = FingeringsOverlayView(annotations: [], sp: 8)
+        _ = view.body
+        let (displayScore, document) = layOutForPractice(try loadFixture())
+        XCTAssertFalse(
+            FingeringAnnotationBuilder.build(score: displayScore, document: document).isEmpty,
+            "fixture 带指法 → 开关打开时 overlay 数据非空")
+    }
+
+    /// 双开关独立性契约：同一 (displayScore, document)——简谱对每个普通 chord
+    /// 音符都产生标注（count == 几何音符数），指法只标带指法的 3 音。两数据集
+    /// 独立生成、互不干扰，是「两 chip 可同开、零几何冲突」的数据层前提。
+    func testBothOverlaysIndependentFromSameDocument() throws {
+        let (displayScore, document) = layOutForPractice(try loadFixture())
+        let numbered = NumberedAnnotationBuilder.build(score: displayScore, document: document)
+        let fingered = FingeringAnnotationBuilder.build(score: displayScore, document: document)
+        XCTAssertEqual(numbered.count, chordNoteCount(in: document),
+                       "简谱：每个普通 chord 音符都有标注（与指法开关无关）")
+        XCTAssertEqual(fingered.count, 3, "指法：只有带指法的音符有标注（与简谱开关无关）")
     }
 }

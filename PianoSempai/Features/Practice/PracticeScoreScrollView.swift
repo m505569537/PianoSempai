@@ -49,6 +49,8 @@ struct PracticeScoreScrollView: View {
     @State private var lastScrolledSystem: Int = -1
     /// G7 简谱叠加开关（ADR-0009 Stage B）：不持久化，每次进练习室默认关。
     @State private var showNumbered = false
+    /// G11 指法叠加开关（ADR-0014 Stage B）：不持久化，每次进练习室默认关。
+    @State private var showFingerings = false
 
     /// 纸张 #FBF8F2（S11 真值 §4，与 PracticeRoomView.s11Paper 同值；那边 fileprivate）。
     /// 引擎把页面背景写死为纯白且不许改包源码，故用 multiply 叠染（白×纸色=纸色，
@@ -71,12 +73,18 @@ struct PracticeScoreScrollView: View {
                 .onAppear { rebuild(width: proxy.size.width) }
                 .onChange(of: proxy.size.width) { _, w in rebuild(width: w) }
                 .onChange(of: measuresPerLine) { _, _ in rebuild(width: proxy.size.width) }
-                // 简谱开关：挂在 ScrollView（滚动容器）上而非内容上，相对
+                // 简谱/指法开关：挂在 ScrollView（滚动容器）上而非内容上，相对
                 // GeometryReader 固定、不随滚动跳动。独立视图，不受 overlay
-                // 的 allowsHitTesting(false) 影响。
+                // 的 allowsHitTesting(false) 影响。两 chip 同一 overlay 内并列
+                // （ADR-0014 决策三）：独立 @State、默认关、可同开。
                 .overlay(alignment: .topTrailing) {
-                    NocturneChip(title: "简谱", isSelected: showNumbered) {
-                        showNumbered.toggle()
+                    HStack(spacing: 8) {
+                        NocturneChip(title: "简谱", isSelected: showNumbered) {
+                            showNumbered.toggle()
+                        }
+                        NocturneChip(title: "指法", isSelected: showFingerings) {
+                            showFingerings.toggle()
+                        }
                     }
                     .padding(.trailing, 12)
                     .padding(.top, 4)
@@ -120,6 +128,12 @@ struct PracticeScoreScrollView: View {
                 if showNumbered {
                     NumberedNotationOverlayView(
                         annotations: NumberedAnnotationBuilder.build(score: displayScore, document: document),
+                        sp: document.metrics.sp)
+                }
+                // G11 指法叠加：符头下方，与简谱上方天然零冲突（ADR-0014 决策三）。
+                if showFingerings {
+                    FingeringsOverlayView(
+                        annotations: FingeringAnnotationBuilder.build(score: displayScore, document: document),
                         sp: document.metrics.sp)
                 }
                 // P4 纸内页脚：bottomTrailing，页码 + 来源
