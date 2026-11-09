@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<museScore version="4.20">
+  <Score>
+    <LayerTag id="0" tag="1">Struktur</LayerTag>
+    <currentLayer>0</currentLayer>
+    <Synthesizer>
+      <master>val-16</master>
+      <master.val>1</master.val>
+    </Synthesizer>
+    <showInvisible>1</showInvisible>
+    <showUnprintable>1</showUnprintable>
+    <showFrames>1</showFrames>
+    <showMargins>0</showMargins>
+    <metaTag name="partName">Piano</metaTag>
+    <metaTag name="composer">Probe</metaTag>
+    <metaTag name="title">Fingering Probe</metaTag>
+    <Part id="1">
+      <id>1</id>
+      <Instrument id="1">
+        <id>1</id>
+        <longName>Piano</longName>
+        <shortName>Pno.</shortName>
+      </Instrument>
+    </Part>
+    <Staff id="1">
+      <partId>1</partId>
+      <barLineSpan>1</barLineSpan>
+      <defaultConcertPitch>0</defaultConcertPitch>
+      <clef id="1">1</clef>
+      <voiceCount>1</voiceCount>
+      <Measure len="4/4">
+        <voice>
+          <Measure>1</Measure>
+          <Chord>
+            <durationType>quarter</durationType>
+            <Note>
+              <pitch>60</pitch>
+              <tpc>14</tpc>
+              <Fingering>
+                <text>1</text>
+              </Fingering>
+            </Note>
+          </Chord>
+          <Chord>
+            <durationType>quarter</durationType>
+            <Note>
+              <pitch>62</pitch>
+              <tpc>16</tpc>
+              <Fingering>
+                <text>2</text>
+              </Fingering>
+            </Note>
+          </Chord>
+          <Chord>
+            <durationType>quarter</durationType>
+            <Note>
+              <pitch>64</pitch>
+              <tpc>18</tpc>
+              <Fingering>
+                <text>3</text>
+              </Fingering>
+            </Note>
+          </Chord>
+          <Chord>
+            <durationType>quarter</durationType>
+            <Note>
+              <pitch>65</pitch>
+              <tpc>19</tpc>
+            </Note>
+          </Chord>
+        </voice>
+      </Measure>
+    </Staff>
+  </Score>
+</museScore>
