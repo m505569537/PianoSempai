@@ -604,9 +604,11 @@ private enum NoteEditPreviewContainer {
 }
 #endif
 
+#if DEBUG
 #Preview {
     NavigationStack {
         NoteEditView(target: NoteEditTarget(noteId: nil, kind: .manual))
     }
     .modelContainer(NoteEditPreviewContainer.make())
 }
+#endif

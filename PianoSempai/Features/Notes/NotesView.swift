@@ -628,7 +628,9 @@ private enum NotesPreviewContainer {
 }
 #endif
 
+#if DEBUG
 #Preview {
     NotesView()
         .modelContainer(NotesPreviewContainer.make())
 }
+#endif

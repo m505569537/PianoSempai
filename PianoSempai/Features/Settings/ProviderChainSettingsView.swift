@@ -880,8 +880,10 @@ private enum ProviderChainPreviewContainer {
 }
 #endif
 
+#if DEBUG
 #Preview {
     ProviderChainSettingsView()
         .modelContainer(ProviderChainPreviewContainer.make())
         .preferredColorScheme(.dark)
 }
+#endif

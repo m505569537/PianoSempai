@@ -58,8 +58,11 @@ targets:
       path: PianoSempai/Info.plist
       properties:
         CFBundleDisplayName: PianoSempai
-        CFBundleShortVersionString: "0.1.0"
+        CFBundleShortVersionString: "1.0.0"
         CFBundleVersion: "1"
+        # 出口合规：仅用 CryptoKit SHA256 做内容寻址哈希，不涉及加密通信
+        # （HTTPS 属系统级豁免），App Store 提审免填出口合规问卷。
+        ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
