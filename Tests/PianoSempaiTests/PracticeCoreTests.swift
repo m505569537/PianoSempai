@@ -483,8 +483,8 @@ final class PracticeCoreTests: XCTestCase {
     func testLoadExpectedPitchesByBookNumberIsHonestWhenMissing() {
         XCTAssertFalse(SightReadSession.loadExpectedPitches(book: "拜厄", number: 1, measures: 1...2).isEmpty,
                        "拜厄内置谱存在 → 真实解析出期望音")
-        XCTAssertTrue(SightReadSession.loadExpectedPitches(book: "车尔尼599", number: 1, measures: 1...2).isEmpty,
-                      "无内置谱 → 空数组，不冒充别的谱")
+        XCTAssertTrue(SightReadSession.loadExpectedPitches(book: "车尔尼599", number: 2, measures: 1...2).isEmpty,
+                      "未配谱条目 → 空数组，不冒充别的谱")
         XCTAssertTrue(SightReadSession.loadExpectedPitches(book: "哈农", number: 21, measures: 1...2).isEmpty,
                       "越教材上限 → 空数组")
     }

@@ -4,7 +4,7 @@ import Foundation
 /// - realScore：有真实 scoreFile（导入曲/未来教材谱）→ 可评分，take 关联 pieceId/scoreFileId
 /// - samplePiece：显式「示例曲」入口 → 加载 Bundle SpikeSample32（不冒充教材）
 /// - bundledScore：内置教材条目配有随 app 分发的公版谱（拜厄/哈农）→ 可跟弹可评分
-/// - unavailable：内置教材条目但无谱（车尔尼599）→ **禁止静默回退任何别的谱**
+/// - unavailable：内置教材条目但无谱（599 未配谱的条目 / 其他未配谱教材）→ **禁止静默回退任何别的谱**
 enum ScoreAvailability: Equatable {
 
     case realScore(ScoreFile)

@@ -8,7 +8,7 @@ import SwiftUI
 // MARK: - 练习 CTA 纯决策（M5b 延伸；与 CourseEngine 决策同风格：UI 只呈现，逻辑可测）
 //
 // 两项决策：主按钮文案 + 是否可点。
-// - `.unavailable`（内置教材条目但无谱：车尔尼599）优先于锁定文案：不提供判分入口，
+// - `.unavailable`（内置教材条目但无谱：599 未配谱条目等）优先于锁定文案：不提供判分入口，
 //   但允许自由弹奏（不打分、不推进路线；不拿别的谱冒充，红线 2 / SPEC §10）。
 // - 锁定只禁掉可判分的练习入口（拜厄/哈农未到达的条目），导入曲与示例曲不受影响。
 enum PracticeCTA {
@@ -31,7 +31,7 @@ enum PracticeCTA {
 enum PracticeRoute: Identifiable {
     /// 判分练习：S11 练习室（建档 + 评分）
     case practice
-    /// 无谱条目（车尔尼599）：S14 自由弹奏沙盒（不建档、不判分）
+    /// 无谱条目（未配谱的教材条目）：S14 自由弹奏沙盒（不建档、不判分）
     case freePlay
 
     var id: String {
@@ -127,7 +127,7 @@ struct PieceDetailView: View {
     }
 
     /// 谱可用性四态（M5a 纯决策）：realScore / samplePiece / bundledScore / unavailable。
-    /// unavailable = 内置教材条目但无谱（车尔尼599）：不冒充样例谱（SPEC §10）。
+    /// unavailable = 内置教材条目但无谱（599 未配谱条目等）：不冒充样例谱（SPEC §10）。
     private var availability: ScoreAvailability {
         ScoreAvailability.resolve(
             scoreFile: linkedScoreFile,
@@ -210,7 +210,7 @@ struct PieceDetailView: View {
         PracticeCTA.isEnabled(availability: availability, isLocked: isLocked)
     }
 
-    /// 无谱条目（车尔尼599）：走 S14 自由弹奏沙盒——不建 Piece、不判分
+    /// 无谱条目（未配谱的教材条目）：走 S14 自由弹奏沙盒——不建 Piece、不判分
     private var isFreePlayEntry: Bool {
         if case .unavailable = availability { return true }
         return false

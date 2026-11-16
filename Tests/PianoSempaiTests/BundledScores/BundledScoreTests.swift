@@ -18,15 +18,19 @@ final class BundledScoreTests: XCTestCase {
         // 哈农：1…20 → hanon_01…hanon_20
         XCTAssertEqual(BundledScore.resourceName(book: "哈农", number: 1), "hanon_01")
         XCTAssertEqual(BundledScore.resourceName(book: "哈农", number: 20), "hanon_20")
+        // 车尔尼599：已配谱的条目才给资源名（当前只有第 1 首）
+        XCTAssertEqual(BundledScore.resourceName(book: "车尔尼599", number: 1), "c599_01")
     }
 
     func testResourceNameNilForOutOfRangeAndOtherBooks() {
         XCTAssertNil(BundledScore.resourceName(book: "拜厄", number: 0), "0 条不存在")
         XCTAssertNil(BundledScore.resourceName(book: "拜厄", number: 107), "超出 106 条")
         XCTAssertNil(BundledScore.resourceName(book: "哈农", number: 21), "超出 20 条")
-        // 车尔尼599 / 示例曲：没有内置谱，诚实 nil（不冒充）
-        XCTAssertNil(BundledScore.resourceName(book: "车尔尼599", number: 1))
-        XCTAssertNil(BundledScore.resourceName(book: "车尔尼599", number: 10))
+        // 车尔尼599：未配谱的编号诚实 nil（不预设全覆盖、不冒充）
+        XCTAssertNil(BundledScore.resourceName(book: "车尔尼599", number: 0), "0 条不存在")
+        XCTAssertNil(BundledScore.resourceName(book: "车尔尼599", number: 2), "第 2 首尚未配谱")
+        XCTAssertNil(BundledScore.resourceName(book: "车尔尼599", number: 10), "第 10 首尚未配谱")
+        XCTAssertNil(BundledScore.resourceName(book: "车尔尼599", number: 11), "目录只到 10")
         XCTAssertNil(BundledScore.resourceName(book: "示例", number: 0))
         XCTAssertNil(BundledScore.resourceName(book: "导入", number: 1))
     }
@@ -35,7 +39,8 @@ final class BundledScoreTests: XCTestCase {
         XCTAssertTrue(BundledScore.hasBundled(book: "拜厄", number: 1))
         XCTAssertTrue(BundledScore.hasBundled(book: "哈农", number: 20))
         XCTAssertFalse(BundledScore.hasBundled(book: "拜厄", number: 107))
-        XCTAssertFalse(BundledScore.hasBundled(book: "车尔尼599", number: 1))
+        XCTAssertTrue(BundledScore.hasBundled(book: "车尔尼599", number: 1), "第 1 首已配谱")
+        XCTAssertFalse(BundledScore.hasBundled(book: "车尔尼599", number: 2), "第 2 首还没配谱")
         XCTAssertFalse(BundledScore.hasBundled(book: "示例", number: 0))
     }
 
@@ -49,7 +54,8 @@ final class BundledScoreTests: XCTestCase {
             switch entry.book {
             case "拜厄": expected = (1...106).contains(entry.number)
             case "哈农": expected = (1...20).contains(entry.number)
-            default: expected = false // 车尔尼599 / 示例
+            case "车尔尼599": expected = BundledScore.czerny599BundledNumbers.contains(entry.number)
+            default: expected = false // 示例
             }
             XCTAssertEqual(
                 BundledScore.hasBundled(book: entry.book, number: entry.number), expected,
@@ -68,6 +74,13 @@ final class BundledScoreTests: XCTestCase {
         XCTAssertEqual(
             ScoreAvailability.resolve(scoreFile: nil, isSampleEntry: false, bundledBook: "哈农", bundledNumber: 20),
             .bundledScore(book: "哈农", number: 20)
+        )
+    }
+
+    func testResolveBundledScoreForCzerny599ConfiguredEntries() {
+        XCTAssertEqual(
+            ScoreAvailability.resolve(scoreFile: nil, isSampleEntry: false, bundledBook: "车尔尼599", bundledNumber: 1),
+            .bundledScore(book: "车尔尼599", number: 1)
         )
     }
 
@@ -92,9 +105,9 @@ final class BundledScoreTests: XCTestCase {
     }
 
     func testResolveUnavailableFor599AndOutOfRange() {
-        // 车尔尼599：无内置谱 → 不可用（不判分，保持原行为）
+        // 车尔尼599 未配谱的条目 → 不可用（不判分，保持原行为）
         XCTAssertEqual(
-            ScoreAvailability.resolve(scoreFile: nil, isSampleEntry: false, bundledBook: "车尔尼599", bundledNumber: 1),
+            ScoreAvailability.resolve(scoreFile: nil, isSampleEntry: false, bundledBook: "车尔尼599", bundledNumber: 2),
             .unavailable
         )
         XCTAssertEqual(
@@ -192,7 +205,7 @@ final class BundledScoreTests: XCTestCase {
 
     func testBundledScoresParseThroughScoreLoader() throws {
         // 首/尾各取一条：解析失败 = 进练习室会报「谱面解析失败」
-        for (book, number) in [("拜厄", 1), ("拜厄", 2), ("拜厄", 106), ("哈农", 1), ("哈农", 20)] {
+        for (book, number) in [("拜厄", 1), ("拜厄", 2), ("拜厄", 106), ("哈农", 1), ("哈农", 20), ("车尔尼599", 1)] {
             let name = try XCTUnwrap(BundledScore.resourceName(book: book, number: number))
             guard let url = try locateBundled(book, number) else {
                 XCTFail("宿主 app bundle 缺少 \(name).musicxml（app target sources 应随包分发）")
@@ -201,6 +214,18 @@ final class BundledScoreTests: XCTestCase {
             let score = try ScoreLoader.loadScore(contentsOf: url)
             XCTAssertGreaterThan(ScoreExpectedPitches.measureCount(score: score), 0, "\(name) 应至少有 1 小节")
             XCTAssertFalse(ScoreExpectedPitches.extract(score: score).isEmpty, "\(name) 应能提出跟弹参考音")
+        }
+    }
+
+    /// 不变量：代码里声明的每个 599 条目都必须真能在 bundle 里取到文件。
+    /// 声明了却没文件 → ScoreAvailability 报 bundledScore、Bundle.main.url 为 nil，
+    /// 练习室会「有谱可用却加载失败」。补谱时若忘了同步这个集合，这里会先炸。
+    func testEveryDeclaredCzerny599NumberExistsInBundle() {
+        for number in BundledScore.czerny599BundledNumbers {
+            XCTAssertNotNil(
+                BundledScore.url(book: "车尔尼599", number: number),
+                "声明了 c599_\(String(format: "%02d", number)) 但 app bundle 里没有该文件"
+            )
         }
     }
 

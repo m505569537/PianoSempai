@@ -60,12 +60,14 @@ final class PracticeCTATests: XCTestCase {
         XCTAssertTrue(PracticeCTA.isEnabled(availability: .samplePiece, isLocked: false))
     }
 
-    // MARK: C 接真实目录（不造假数据：599 每条都 locked + unavailable）
+    // MARK: C 接真实目录（不造假数据：599 未配谱条目 locked + unavailable）
 
-    /// 目录里车尔尼599 每条都是「锁定 + 无谱」→ 文案自由弹奏、按钮可点
+    /// 目录里车尔尼599：已配谱条目报 bundledScore；未配谱条目报 unavailable 并给「自由弹奏」入口。
+    /// 两侧都必须 locked（599 P1 全锁定），且绝不拿别的谱冒充（SPEC §10）。
     func testEvery599EntryOffersEnabledFreePlay() {
         let entries = CatalogLoader.loadBuiltin().filter { $0.book == "车尔尼599" }
         XCTAssertFalse(entries.isEmpty, "目录应有 599 锁定占位条目")
+        var scoreless = 0
         for entry in entries {
             let locked = CourseEngine.catalogStatus(
                 book: entry.book, number: entry.number, pathState: CoursePathState()
@@ -74,11 +76,21 @@ final class PracticeCTATests: XCTestCase {
                 scoreFile: nil, isSampleEntry: entry.isSample,
                 bundledBook: entry.book, bundledNumber: entry.number
             )
-            XCTAssertEqual(availability, .unavailable, "\(entry.title) 无内置谱，不应冒充")
             XCTAssertTrue(locked, "\(entry.title) 599 P1 全部锁定")
-            XCTAssertEqual(PracticeCTA.title(availability: availability, isLocked: locked), "自由弹奏（不判分）")
-            XCTAssertTrue(PracticeCTA.isEnabled(availability: availability, isLocked: locked))
+
+            if BundledScore.czerny599BundledNumbers.contains(entry.number) {
+                XCTAssertEqual(
+                    availability, .bundledScore(book: "车尔尼599", number: entry.number),
+                    "\(entry.title) 已配谱，不应报不可用"
+                )
+            } else {
+                scoreless += 1
+                XCTAssertEqual(availability, .unavailable, "\(entry.title) 未配谱，不应冒充")
+                XCTAssertEqual(PracticeCTA.title(availability: availability, isLocked: locked), "自由弹奏（不判分）")
+                XCTAssertTrue(PracticeCTA.isEnabled(availability: availability, isLocked: locked))
+            }
         }
+        XCTAssertGreaterThan(scoreless, 0, "补谱是渐进的，至少还有未配谱条目在走自由弹奏分支")
     }
 
     /// 拜厄/哈农行为不变：未到达条目仍禁用 + 解锁引导；已到达条目正常练习

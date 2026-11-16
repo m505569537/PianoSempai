@@ -34,7 +34,10 @@ final class PracticeRoomRoutingTests: XCTestCase {
     }
 
     func testResolveNonBundledBookIsNil() {
-        XCTAssertNil(BundledScoreCoordinates.resolve(book: "车尔尼599", number: 1))
+        // 599 第 1 首已配谱；用仍未配谱的第 2 首验「没谱就不给坐标」
+        XCTAssertNil(BundledScoreCoordinates.resolve(book: "车尔尼599", number: 2))
+        XCTAssertEqual(BundledScoreCoordinates.resolve(book: "车尔尼599", number: 1),
+                       BundledScoreCoordinates(book: "车尔尼599", number: 1))
     }
 
     func testResolveNilOrEmptyBookIsNil() {
@@ -173,7 +176,7 @@ final class PracticeRoomRoutingTests: XCTestCase {
 
     /// 非内置教材：resolve 为 nil（练习室诚实降级，不伪造谱面）
     func testMainPracticeRouteIsHonestForNonBundledBook() {
-        let route = MainPracticeRoute(book: "车尔尼599", number: 1, timeLimitMinutes: 20)
+        let route = MainPracticeRoute(book: "车尔尼599", number: 2, timeLimitMinutes: 20)
         XCTAssertNil(BundledScoreCoordinates.resolve(book: route.book, number: route.number))
     }
 
