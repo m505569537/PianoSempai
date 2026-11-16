@@ -94,7 +94,9 @@ struct ArchiveView: View {
         let trend = trendPoints(lookup: lookup)
 
         return ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
+            // LazyVStack：take 行按需实例化。archived 数据会随年头线性增长
+            // （每天练几遍 → 两年上千条），VStack 会在进页时一次性构建全部行视图。
+            LazyVStack(alignment: .leading, spacing: 0) {
                 // 顶距 40：让开 AppFrameView 顶部连接胶囊（非今日/曲库页都显示）
                 header.padding(.top, 40)
 

@@ -215,6 +215,23 @@
 ---
 
 ## 变更记录
+- 2026-11-16（车尔尼599 接入 + 练习室谱面布局修复，926/0）：真机实测反馈驱动的一批修复。
+  1. **599 第 1 首接入**：`Resources/BundledScores/c599_01.musicxml`（MuseScore 导出，公版 Czerny）+ `BundledScore.czerny599BundledNumbers: Set<Int> = [1]`——只有真落盘的编号才报可用，未配谱条目继续诚实 `nil`。新增不变量测试 `testEveryDeclaredCzerny599NumberExistsInBundle`（声明了却没文件会立刻红）。配套 `Scripts/import_bundled_scores.py`（.mxl 解包 / 编号推断 / 结构校验）与 `docs/bundled-scores.md`。
+  2. **顶栏改两行**：原来一行塞 7 个元素（Neko + MIDI + 循环/等待 2 胶囊 + 双手/右手/左手 3 胶囊 + 标题 + 录像 + 关闭），390pt 宽装不下 → 胶囊被压成空壳、标题截成「Cz…」。现主行只放身份/标题/动作，模式与分手下沉第二行。
+  3. **谱面控件移出纸卡**：简谱/指法原为纸内 overlay，实测盖住第 3–4 小节音符（用户报「音符没出现在五线谱上」的真实原因）。现与「每行小节数」合并成纸外工具条。
+  4. **纸内页脚归位**：`scoreFooterOverlay` 在 `ZStack(alignment: .topLeading)` 里没做贴底约束 → 跑到最上方压第一行谱。已加 `.frame(maxHeight: .infinity, alignment: .bottom)` + 26pt 底部内边距；「共 N 页」改名「共 N 行」（它数的是 `document.systems.count`），页脚不再重复「第N条」。
+  5. **每行默认 4 小节**：实测 8 小节/行会被 `fittingStaffSize` 二分缩到字太小，4 是手机上的合适档（工具条可切 自动/2/4/8）。
+  6. **示范播放不点亮「已弹」**：原来「已弹」琥珀色由光标驱动，示范播放时播放器推光标 → 没弹过的音符也变色。现示范期间一律不点亮。
+  7. **无输入不落库**：退出练习室时若 `session.playedNotes` 为空，直接关闭不产生 take；有输入时对话框新增「放弃本次（不保存）」。
+  **澄清**：599 第 1 首两个谱表都是高音谱号，经 MuseScore 原版比对确认**谱源本身如此、不是错谱**（此前一度误判为谱号错误，已撤回）。**新增 DEBUG-only 入口**：`--ui.practice <book>:<number>` 直达练习室、`--ui.simulated` 用模拟 MIDI 源，便于真机/模拟器核对谱面（Release 编译期剔除）。
+- 2026-11-12（工程加固批次，914→924/0）：修 4 项真风险 + 5 处工程卫生，**无产品行为变更、无新页面**。- 2026-11-12（工程加固批次，914→924/0）：修 4 项真风险 + 5 处工程卫生，**无产品行为变更、无新页面**。
+  1. **档案页性能**：`ArchiveView` 的 `VStack` → `LazyVStack`。原来 `ScrollView { VStack { ForEach(takes) } }` 会在进页时一次性实例化全部 take 行（按每天 2–3 条、两年即上千条）。改为按需构建，`@Query` 与筛选口径不动。
+  2. **自动快照兜底**：新增 `Services/AutoSnapshot.swift`——练习数据只存本机、无 iCloud 同步，此前只有手动导出，换机/重装即全丢。现每周自动打一份**不含视频**的完整 zip（`exports/auto-snapshot-yyyyMMdd-HHmmss.zip`），滚动保留 3 份；清理只认 `auto-snapshot-` 前缀，**绝不误删**手动导出的 `pianosempai-export-*` 与恢复前快照。启动时在 `RootView.task` 触发，失败静默下次重试（不写 lastRun，不谎称成功）。设置页「数据」新增「自动备份」行显示最近一次日期（无则「本周内自动」）。
+  3. **触觉反馈**：新增 `DesignSystem/Haptics.swift`（仓内此前 0 处 haptics）。接在练习室：节拍器每拍（含预备拍，随 `MetronomeService.onBeat`）、遍数达标、等待模式弹对/弹错、会话收尾。服务层保持纯逻辑不收口 UIKit，模拟器自动 no-op。
+  4. **版本号单一来源**：`project.yml` 的 `MARKETING_VERSION` 由 `0.1.0` 对齐到 `1.0.0`（此前与 `info.properties` 的 `CFBundleShortVersionString` 漂移）；`SettingsView` 读不到版本时不再兜底假版本号，改显「—」。
+  5. **校验脚本可跑**：`Scripts/build.sh` 改为自动探测已 boot 的 iPhone 模拟器 UDID（可用 `SIM_ID=` 覆盖），不再写死 `name=iPhone 17 Pro`（多运行时下 name 归一失配必挂）；README 同步换掉失效的 `EC2A677A…` UDID，验收手册基线 907/0 → 914/0。
+  **验证**：`xcodegen generate` + 全量 `xcodebuild test` **924/0 TEST SUCCEEDED**（新增 `AutoSnapshotTests` 10 条：到期判定边界、文件名字典序==时间序、滚动清理只删自己前缀）；`swiftc -swift-version 5 -warnings-as-errors -parse` 通过。
+  **环境教训补充**：本机并发跑另一项目 xcodebuild 时，模拟器磁盘镜像 I/O 打满（`diskimagesiod` 90%+，load 470+），xcodebuild 会挂在 `PruneExplicitPrecompiledModules` 看似死锁；`xcrun simctl shutdown all` + `killall com.apple.CoreSimulator.CoreSimulatorService` 重置后即恢复。**另：`xcodebuild` 调起的 git 同样不继承 `HTTP_PROXY` 环境变量，clone 大包（swift-syntax）会静默卡死，须 `git config --global http.proxy` 临时兜住（已 revert）。**
 - 2026-11-08（巡检，无代码改动）：HEAD `3aadc31`、工作区干净、与 origin/main 0/0 同步；`xcodegen generate` + 全量 `xcodebuild test` 实测 **907/0**（22.06s），与登记基线一致。G12 实测已无该分支（本机/远端均无），状态改 done；open 剩 5 条真机验收（V10/V11/V12/V13/V14）。真机链路健康：证书有效至 2027-06-18，描述文件 11-08 17:47 重签、有效期至 11-15，App 0.1.0(1) 已装 iPhone 16 Pro。**环境教训**：SPM 缓存（`swift-sheet-music`/`swift-syntax`）今天被一次中断的构建弄成坏仓库（`unable to read tree`），且 shell 里 `HTTP_PROXY=127.0.0.1:7897` 指向已停的代理 → xcodebuild 卡在 `Resolve Package Graph` 零 CPU 空转；Xcode 调用的 git **不继承环境变量代理**，须 `git config --global http.proxy` 临时兜住（用完 revert）或修复缓存仓库。
 - 2026-10-19（巡检沉淀，无代码改动）：Hermes 巡检确认工作区干净、HEAD `817a73a`、测试函数 766 与 766/0 基线一致；剩余 10 条 blocked（W2/W3/W6/L5/M1/C3/V1/V2/V3/V7）、0 条 needs-decision。真机项仍挂起（开发证书 2026-09-27 过期、无 iPhone 连接）。进度日志同步到 vault `Projects/piano-sempai/progress.md`（此前停在 10-12）。
 - 2026-10-12（对账同步，无新代码）：P5 状态改 done（坞内预备拍控件格 0fca3d4 已提交，表漏更新）；第八节 S21 整节按降级版落地状态对账——C1/C2/C4 改 done、C3 收窄为「仅逐句曲线 blocked」（双 take 选择器/同段配对/六维真实雷达/速度单点/热力双条/delta 已落地），并移除「须先 Grill」限制（降级口径已产品确认）。

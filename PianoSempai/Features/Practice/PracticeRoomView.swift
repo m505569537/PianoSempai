@@ -57,7 +57,11 @@ struct PracticeRoomView: View {
     /// isTwoStaff 一次判定（ReferenceNote.hand 的同一生产源）；单声部谱 → 分手 chip 禁用 + 诚实说明。
     @State private var scoreHasHandSplit = false
     /// 每行小节数（0=自动；全局显示偏好，谱面滚动视图据此重排）。
-    @AppStorage(ScoreDisplayPrefs.measuresPerLineKey) private var measuresPerLine = 0
+    @AppStorage(ScoreDisplayPrefs.measuresPerLineKey) private var measuresPerLine = ScoreDisplayPrefs.defaultMeasuresPerLine
+    /// G7 简谱叠加（纸外工具条开关；不持久化，进练习室默认关）
+    @State private var showNumbered = false
+    /// G11 指法叠加（同上）
+    @State private var showFingerings = false
     @State private var metronomeOn = false
     @State private var showLoopSheet = false
     @State private var finishedSummary: TakeSummary?
@@ -205,6 +209,7 @@ struct PracticeRoomView: View {
         }
         .onAppear {
             load()
+            Haptics.prepare()
             recorder.onStateChange = { state in
                 switch state {
                 case .recording: recordingActive = true
@@ -246,6 +251,20 @@ struct PracticeRoomView: View {
         // 两条路径都会把 isIdleTimerDisabled 置回 false。
         .onChange(of: session.phase) { _, phase in
             UIApplication.shared.isIdleTimerDisabled = (phase == .performing || phase == .paused)
+            if phase == .finished { Haptics.finish() }
+        }
+        // 触觉反馈（2026-11-12）：遍数达标给一记比节拍明确的中等反馈；
+        // 等待模式逐音给「弹对/弹错」的即时区分（该模式没有节拍器音，触觉是主要节奏参考）。
+        .onChange(of: session.completedLoopCount) { old, new in
+            if new > old { Haptics.milestone() }
+        }
+        .onChange(of: session.lastWaitOutcome) { _, outcome in
+            switch outcome {
+            case .hit: Haptics.hit()
+            case .miss: Haptics.miss()
+            case .passCompleted: Haptics.milestone()
+            case nil: break
+            }
         }
         // PRD：app 退后台/锁屏 → take 正常收尾保存（RootView 在 scenePhase == .background 时发通知）。
         // finishAndSave 幂等：phase 不在 performing/counting/paused/timeUp 时只 dismiss，重复通知无害。
@@ -255,6 +274,8 @@ struct PracticeRoomView: View {
         }
         .confirmationDialog(exitDialogTitle, isPresented: $exitConfirm, titleVisibility: .visible) {
             Button("结束并保存") { finishAndSave() }
+            // 用户要求：可以不保存。无输入时更会直接跳过整个对话框（见 requestExit）。
+            Button("放弃本次（不保存）", role: .destructive) { exitWithoutSaving() }
             Button("继续练习", role: .cancel) {}
         }
     }
@@ -272,6 +293,7 @@ struct PracticeRoomView: View {
     /// 保持上一批已验收的 20pt 左右留白。
     private var connectedColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
+            scoreToolbar
             scoreArea
             nextMeasureLabel.padding(.top, 6)
             progressLine.padding(.top, 10)
@@ -288,6 +310,7 @@ struct PracticeRoomView: View {
         VStack(alignment: .leading, spacing: 0) {
             reconnectBanner
                 .padding(.top, 8)
+            scoreToolbar
             // scoreArea 自带 .padding(.top, 10)，正好当真值 gap10 用，不重复加。
             scoreArea
             // 五格坞就地禁用：保持原色，只剥夺交互（真值 §6.1 明确不用 opacity .4）。
@@ -308,17 +331,25 @@ struct PracticeRoomView: View {
     /// 三段式顶栏：左 Neko 幽灵钮 + MIDI pill｜中 serif 标题 + 真实数据副行｜右关闭钮。
     /// 容器：dark #1C1917 ~95% + backdrop blur，底边 1pt white/5 发丝线，内容 px14、垂直居中。
     private var header: some View {
-        HStack(spacing: 8) {
-            nekoPill
-            midiPill
-            practiceModePicker
-            handModePicker
-            Spacer(minLength: 8)
-            headerTitle
-            Spacer(minLength: 8)
-            // TODO: equalizer (mix) — pending product
-            recordingButton
-            closeButton
+        // 两行：主行只放「身份 + 标题 + 动作」，模式/分手胶囊下沉到第二行。
+        // 单行塞 7 个元素时 iPhone 竖屏装不下——实测胶囊被压成空壳、标题截成「Cz…」。
+        VStack(spacing: 7) {
+            HStack(spacing: 8) {
+                nekoPill
+                midiPill
+                Spacer(minLength: 8)
+                headerTitle
+                    .layoutPriority(1)
+                Spacer(minLength: 8)
+                // TODO: equalizer (mix) — pending product
+                recordingButton
+                closeButton
+            }
+            HStack(alignment: .top, spacing: 10) {
+                practiceModePicker
+                handModePicker
+                Spacer(minLength: 0)
+            }
         }
         .padding(.horizontal, 14)
         .padding(.top, 12)
@@ -551,12 +582,7 @@ struct PracticeRoomView: View {
     /// （替代已移除的独立「结束并生成报告」按钮）；其余态直接 dismiss。
     private var closeButton: some View {
         Button {
-            switch session.phase {
-            case .performing, .counting, .paused:
-                exitConfirm = true
-            case .idle, .finished:
-                dismiss()
-            }
+            requestExit()
         } label: {
             Image(systemName: "xmark")
                 .font(.system(size: 15, weight: .medium))
@@ -645,7 +671,7 @@ struct PracticeRoomView: View {
     /// 字号按 36pt 热区的视觉重量取 17pt；hover→main。行为不变：走退出确认（exitConfirm）。
     private var disconnectedBackButton: some View {
         Button {
-            exitConfirm = true
+            requestExit()
         } label: {
             Image(systemName: "chevron.left")
                 .font(.system(size: 17, weight: .medium))
@@ -901,7 +927,12 @@ struct PracticeRoomView: View {
                     leftHandNote: piece?.leftHandNote,
                     copyrightNotice: piece?.copyrightNotice,
                     // P3 分手模式
-                    handMode: handMode
+                    handMode: handMode,
+                    // 示范播放中不点亮「已弹」（光标归播放器，见 PracticeScoreScrollView）
+                    isDemoPlaying: demo.state == .playing,
+                    // 简谱/指法开关状态在纸外工具条上，谱面只负责渲染
+                    showNumbered: $showNumbered,
+                    showFingerings: $showFingerings
                 )
                 // 弹性高度：谱区填满底部控件以上的全部可用空间（问题5），
                 // 不再写死屏高 0.42；外层 VStack 的 Spacer 让位给这里。
@@ -931,14 +962,23 @@ struct PracticeRoomView: View {
             }
         }
         .padding(.top, 10)
-        .overlay(alignment: .topTrailing) {
+    }
+
+    /// 纸外工具条：每行小节数 + 简谱 + 指法。
+    /// 放在谱卡上方而不是叠在纸内——叠上去必然压住某几小节的音符（实测盖掉了第 3–4 小节）。
+    private var scoreToolbar: some View {
+        HStack(spacing: 8) {
             if loadedScore != nil {
-                // 断连态谱卡被遮罩「冻结」，右上角布局菜单一并禁用（保持原色、不响应）。
                 layoutMenu
-                    .disabled(!hub.isConnected)
-                    .padding(10)
+            }
+            Spacer(minLength: 8)
+            if loadedScore != nil {
+                NocturneChip(title: "简谱", isSelected: showNumbered) { showNumbered.toggle() }
+                NocturneChip(title: "指法", isSelected: showFingerings) { showFingerings.toggle() }
             }
         }
+        .disabled(!hub.isConnected)
+        .padding(.top, 8)
     }
 
     /// 每行小节数选择（问题4）。右上角轻量 Menu，不占控制卡名额；当前档显示在文字里。
@@ -1306,6 +1346,9 @@ struct PracticeRoomView: View {
         switch session.phase {
         case .idle, .finished:
             metronome.onCountInFinished = { session.beginPerforming() }
+            // 节拍触觉：跟着节拍器每一拍轻点（含预备拍）。只在节拍器真在跑时触发，
+            // 用户关掉节拍器就没有额外反馈，不制造「假拍点」。
+            metronome.onBeat = { Haptics.beat() }
             // 等待模式：无 count-in（ADR-0013 决策四），直接开弹；
             // 节拍器开关照常尊重用户选择（默认关——switchPracticeMode 已静音）。
             if session.mode == .wait {
@@ -1440,6 +1483,34 @@ struct PracticeRoomView: View {
 
     /// 结算入口：X → 退出确认对话框的「结束并保存」（Stage B 起它取代独立「结束并生成报告」按钮），
     /// 以及时间到自动保存。`.paused` 也算数——finish() 自己按活跃时间结算（暂停段不计入）。
+    /// 本次会话是否真的弹过东西：一个 noteOn 都没有 = 没练，
+    /// 不该凭空造一条 0 分钟的 take（用户明确要求：没输入就别保存）。
+    private var sessionHasInput: Bool { !session.playedNotes.isEmpty }
+
+    /// 退出入口（关闭钮 / 断连返回钮统一走这里）：
+    /// - 演奏中且确实弹过（或有录像在跑）→ 弹确认，可选「保存」或「放弃」；
+    /// - 演奏中但一个音都没弹 → 直接关掉，不落库、不打扰；
+    /// - 其余态（idle/finished）→ 直接关。
+    private func requestExit() {
+        switch session.phase {
+        case .performing, .counting, .paused:
+            if sessionHasInput || recordingActive || recorderIsRecording {
+                exitConfirm = true
+            } else {
+                exitWithoutSaving()
+            }
+        case .idle, .finished:
+            dismiss()
+        }
+    }
+
+    /// 无输入退出 / 明确选择放弃：停表停节拍，**不落库**（不产生 take、不留空练习记录）。
+    private func exitWithoutSaving() {
+        metronome.stop()
+        _ = session.finish() // 停心跳与判定；summary 丢弃
+        dismiss()
+    }
+
     private func finishAndSave() {
         metronome.stop()
         guard session.phase == .performing || session.phase == .counting || session.phase == .paused
@@ -1610,7 +1681,7 @@ struct PracticeRoomView: View {
         case .bundledScore(let book, let number):
             url = BundledScore.url(book: book, number: number)
         case .unavailable:
-            // 内置教材条目无谱（车尔尼599）：不再静默加载任何别的谱冒充（SPEC §10）
+            // 内置教材条目无谱（如 599 未配谱条目）：不再静默加载任何别的谱冒充（SPEC §10）
             loadError = "暂无参考谱。可用「示例曲」或导入的乐谱练习；本次可自由弹奏（不判分）。"
             return
         }

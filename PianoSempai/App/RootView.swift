@@ -20,6 +20,10 @@ struct RootView: View {
     /// ModelContext 来自 modelContainer，生命周期与 App 一致。
     @State private var coordinator: WeeklyDigestCoordinator?
 
+    /// DEBUG-only：--ui.practice <book>:<number> 直达练习室预览内置谱。
+    /// 只用于开发期核对谱面渲染，不改课程状态、不落 take（Release 编译期剔除）。
+    @State private var debugPracticeOpen = false
+
     /// M7.2 月报协调器：启动 + 每次进后台/失活刷新（每月 1 号为上月起草 + 回填观察）。
     /// 与周报协调器并存，各自 @State；月报失败只降级状态，不影响周报。
     @State private var monthlyCoordinator: MonthlyReportCoordinator?
@@ -39,11 +43,28 @@ struct RootView: View {
             }
         }
         .background(Color.canvas)
+        #if DEBUG
+        .fullScreenCover(isPresented: $debugPracticeOpen) {
+            if let entry = Self.debugPracticeEntry {
+                PracticeRoomView(
+                    taskType: "main",
+                    pieceTitle: "\(entry.book) 第\(entry.number)条",
+                    bundledBook: entry.book,
+                    bundledNumber: entry.number
+                )
+            }
+        }
+        #endif
         .task {
             // DEBUG-only 视觉验收钩子：simctl launch 传 --ui.skipOnboarding 直接进主框架。
             // 挂在根视图（不挂首次启动分支——settings 一旦存在，那条分支永远不再走，钩子即失效）。
             // 只改 onboarding 标志，绝不写课程状态（红线 1/3）。
             #if DEBUG
+            // --ui.simulated：调试期用模拟 MIDI 源（真机不在手边时看谱面/判分链路）
+            if ProcessInfo.processInfo.arguments.contains("--ui.simulated") {
+                MIDIHub.shared.switchSource(.simulated)
+            }
+            if Self.debugPracticeEntry != nil { debugPracticeOpen = true }
             if ProcessInfo.processInfo.arguments.contains("--ui.skipOnboarding") {
                 let settings = settingsList.first ?? AppSettings.fetchOrCreate(in: context)
                 if !settings.onboardingCompleted {
@@ -59,6 +80,10 @@ struct RootView: View {
             CourseEngine.reconcileIfNeeded(in: context)
             _ = CourseEngine.rollDueReviews(in: context)
             try? context.save()
+            // 自动快照（2026-11-12）：练习数据只存本机、无 iCloud 同步，每周打一份
+            // 不含视频的完整备份兜底（保留最近 3 份）。失败静默、下次启动重试，不打扰使用。
+            let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            AutoSnapshot.runIfDue(baseDir: documents, context: context)
             await ensureCoordinator().refresh()
             await ensureMonthlyCoordinator().refresh()
         }
@@ -73,6 +98,20 @@ struct RootView: View {
             Task { await ensureMonthlyCoordinator().refresh() }
         }
     }
+
+    #if DEBUG
+    /// 解析 `--ui.practice c599:1`（也接受教材中文名）。仅在 Debug 存在。
+    static var debugPracticeEntry: (book: String, number: Int)? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "--ui.practice"), args.indices.contains(i + 1) else { return nil }
+        let parts = args[i + 1].split(separator: ":")
+        guard parts.count == 2, let number = Int(parts[1]) else { return nil }
+        let raw = String(parts[0])
+        let book = raw == "c599" ? "车尔尼599" : raw
+        guard BundledScore.hasBundled(book: book, number: number) else { return nil }
+        return (book, number)
+    }
+    #endif
 
     private func ensureCoordinator() -> WeeklyDigestCoordinator {
         if let coordinator { return coordinator }

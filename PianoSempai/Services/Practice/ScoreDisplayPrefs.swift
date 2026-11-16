@@ -11,6 +11,10 @@ import SwiftUI
 enum ScoreDisplayPrefs {
     static let measuresPerLineKey = "score.measuresPerLine.v1"
 
+    /// 默认档：4 小节/行。手机竖屏下 2 小节/行太浪费（用户实测反馈），
+    /// 自动档（0）按 28pt 字号排只能塞 2 小节，故默认改为固定 4 档。
+    static let defaultMeasuresPerLine = 4
+
     /// 可选档位（Picker 用）。0 在 UI 上显示为「自动」。
     static let choices: [Int] = [0, 2, 4, 8]
 

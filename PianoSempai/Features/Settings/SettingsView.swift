@@ -33,6 +33,8 @@ struct SettingsView: View {
     @State private var showEarTraining = false
     /// 沙盒占用（Documents 递归求和；进入页面时算一次，避免每次 body 重算）
     @State private var storageText = "—"
+    /// 最近一份自动快照日期（无则「本周内自动」）
+    @State private var autoSnapshotText = "本周内自动"
 
     private var settings: AppSettings? { settingsList.first }
     private var pathState: CoursePathState? { pathStates.first }
@@ -150,6 +152,11 @@ struct SettingsView: View {
                     row(icon: "externaldrive", title: "存储占用", value: storageText, valueMono: true) {
                         showStorage = true
                     }
+                    hairline
+                    // 自动快照：每周一次的本机兜底（不含视频）；点进去可手动导出/恢复
+                    row(icon: "shield.lefthalf.filled", title: "自动备份", value: autoSnapshotText, valueMono: true) {
+                        showExport = true
+                    }
                 }
 
                 groupSection(title: "乐谱来源与许可") {
@@ -191,7 +198,8 @@ struct SettingsView: View {
     }
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
+        // 读不到就不写死版本号（旧兜底 "0.1.0" 会与真实版本漂移）
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
     }
 
     // MARK: 个人状态卡（整卡可点 → 课程路线总览；右值全真实，未定级不写死第几周）
@@ -281,7 +289,23 @@ struct SettingsView: View {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let bytes = StorageSheet.folderSize(docs)
         storageText = bytes > 0 ? "约 " + ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file) : "—"
+        // 最近一份自动快照：从文件名时间戳还原（没有就如实显「本周内自动」）
+        if let latest = AutoSnapshot.latestSnapshot(baseDir: docs) {
+            let stamp = latest.lastPathComponent
+                .replacingOccurrences(of: AutoSnapshot.filePrefix, with: "")
+                .replacingOccurrences(of: ".zip", with: "")
+            autoSnapshotText = Self.snapshotFormatter.date(from: stamp).map(Self.monthDayFormatter.string) ?? "—"
+        } else {
+            autoSnapshotText = "本周内自动"
+        }
     }
+
+    private static let snapshotFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return formatter
+    }()
 
     private static let monthDayFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -315,11 +339,27 @@ struct SettingsView: View {
                     "mutopiaproject.org · creativecommons.org/licenses/by-sa/4.0"
                 ]
             )
-            Text("车尔尼599 暂无内置谱，解锁前不可判分。")
+            sourceBlock(
+                title: "车尔尼《实用初级练习曲》Op.599",
+                lines: [
+                    "Carl Czerny，1850 前后 · 公有领域",
+                    "排版：MuseScore 社区导出（MuseScore 3.4.2）",
+                    "目录只编排前 10 首"
+                ]
+            )
+            Text(czerny599CoverageText)
                 .font(.labelSm)
                 .foregroundStyle(Color.textMuted)
         }
         .padding(.vertical, 14)
+    }
+
+    /// 599 配谱进度：直接读 BundledScore 的已落盘集合，避免文案与磁盘资源漂移
+    private var czerny599CoverageText: String {
+        let have = BundledScore.czerny599BundledNumbers.count
+        return have == 0
+            ? "车尔尼599 暂无内置谱，解锁前不可判分。"
+            : "车尔尼599 已配谱 \(have)/10 首；未配谱的条目仍不可判分。"
     }
 
     private func sourceBlock(title: String, lines: [String]) -> some View {

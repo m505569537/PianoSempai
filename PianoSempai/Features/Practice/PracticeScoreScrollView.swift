@@ -38,6 +38,9 @@ struct PracticeScoreScrollView: View {
     let copyrightNotice: String?
     /// P3 分手模式
     let handMode: HandMode
+    /// 示范播放中：此时光标是「示范走到哪」，不是「用户弹到哪」，
+    /// 不能据此把音符标成琥珀「已弹」（用户反馈：听示范时音符自己变色）。
+    let isDemoPlaying: Bool
 
     /// 转换后（已重排换行）的谱，供 ScoreView 与光标定位共用。
     @State private var displayScore: Score?
@@ -47,10 +50,10 @@ struct PracticeScoreScrollView: View {
     /// 上一次已居中滚动到的 system 索引；只在光标「跨 system」时才滚，
     /// 避免同一行内每拍都重复触发滚动动画造成抖动。-1 = 尚未定位。
     @State private var lastScrolledSystem: Int = -1
-    /// G7 简谱叠加开关（ADR-0009 Stage B）：不持久化，每次进练习室默认关。
-    @State private var showNumbered = false
-    /// G11 指法叠加开关（ADR-0014 Stage B）：不持久化，每次进练习室默认关。
-    @State private var showFingerings = false
+    /// G7 简谱叠加开关（ADR-0009 Stage B）：状态由练习室持有（工具条在纸外，不压谱面）。
+    @Binding var showNumbered: Bool
+    /// G11 指法叠加开关（ADR-0014 Stage B）：同上。
+    @Binding var showFingerings: Bool
 
     /// 纸张 #FBF8F2（S11 真值 §4，与 PracticeRoomView.s11Paper 同值；那边 fileprivate）。
     /// 引擎把页面背景写死为纯白且不许改包源码，故用 multiply 叠染（白×纸色=纸色，
@@ -67,28 +70,18 @@ struct PracticeScoreScrollView: View {
                     scroll(to: new, proxy: scrollProxy)
                     updatePlayedNoteIDs(upTo: new)
                 }
+                // 示范开始/结束要立刻重算：否则停在示范期间的点亮态，退出示范后仍残留
+                .onChange(of: isDemoPlaying) { _, _ in
+                    updatePlayedNoteIDs(upTo: cursor)
+                }
                 // iOS 26 ScrollView 默认会给滚动边缘加自动渐隐效果（内容淡入深色底层），
                 // 在纸卡内表现为谱面上下两道灰色阴影带——练习室谱面不需要，全部关掉。
                 .modifier(ScrollEdgeEffectHiddenAll())
                 .onAppear { rebuild(width: proxy.size.width) }
                 .onChange(of: proxy.size.width) { _, w in rebuild(width: w) }
                 .onChange(of: measuresPerLine) { _, _ in rebuild(width: proxy.size.width) }
-                // 简谱/指法开关：挂在 ScrollView（滚动容器）上而非内容上，相对
-                // GeometryReader 固定、不随滚动跳动。独立视图，不受 overlay
-                // 的 allowsHitTesting(false) 影响。两 chip 同一 overlay 内并列
-                // （ADR-0014 决策三）：独立 @State、默认关、可同开。
-                .overlay(alignment: .topTrailing) {
-                    HStack(spacing: 8) {
-                        NocturneChip(title: "简谱", isSelected: showNumbered) {
-                            showNumbered.toggle()
-                        }
-                        NocturneChip(title: "指法", isSelected: showFingerings) {
-                            showFingerings.toggle()
-                        }
-                    }
-                    .padding(.trailing, 12)
-                    .padding(.top, 4)
-                }
+                // 简谱/指法开关已移到纸卡上方的工具条（见 PracticeRoomView.scoreToolbar）：
+                // 贴在谱面内部必然盖住小节内容，实测会挡住第 3–4 小节的音符。
             }
         }
     }
@@ -136,10 +129,14 @@ struct PracticeScoreScrollView: View {
                         annotations: FingeringAnnotationBuilder.build(score: displayScore, document: document),
                         sp: document.metrics.sp)
                 }
-                // P4 纸内页脚：bottomTrailing，页码 + 来源
+                // P4 纸内页脚：必须显式贴底。ZStack 是 .topLeading 对齐，
+                // 不加这个 frame 页脚会跑到最顶上压住第一行谱（实测「共 N 页」盖在音符上）。
                 scoreFooterOverlay(for: displayScore, document: document)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
             }
-            .padding(.vertical, 8)
+            // 底部留白给纸内页脚（「共 N 行」）：不留会压在最后一行谱的右端上
+            .padding(.top, 8)
+            .padding(.bottom, 26)
         } else {
             ProgressView().frame(maxWidth: .infinity, minHeight: 160)
         }
@@ -227,11 +224,10 @@ struct PracticeScoreScrollView: View {
     @ViewBuilder
     private func scoreFooterOverlay(for score: Score?, document: LayoutDocument?) -> some View {
         if let document {
-            let totalPages = max(1, document.systems.count)
+            // 注意：这里数的是文档里的 system（行）数，不是物理页数——label 必须说「行」。
+            let totalSystems = max(1, document.systems.count)
             HStack(alignment: .center, spacing: 8) {
-                Text("\(pieceBook) 第\(pieceNumber)条")
-                    .font(.system(size: 10, weight: .medium, design: .serif))
-                    .foregroundStyle(Color.textMuted)
+                // 曲目编号在谱头已经出现过，页脚不重复（避免同一行「第N条」出现两次）
                 Spacer()
                 if let notice = copyrightNotice, !notice.isEmpty {
                     Text(notice)
@@ -242,7 +238,7 @@ struct PracticeScoreScrollView: View {
                         .background(Color.card, in: Capsule())
                         .overlay(Capsule().strokeBorder(Color.border, lineWidth: 1))
                 }
-                Text("共 \(totalPages) 页")
+                Text("共 \(totalSystems) 行")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Color.textMuted)
                     .padding(.horizontal, 8)
@@ -304,6 +300,11 @@ struct PracticeScoreScrollView: View {
     }
 
     private func updatePlayedNoteIDs(upTo cursor: ScoreCursor?) {
+        // 示范播放时光标属于播放器，不代表用户弹过 → 不点亮任何音符
+        guard !isDemoPlaying else {
+            playedNoteIDs = []
+            return
+        }
         guard let cursor = cursor,
               let displayScore = displayScore,
               case .beat(let measureIndex, let tickInMeasure) = cursor else {
