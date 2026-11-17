@@ -209,6 +209,14 @@ struct PracticeRoomView: View {
         }
         .onAppear {
             load()
+#if DEBUG
+            // --ui.hand right|left|both：调试期直接落到指定分手态，便于核对谱面着色
+            if let i = ProcessInfo.processInfo.arguments.firstIndex(of: "--ui.hand"),
+               ProcessInfo.processInfo.arguments.indices.contains(i + 1),
+               let parsed = HandMode(rawValue: ProcessInfo.processInfo.arguments[i + 1]) {
+                handMode = parsed
+            }
+#endif
             Haptics.prepare()
             recorder.onStateChange = { state in
                 switch state {

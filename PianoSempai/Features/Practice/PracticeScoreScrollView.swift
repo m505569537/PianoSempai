@@ -263,8 +263,18 @@ struct PracticeScoreScrollView: View {
     }
 
     private func selectionForPlayedNotes() -> ScoreSelection {
-        guard !playedNoteIDs.isEmpty else { return .none }
-        return .multi(Set(playedNoteIDs.map(ScoreItemID.note)))
+        var ids = playedNoteIDs
+        // 分手：引擎的着色只作用于「选中项」（ScoreLayerBuilder 只遍历 selectedIDs），
+        // 所以必须把非激活手的全部音符显式放进选中集，否则点右手/左手在画面上毫无变化。
+        if handMode != .both {
+            for note in referenceNotes {
+                guard let noteID = note.noteID else { continue }
+                let isActive = (handMode == .right) ? (note.hand == .right) : (note.hand == .left)
+                if !isActive { ids.insert(noteID) }
+            }
+        }
+        guard !ids.isEmpty else { return .none }
+        return .multi(Set(ids.map(ScoreItemID.note)))
     }
 
     private func voiceColorsForPlayedNotes() -> [Int: Color] {
