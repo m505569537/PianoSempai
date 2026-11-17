@@ -104,6 +104,11 @@ xcrun devicectl device process launch --device <UDID> com.eeexu.pianosempai \
 | `--ui.tab.<tab>` | 启动后停在指定 tab：`library` / `practice` / `archive` / `settings` |
 | `--ui.skipOnboarding` | 跳过引导 |
 
+## 发布到 App Store
+
+完整命令与两个坑（云签名、版本号必须与 ASC 记录一致）见 **[`docs/release.md`](docs/release.md)**。
+当前状态：构建 `1.0.0 (2)` 已上传并挂到版本，**上架信息（描述/关键词/支持网址/截图）尚未填写**。
+
 ## 真机截屏（不用手点）
 
 ```bash
