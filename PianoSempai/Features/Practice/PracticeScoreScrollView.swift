@@ -58,7 +58,9 @@ struct PracticeScoreScrollView: View {
     /// 纸张 #FBF8F2（S11 真值 §4，与 PracticeRoomView.s11Paper 同值；那边 fileprivate）。
     /// 引擎把页面背景写死为纯白且不许改包源码，故用 multiply 叠染（白×纸色=纸色，
     /// 黑符头×纸色≈黑），谱面与纸张卡颜色一致。
-    private static let paper = Color(red: 0xFB / 255, green: 0xF8 / 255, blue: 0xF2 / 255)
+    /// 谱面画布叠染色。必须与纸卡底色（PracticeRoomView.s11Paper）一致：
+    /// 两处各写一个常量时容易改漏——只改卡片就会露出「暖色卡 + 纯白谱面」的接缝。
+    private static let paper = Color(red: 0xEE / 255, green: 0xE7 / 255, blue: 0xD7 / 255)
 
     var body: some View {
         GeometryReader { proxy in
@@ -150,6 +152,10 @@ struct PracticeScoreScrollView: View {
         options.breakIndicatorVisibility = .none
         // 引擎默认 systemGap 40pt，手机竖屏下显得空；28 更紧凑但仍能一眼分开两行
         options.systemGap = 28
+        // 首行缩进归零：引擎默认 firstSystemIndent=4sp、continuationSystemIndent=2sp，
+        // 首行会比后续行各向内缩一截——真机上就是「第一行和下面几行对不齐、整体也不居中」。
+        options.spacing.firstSystemIndent = 0
+        options.spacing.continuationSystemIndent = 0
         return options
     }
 

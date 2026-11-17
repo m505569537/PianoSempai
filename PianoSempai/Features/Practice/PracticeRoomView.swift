@@ -1809,9 +1809,11 @@ extension TakeSummary: Identifiable {
 
 fileprivate extension Color {
     /// 纸张 #FBF8F2（真值 §4）。注意 `Color.scorePaper` 是 #F5F0E6，与真值不同，故用字面量。
-    static let s11Paper = Color(red: 0xFB / 255, green: 0xF8 / 255, blue: 0xF2 / 255)
+    /// 谱纸底色：原本是 #FBF8F2（近乎纯白），在一片深色框架里像块发光板。
+    /// 调成偏暖的低一点亮度纸色，黑符头仍然清晰，但和深色界面不再打架。
+    static let s11Paper = Color(red: 0xEE / 255, green: 0xE7 / 255, blue: 0xD7 / 255)
     /// 纸卡 1pt 描边 #EBE4D5（真值 §4）
-    static let s11PaperBorder = Color(red: 0xEB / 255, green: 0xE4 / 255, blue: 0xD5 / 255)
+    static let s11PaperBorder = Color(red: 0xD8 / 255, green: 0xCE / 255, blue: 0xB8 / 255)
     /// 控件坞 1pt 描边 #3C3530（真值 §6.1）
     static let s11DockBorder = Color(red: 0x3C / 255, green: 0x35 / 255, blue: 0x30 / 255)
     /// 「识别中」翠绿 #34D399（真值 §6.2）
