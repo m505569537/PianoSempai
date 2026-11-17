@@ -113,8 +113,8 @@ struct PracticeScoreScrollView: View {
                 // 引擎页面背景硬编码纯白（包红线：不改包源码）。colorMultiply 确定性叠染：
                 // 白底×纸色=纸色、符头墨黑×纸色≈墨黑，谱面与纸张卡颜色一致、无白块错色。
                 .colorMultiply(Self.paper)
-                // P4 纸内谱头：与 ScoreView 同处 topLeading ZStack，坐标即文档坐标；不挡手势。
-                scoreHeaderOverlay(for: displayScore)
+                // 纸内谱头已移除（2026-11-17）：曲目编号/速度术语/双手标记会压在第一行谱上，
+                // 而这些信息在顶栏副行已有；手机屏幕小，位置全部让给谱面。
                 // G7 简谱叠加：与 ScoreView 同处一个 topLeading ZStack，标注坐标即
                 // 文档坐标（文档 (0,0)=ScoreView 左上），与符头天然对齐；自带
                 // allowsHitTesting(false)，不挡谱面手势。
@@ -129,14 +129,10 @@ struct PracticeScoreScrollView: View {
                         annotations: FingeringAnnotationBuilder.build(score: displayScore, document: document),
                         sp: document.metrics.sp)
                 }
-                // P4 纸内页脚：必须显式贴底。ZStack 是 .topLeading 对齐，
-                // 不加这个 frame 页脚会跑到最顶上压住第一行谱（实测「共 N 页」盖在音符上）。
-                scoreFooterOverlay(for: displayScore, document: document)
-                    .frame(maxHeight: .infinity, alignment: .bottom)
+                // 纸内页脚同上去掉：「共 N 行」属于噪音且会压最后一行谱。
             }
-            // 底部留白给纸内页脚（「共 N 行」）：不留会压在最后一行谱的右端上
-            .padding(.top, 8)
-            .padding(.bottom, 26)
+            // 无纸内页脚了，上下只留一点点呼吸，把高度也让给谱面
+            .padding(.vertical, 6)
         } else {
             ProgressView().frame(maxWidth: .infinity, minHeight: 160)
         }
@@ -154,105 +150,6 @@ struct PracticeScoreScrollView: View {
         return options
     }
 
-    // MARK: - P4 纸内谱头叠加
-
-    @ViewBuilder
-    private func scoreHeaderOverlay(for score: Score?) -> some View {
-        if let score {
-            let totalStaves = score.parts.values.reduce(0) { $0 + $1.staves.count }
-            let isTwoHand = totalStaves >= 2
-            HStack(alignment: .center, spacing: 8) {
-                Text(headerLeftText)
-                    .font(.system(size: 11, weight: .medium, design: .serif))
-                    .foregroundStyle(Color.textMuted)
-                Spacer()
-                if let term = Self.tempoTerm(for: referenceTempo) {
-                    Text("♩=\(referenceTempo) \(term)")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color.textMuted)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.amber.opacity(0.1), in: Capsule())
-                }
-                if let note = leftHandNote, !note.isEmpty {
-                    Text("左手：\(note)")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color.textMuted)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.card, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Color.border, lineWidth: 1))
-                }
-                if isTwoHand {
-                    Text("双手")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color.amber)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.amber.opacity(0.15), in: Capsule())
-                        .overlay(Capsule().strokeBorder(Color.amber.opacity(0.3), lineWidth: 1))
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
-        } else {
-            Color.clear
-        }
-    }
-
-    private var headerLeftText: String {
-        var text = "\(pieceBook) 第\(pieceNumber)条"
-        if let opusTag, !opusTag.isEmpty {
-            text += " · Op.\(opusTag)"
-        }
-        return text
-    }
-
-    private static func tempoTerm(for bpm: Int) -> String? {
-        switch bpm {
-        case ..<40:  return "广板"
-        case 40..<70: return "慢板"
-        case 70..<100: return "行板"
-        case 100..<130: return "快板"
-        case 130..<170: return "急板"
-        default: return bpm > 0 ? "极快" : nil
-        }
-    }
-
-    // MARK: - P4 纸内页脚叠加
-
-    @ViewBuilder
-    private func scoreFooterOverlay(for score: Score?, document: LayoutDocument?) -> some View {
-        if let document {
-            // 注意：这里数的是文档里的 system（行）数，不是物理页数——label 必须说「行」。
-            let totalSystems = max(1, document.systems.count)
-            HStack(alignment: .center, spacing: 8) {
-                // 曲目编号在谱头已经出现过，页脚不重复（避免同一行「第N条」出现两次）
-                Spacer()
-                if let notice = copyrightNotice, !notice.isEmpty {
-                    Text(notice)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color.textMuted)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.card, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Color.border, lineWidth: 1))
-                }
-                Text("共 \(totalSystems) 行")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(Color.textMuted)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(Color.card, in: Capsule())
-                    .overlay(Capsule().strokeBorder(Color.border, lineWidth: 1))
-            }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 8)
-        } else {
-            Color.clear
-        }
-    }
-
     /// 第 idx 个锚点槽位的高度：从本 system 的 origin 到下一个 system 的 origin；
     /// 最后一个取到文档底。这样各锚点累计 y 严格等于各 system 的文档 origin
     /// （system 间的垂直间距也要算进去——sys.size.height 只覆盖谱面本体，不含 system 间距）。
@@ -264,12 +161,55 @@ struct PracticeScoreScrollView: View {
         return max(1, document.size.height - originY)
     }
 
+    /// 让每个谱表的声部索引在 part 内唯一。
+    ///
+    /// 引擎的 `voiceColors` 只有 voiceIndex 一个维度（没有 staff），双谱表如果两个谱表
+    /// 都用 0 号声部，着色会互相覆盖——表现就是「点了右手/左手没有任何反应」。
+    /// 做法：给第 N 个谱表前面塞 N 个空声部，把真实声部顶到唯一索引（空声部没有元素，不渲染内容）。
+    private static func uniquifyingVoiceIndices(_ score: Score) -> Score {
+        var score = score
+        for partIndex in score.parts.indices {
+            score.parts.updateValue(at: partIndex) { part in
+                for staffIndex in part.staves.indices where staffIndex > 0 {
+                    part.staves.updateValue(at: staffIndex) { staff in
+                        // 声部挂在每个 Measure 上（Staff 没有 voices 字段），逐小节插入
+                        for measureIndex in staff.measures.indices {
+                            for _ in 0..<staffIndex {
+                                staff.measures[measureIndex].voices.insert(Voice(elements: []), at: 0)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return score
+    }
+
+    /// 清空 part 名/乐器名：布局引擎按 longName → trackName 的顺序取显示名并为它留白。
+    private static func strippingPartNames(_ score: Score) -> Score {
+        var score = score
+        for index in score.parts.indices {
+            // updateValue 的闭包是原地修改语义（返回 Void），不要 return
+            score.parts.updateValue(at: index) { part in
+                part.instrument.longName = nil
+                part.instrument.shortName = nil
+                part.instrument.trackName = nil
+                part.trackName = nil
+            }
+        }
+        return score
+    }
+
     private func rebuild(width rawWidth: CGFloat) {
         // 直接调 LayoutEngine.layout（而非只走 ScoreView）前必须确保已安装
         // CoreText 字体度量，否则 DEBUG 下命中 Stub provider 断言。包官方入口。
         _ = SheetMusicLayoutApple.install
         let width = max(rawWidth, options.staffSize * 4)
-        let laid = ScoreLineBreaker.apply(to: score, measuresPerLine: measuresPerLine)
+        var laid = ScoreLineBreaker.apply(to: score, measuresPerLine: measuresPerLine)
+        // 手机竖屏宽度紧张：part 名（`グランドピアノ` / `Pno.`）会让引擎在每行左侧
+        // 预留一列文本宽度，单人练习没有任何信息量，直接清掉把宽度全给谱面。
+        laid = Self.strippingPartNames(laid)
+        laid = Self.uniquifyingVoiceIndices(laid)
         displayScore = laid
         if measuresPerLine >= 2 {
             // 固定档：可用宽度放不下 N 小节时引擎会按宽度提前折行、每行不齐，

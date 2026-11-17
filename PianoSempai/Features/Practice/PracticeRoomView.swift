@@ -292,15 +292,15 @@ struct PracticeRoomView: View {
     /// 连接态内容列（S11 Stage B，不变）：纸张卡（弹性高度）｜下一小节｜进度｜五格坞｜56pt 圆钮。
     /// 保持上一批已验收的 20pt 左右留白。
     private var connectedColumn: some View {
+        // 横向 padding 下放到各行：谱面（scoreArea）要吃满屏宽，不能再被整列的内边距挤窄。
         VStack(alignment: .leading, spacing: 0) {
-            scoreToolbar
+            scoreToolbar.padding(.horizontal, 20)
             scoreArea
-            nextMeasureLabel.padding(.top, 6)
-            progressLine.padding(.top, 10)
-            controlDock.padding(.top, 16)
-            playRow.padding(.top, 18)
+            nextMeasureLabel.padding(.top, 6).padding(.horizontal, 20)
+            progressLine.padding(.top, 10).padding(.horizontal, 20)
+            controlDock.padding(.top, 16).padding(.horizontal, 20)
+            playRow.padding(.top, 18).padding(.horizontal, 20)
         }
-        .padding(.horizontal, 20)
     }
 
     /// 断连态内容列（真值 §2 顺序）：重连横幅 → 带遮罩的谱纸卡（弹性）→ 禁用五格坞 →
@@ -310,19 +310,21 @@ struct PracticeRoomView: View {
         VStack(alignment: .leading, spacing: 0) {
             reconnectBanner
                 .padding(.top, 8)
-            scoreToolbar
-            // scoreArea 自带 .padding(.top, 10)，正好当真值 gap10 用，不重复加。
+                .padding(.horizontal, 12)
+            scoreToolbar.padding(.horizontal, 12)
             scoreArea
             // 五格坞就地禁用：保持原色，只剥夺交互（真值 §6.1 明确不用 opacity .4）。
             controlDock
                 .disabled(true)
                 .padding(.top, 10)
+                .padding(.horizontal, 12)
             disconnectedPlayButton
                 .padding(.top, 8)
+                .padding(.horizontal, 12)
             diagnosticsCard
                 .padding(.top, 10)
+                .padding(.horizontal, 12)
         }
-        .padding(.horizontal, 12)
         .padding(.bottom, 12)
     }
 
@@ -913,7 +915,6 @@ struct PracticeRoomView: View {
         .background(Color.canvas.opacity(0.75))
         .background(.ultraThinMaterial)
         // 圆角贴合纸卡 16：遮罩铺满纸卡矩形Bounds，必须裁掉四角才不冒尖。
-        .clipShape(RoundedRectangle(cornerRadius: 16))
         // 纯展示层：不接触摸，谱面在遮罩下仍可滚动查看（断点在哪一眼能看到）。
         .allowsHitTesting(false)
     }
@@ -956,13 +957,10 @@ struct PracticeRoomView: View {
                     .frame(maxWidth: .infinity, minHeight: 120)
             }
         }
-        .padding(12)
-        // S11 Stage B 纸张卡（真值 §4）：#FBF8F2 / 圆角 16 / 1pt #EBE4D5 / 强阴影。
-        // 高度沿用上一批已验收的弹性（maxHeight .infinity），不写死真值的 min480/max520。
-        // 颗粒层按 brief 可选项省略；真实 cursor/自动滚动原样不动（不编造小节框坐标）。
-        .background(Color.s11Paper, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.s11PaperBorder, lineWidth: 1))
-        .shadow(color: .black.opacity(0.35), radius: 18, y: 10)
+        // 2026-11-17：去掉纸卡外框（圆角/描边/阴影/12pt 内边距）。
+        // 手机竖屏本来就窄，再套一圈 12+20pt 边框等于白扔约 64pt 宽度；
+        // 谱面直接吃满屏宽。引擎自己画白色纸底，不需要我们再垫一层。
+        .padding(.vertical, 6)
         // S11b：断连时只把遮罩盖在这张纸卡上（真值 §5.3），不动顶栏/控件/诊断卡的热区。
         // Fix：遮罩是「谱」的 overlay——无谱时（ProgressView / 真实 loadError）绝不盖住。
         .overlay {
