@@ -77,7 +77,9 @@ final class PracticeSession: ObservableObject {
     var timeLimitSec: Int?
     /// 会话形态（G10 / ADR-0013）：.loop = 既有时钟循环；.wait = 弹对才前进。
     /// 视图在 start() 前设置；等待模式下 tick 只推进计时不驱动任何推进逻辑。
-    var mode: PracticeMode = .loop
+    /// 必须 @Published：练习室的循环/等待胶囊直接读它，漏了标记会导致
+    /// 「点了没反应，等别的状态变化才跟着更新」。
+    @Published var mode: PracticeMode = .loop
     /// 等待模式遍数（终点小节耗尽 wrap 时 +1；纯展示，不进判定）。start() 归零。
     @Published private(set) var waitLoopCount: Int = 0
     /// 等待模式最近一次引擎裁决（视图据此做命中反馈/错音提示；非等待模式恒 nil）

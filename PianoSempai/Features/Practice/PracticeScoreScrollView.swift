@@ -292,7 +292,9 @@ struct PracticeScoreScrollView: View {
             case .left: hand == .left
             }
             if !handActive {
-                map[voiceIndex] = Color.gray.opacity(0.3)
+                // 不能太浅：白底上 0.3 透明度的灰约 85% 亮度，音符等于消失了（真机反馈）。
+                // 用不透明中灰，既明显淡出又保持可读。
+                map[voiceIndex] = Color(white: 0.58)
             } else if playedNoteIDs.contains(where: { $0.voiceIndex == voiceIndex }) {
                 map[voiceIndex] = Color.amber
             }
