@@ -2,6 +2,19 @@
 
 纯自用钢琴自学陪练 app（iPhone / iOS 17+ / SwiftUI + SwiftData）。产品与设计真值见 `docs/`。
 
+## 当前状态（2026-11-17）
+
+| 项 | 值 |
+|---|---|
+| 版本 | 1.0.0（`MARKETING_VERSION` 单一来源） |
+| 代码规模 | 125 个 Swift 文件 / 约 4.4 万行 |
+| 测试 | **931 / 0**（67 个测试文件，模拟器 `iPhone 17`） |
+| 随包谱 | **127 份**：拜厄 106/106、哈农 20/20、车尔尼599 **1/10** |
+| 页面 | Onboarding / Today / Library / Practice / Archive / Notes / EarTraining / AI / Settings |
+| 未完成 | 599 No.2–10（待导出）；指法数据源（P17）；深色谱面（P16） |
+
+进度与待办唯一登记本：`docs/backlog.md`（含逐批变更记录）。待补项都在那里的表格里。
+
 ## 构建
 
 工程由 [XcodeGen](https://github.com/yonaskolb/XcodeGen) 从 `project.yml` 生成（先 `brew install xcodegen`）：
@@ -42,6 +55,22 @@ swiftc -swift-version 5 -warnings-as-errors $(find PianoSempai -name '*.swift') 
 > 1+2 也可直接跑 `Scripts/build.sh`（自动选第一台已 boot 的 iPhone，或用 `SIM_ID=` 覆盖）。
 > 部署目标仍是 iOS 17.0，模拟器版本不影响构建口径；只有 3) 完全不依赖模拟器。
 
+### 构建卡住时（实测过两次）
+
+`xcodebuild` 长时间停在 `PruneExplicitPrecompiledModules` / `diskimagesiod` 占满 CPU，
+或测试报 `The test runner hung before establishing connection`——这不是代码问题，
+是本机模拟器子系统卡死。依次执行：
+
+```bash
+pkill -9 -f xcodebuild
+xcrun simctl shutdown all
+killall -9 com.apple.CoreSimulator.CoreSimulatorService
+sleep 10 && xcrun simctl boot <SIM_ID> && sleep 20
+```
+
+再用 `uptime` 确认负载回落（正常 < 20；曾出现 load 283 是残留 app 在模拟器里空转）。
+`timeout` 在 macOS 上不存在（`exit 127`），别用它包 xcodebuild。
+
 ## 目录
 
 ```
@@ -55,6 +84,39 @@ PianoSempai/
   Resources/           # Assets.xcassets、示例 MusicXML 等
 Tests/PianoSempaiTests/
 docs/                  # PRD、P1 brief、视觉系统、画布 spec、数据契约
+```
+
+## DEBUG 调试入口（Release 编译期剔除）
+
+真机上不点屏幕就能进到指定状态，用于核对谱面/判分链路：
+
+```bash
+# 直达练习室预览随包谱（book 可写中文教材名）
+xcrun devicectl device process launch --device <UDID> com.eeexu.pianosempai \
+  --ui.practice c599:1 --ui.simulated
+```
+
+| 参数 | 作用 |
+|---|---|
+| `--ui.practice <book>:<number>` | 直接打开练习室并加载该随包谱（如 `c599:1`、`拜厄:1`） |
+| `--ui.simulated` | 切到模拟 MIDI 源（真琴不在手边时验证谱面/跟随） |
+| `--ui.hand both\|right\|left` | 初始分手态（核对左右手着色） |
+| `--ui.tab.<tab>` | 启动后停在指定 tab：`library` / `practice` / `archive` / `settings` |
+| `--ui.skipOnboarding` | 跳过引导 |
+
+## 真机截屏（不用手点）
+
+```bash
+xcrun devicectl device capture screenshot --device <UDID> --destination /tmp/s.png
+```
+
+注意：**iPhone 镜像（Mac 上的「iPhone 镜像」App）占用手机时，手机本体永远停在锁屏**，
+此时 `devicectl` 只能截到锁屏。两条路：
+1. 退出镜像并解锁手机，直接 `devicectl` 截图；
+2. 保持镜像，用窗口 ID 单独截取（窗口被别的 App 挡住也能截到）：
+
+```bash
+screencapture -l<窗口号> -o -x /tmp/win.png     # 窗口号用 CGWindowListCopyWindowInfo 查
 ```
 
 ## 真值与红线

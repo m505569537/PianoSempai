@@ -57,7 +57,7 @@
 |---|---|---|---|---|
 | P1 | 连续循环遍数机制（3/5 遍、8 小节格、「目标 5 遍全绿通关」面板） | S11 §5 | done | LoopConfig.targetLoopCount + completedLoopCount + auto-finish；S12 卡4「目标遍数」chip（不限/3/5）；练习室顶栏副行「X/Y 遍」+ 循环格 badge；面板纯展示不碰过关判定。+11 测试，755/0。2026-10-30 增补：目标遍数新增 10 遍档、5 分钟档目标（达标后完整收尾遍）a77cdad + 03156b1。 |
 || P2 | 已弹音符琥珀着色（逐音符命中态） | S11 §4.3 | done | Stage A（App 层接线）+ Stage B（cursor-driven referenceNotes 过滤）双落地：PracticeScoreScrollView 内部维护 referenceNotes/playedNoteIDs；cursor 变化时过滤 referenceNotes 计算 playedNoteIDs；ScoreView 传入 selectionForPlayedNotes() + voiceColorsForPlayedNotes()（amber）。真实演奏时 cursor 基于 .beat(measureIndex, tickInMeasure)，近似标记已过音符；精确命中后续接 NoteAligner 实时结果。e59ba5a，2026-10-15 完成。 |
-| P3 | 分手能力（双手 / 右手 / 左手） | S11 §6.1 | done | 练习室顶栏新增 hand mode chip group（双手 / 右手 / 左手）；PracticeScoreScrollView 接收 HandMode 并按 voice→hand 映射着色：非激活 hand 整组变灰（gray/30%），激活 hand 内已弹音符琥珀（P2 复用）。HandMode 枚举落地 ScoringModels.swift；设计坞「分手」格可接入。75a1a3b，2026-10-15 完成。 |
+| P3 | 分手能力（双手 / 右手 / 左手） | S11 §6.1 | done | 练习室顶栏新增 hand mode chip group（双手 / 右手 / 左手）；PracticeScoreScrollView 接收 HandMode 并按 voice→hand 映射着色：非激活 hand 整组变灰（gray/30%），激活 hand 内已弹音符琥珀（P2 复用）。HandMode 枚举落地 ScoringModels.swift；设计坞「分手」格可接入。75a1a3b，2026-10-15 完成。**2026-11-17 修正**：此前只有「写着」，真机点了无任何变化——引擎只在 `selection.selectedIDs` 上着色，而原实现只选已弹音符。现把非激活手全部音符放入选中集后真正生效（见变更记录 11-17 第 1 条）。 |
 | P4 | 纸内谱头 / 页脚（No.45、速度术语、「双手协同」chip、左手提示、Op. 标记、版权/来源） | S11 §4.2/4.4 | done | Layer 1（App 层叠加）已落地：header 显示编号/速度术语/双手 chip/Op. tag/左手提示；footer 显示页码+版权/来源 chip（copyrightNotice）+ 曲目引用。Piece 新增 opusTag/leftHandNote/copyrightNotice；CatalogEntry/ensurePiece 接通；BuiltinCatalog.json 已填入 Op.101/Op.1 + Public Domain。左手提示真实数据留待产品录入。双手协同真实判分等 P3。0ec8749 + 2c83174 + 20d6358 + 9e1eb21 + 0f448a8 + 9f7089c，2026-10-15。**2026-11-17 撤回**：真机实测这些叠加会压住第一行/最后一行音符，且曲目编号与速度在顶栏副行已有；纸内谱头与页脚已整段删除，信息位让给谱面。 |
 | P5 | 预备拍控件格（hourglass，档显 1 小节） | S11b §6.1 | done | count-in 逻辑已有（LoopConfig.countIn + MetronomeService.countInBars），本次补坞内第 2 格「预备拍」控件（ON 显琥珀高亮，OFF 置灰）。0fca3d4，2026-10-12 完成。 |
 | P8 | S11b 断点坐标细节（「21▾」下拉、「断点已缓存」字样） | S11b §5 | done | 产品确认：维持现状，只显遮罩文案，不做坐标下拉/缓存字样。2026-10-12 确认。 |
@@ -217,35 +217,32 @@
 ---
 
 ## 变更记录
-- 2026-11-17（指法诚实禁用 + 已 push，931/0）：
-  1. **「指法」按钮点了没反应，根因是没有数据源**：`swift-sheet-music` 的 MusicXML 导入器
-     不解析 `<fingering>`/`<technical>`（全包只有 MSCX 解码器支持），而随包 14 份谱全是 MusicXML。
-     `c599_01` 里 `<fingering>` 数量为 0，拜厄虽然 XML 里写了 4–16 个，同样被导入器丢弃。
-     现由谱面滚动视图在 `rebuild()` 里用 `FingeringAnnotationBuilder` 实测有无标注并回报，
-     练习室据此禁用 chip + 显示「这条谱没有指法标注」，换谱时自动复位开关。
-  2. 待办 **P17 指法数据源** 已登记（需自建 MusicXML 指法解析或改 MSCX 母版）。
-- 2026-11-17（谱面对齐 + 居中 + 纸色，931/0）：
-  1. **三行谱表对齐**：引擎 `firstSystemIndent=4sp` / `continuationSystemIndent=2sp` 让首行比后续行各向内缩一截（真机表现为「第一行和下面几行对不齐」）。两者归零后逐像素实测三行 L=48 / R=621 完全一致。
-  2. **左右居中**：每行左端要为小节号（1/5/9…）留一道 gutter，右侧没有对应物，实测卡片内左留白 29px / 右 9px（偏右约 12pt）。注意**不能用 padding 补**——文档宽度是固定值，padding 只在外围加空白，动不了谱面位置；改为把传给 `rebuild` 的布局宽度收窄 12pt。修后左 29 / 右 28。
-  3. **纸色与深色框架协调**：`#FBF8F2` 近纯白，在黑色界面里像发光板，调成偏暖的 `#EEE7D8`，描边同步到 `#D8CEB8`。
-  4. **修掉配色改动暴露的接缝**：`PracticeScoreScrollView.paper`（用于 `colorMultiply` 叠染引擎白底）与 `PracticeRoomView.s11Paper` 是两个独立字面量，只改卡片会露出「暖色卡 + 纯白谱面」的接缝。现两处对齐，实测像素一致（237,231,216）。
-  5. **循环/等待点了不刷新**：`PracticeSession.mode` 漏标 `@Published`，改值不触发 `objectWillChange`，胶囊选中态要等别的状态变化才跟着更新。
-  6. **分手灰太浅**：非激活手原用 `Color.gray.opacity(0.3)`，白底上约 85% 亮度，等于让音符消失；改为不透明 `Color(white: 0.58)`。
-  7. **分手真正生效**：引擎 `ScoreLayerBuilder` 只在 `newSelection.selectedIDs` 上着色，`voiceColors` 只决定「选中项用什么色」。原实现只选已弹音符，未弹音符不参与着色，所以切右手/左手毫无变化。改为把非激活手全部音符放入选中集；并给第 N 个谱表逐小节补 N 个空声部，解决单 part 双谱表 voiceIndex 冲突。
-  另有待办 **P16 深色谱面** 已登记（本轮不做）。
-- 2026-11-14?（分手真正生效 + 谱面留白回调，931/0）：
-  1. **分手（右手/左手）此前点了没反应，根因在引擎语义**：`ScoreLayerBuilder` 的上色只作用于
-     `newSelection.selectedIDs`，`voiceColors` 只是「选中项用什么色」。原实现只把已弹音符放进
-     选中集，未弹的音符根本不参与着色，所以切右手/左手画面上毫无变化。
-     现改为：分手模式下把**非激活手的全部音符**显式放进选中集，并由 `voiceColors` 给它们灰色。
-     配套修掉 voiceIndex 跨谱表冲突（引擎 `voiceColors: [Int: Color]` 没有 staff 维度，
-     单 part 双谱表两个谱表都是 0 号声部会互相覆盖；给第 N 个谱表逐小节补 N 个空声部顶开索引）。
-  2. **谱面留白回调**：上一版为省宽度去掉整个纸卡，白底直贴屏幕边缘与工具条，成了一块硬白板。
-     现左右 12pt + 内侧 6pt、上下 8pt、圆角 12（continuous）+ 1pt 极轻描边；systemGap 40 → 28。
-     相比最初 32pt/侧，仍多省 20pt/侧。
-- 2026-11-17（顶栏打磨 + 设备名去硬编码，926→931/0）：
-  1. **曲名真正居中**：原来标题夹在两个 Spacer 之间，左侧胶囊比右侧按钮宽，标题只会被推到偏右。改用 ZStack 居中 + 宽度按净空限死 170pt（超长居中截断）。为腾出净空，左侧胶囊瘦身：「问 Neko」→ 只留猫形图标（文案进无障碍标签）、「MIDI 已连接」→「MIDI」+ 琥珀点。
-  2. **设备名不再写死「特伦斯 V70」**：`MIDIDeviceLabel` 原先真机分支硬编码型号，换任何一台电钢都会显示 V70（也违反红线 2 的「不许编造设备」）。现一律取 CoreMIDI 上报的端点名，取不到回落「电钢琴」；模拟源恒为「模拟输入」。`TodayView.midiStatusText` 同步改用同一回落规则。测试重写并新增护栏 `testNoPathInventsTerranceV70WithoutDeviceReporting`：设备未上报时，任何标签路径都不得出现「特伦斯」。
+- 2026-11-17（练习室谱面/控制器一批修正 + 文档同步，926→931/0）：真机逐条反馈驱动。
+  1. **分手点了没反应（根因在引擎语义）**：`ScoreLayerBuilder` 的上色只作用于
+     `newSelection.selectedIDs`，`voiceColors` 只决定「选中项用什么色」。原实现只把**已弹**音符
+     放进选中集，未弹音符根本不参与着色，所以切右手/左手画面毫无变化。现改为分手模式下把
+     **非激活手的全部音符**显式放进选中集；并给第 N 个谱表逐小节补 N 个空声部，
+     解决「单 part 双谱表」voiceIndex 冲突（引擎 `voiceColors: [Int: Color]` 没有 staff 维度）。
+  2. **分手灰太浅**：非激活手原用 `Color.gray.opacity(0.3)`，白底上约 85% 亮度，等于让音符消失；
+     改为不透明 `Color(white: 0.58)`。
+  3. **循环/等待点了不刷新**：`PracticeSession.mode` 漏标 `@Published`，改值不触发
+     `objectWillChange`，胶囊选中态要等别的状态变化才跟着更新。
+  4. **三行谱表对齐**：引擎 `firstSystemIndent=4sp` / `continuationSystemIndent=2sp` 让首行
+     比后续行各向内缩一截。两者归零后逐像素实测三行 L=48 / R=621 完全一致。
+  5. **左右居中**：每行左端要为小节号留一道 gutter，右侧无对应物，实测卡片内左 29px / 右 9px。
+     **不能用 padding 补**——文档宽度是固定值，padding 只在外围加空白；改为收窄传给
+     `rebuild()` 的布局宽度 12pt。修后左 29 / 右 28。
+  6. **纸色与深色框架协调**：`#FBF8F2` 近纯白像发光板，调成 `#EEE7D8`，描边同步 `#D8CEB8`；
+     同时修掉 `PracticeScoreScrollView.paper` 与 `PracticeRoomView.s11Paper` 两个独立字面量
+     造成的「暖色卡 + 纯白谱面」接缝。
+  7. **谱面控件移出纸卡 + 删纸内叠加**：简谱/指法原为纸内 overlay，实测盖住第 3–4 小节音符；
+     纸内谱头/页脚（第N条、♩=速度、双手、共N行）同样压住首末行。全部移出/删除。
+  8. **指法按钮诚实禁用**：引擎的 MusicXML 导入器不解析 `<fingering>`（只有 MSCX 解码器支持），
+     随包 127 份谱全是 MusicXML → 该开关永远画不出东西。现由 `FingeringAnnotationBuilder`
+     实测有无标注并回报，无标注则禁用 chip + 显示「这条谱没有指法标注」。见 P17。
+  9. 新增待办 **P16 深色谱面**、**P17 指法数据源**；本批 11 个 commit 已 push 到 `main`。
+  10. 决策沉淀成 **ADR-0015**（练习室谱面排版 + 「控件必须真生效」不变量）；README 补当前状态、
+      DEBUG 调试入口、真机截屏与构建卡死处置；验收手册基线 914 → 931。
 - 2026-11-16（车尔尼599 接入 + 练习室谱面布局修复，926/0）：真机实测反馈驱动的一批修复。
   1. **599 第 1 首接入**：`Resources/BundledScores/c599_01.musicxml`（MuseScore 导出，公版 Czerny）+ `BundledScore.czerny599BundledNumbers: Set<Int> = [1]`——只有真落盘的编号才报可用，未配谱条目继续诚实 `nil`。新增不变量测试 `testEveryDeclaredCzerny599NumberExistsInBundle`（声明了却没文件会立刻红）。配套 `Scripts/import_bundled_scores.py`（.mxl 解包 / 编号推断 / 结构校验）与 `docs/bundled-scores.md`。
   2. **顶栏改两行**：原来一行塞 7 个元素（Neko + MIDI + 循环/等待 2 胶囊 + 双手/右手/左手 3 胶囊 + 标题 + 录像 + 关闭），390pt 宽装不下 → 胶囊被压成空壳、标题截成「Cz…」。现主行只放身份/标题/动作，模式与分手下沉第二行。
@@ -255,7 +252,7 @@
   6. **示范播放不点亮「已弹」**：原来「已弹」琥珀色由光标驱动，示范播放时播放器推光标 → 没弹过的音符也变色。现示范期间一律不点亮。
   7. **无输入不落库**：退出练习室时若 `session.playedNotes` 为空，直接关闭不产生 take；有输入时对话框新增「放弃本次（不保存）」。
   **澄清**：599 第 1 首两个谱表都是高音谱号，经 MuseScore 原版比对确认**谱源本身如此、不是错谱**（此前一度误判为谱号错误，已撤回）。**新增 DEBUG-only 入口**：`--ui.practice <book>:<number>` 直达练习室、`--ui.simulated` 用模拟 MIDI 源，便于真机/模拟器核对谱面（Release 编译期剔除）。
-- 2026-11-12（工程加固批次，914→924/0）：修 4 项真风险 + 5 处工程卫生，**无产品行为变更、无新页面**。- 2026-11-12（工程加固批次，914→924/0）：修 4 项真风险 + 5 处工程卫生，**无产品行为变更、无新页面**。
+- 2026-11-12（工程加固批次，914→924/0）：修 4 项真风险 + 5 处工程卫生，**无产品行为变更、无新页面**。
   1. **档案页性能**：`ArchiveView` 的 `VStack` → `LazyVStack`。原来 `ScrollView { VStack { ForEach(takes) } }` 会在进页时一次性实例化全部 take 行（按每天 2–3 条、两年即上千条）。改为按需构建，`@Query` 与筛选口径不动。
   2. **自动快照兜底**：新增 `Services/AutoSnapshot.swift`——练习数据只存本机、无 iCloud 同步，此前只有手动导出，换机/重装即全丢。现每周自动打一份**不含视频**的完整 zip（`exports/auto-snapshot-yyyyMMdd-HHmmss.zip`），滚动保留 3 份；清理只认 `auto-snapshot-` 前缀，**绝不误删**手动导出的 `pianosempai-export-*` 与恢复前快照。启动时在 `RootView.task` 触发，失败静默下次重试（不写 lastRun，不谎称成功）。设置页「数据」新增「自动备份」行显示最近一次日期（无则「本周内自动」）。
   3. **触觉反馈**：新增 `DesignSystem/Haptics.swift`（仓内此前 0 处 haptics）。接在练习室：节拍器每拍（含预备拍，随 `MetronomeService.onBeat`）、遍数达标、等待模式弹对/弹错、会话收尾。服务层保持纯逻辑不收口 UIKit，模拟器自动 no-op。
