@@ -215,6 +215,9 @@
 ---
 
 ## 变更记录
+- 2026-11-17（顶栏打磨 + 设备名去硬编码，926→931/0）：
+  1. **曲名真正居中**：原来标题夹在两个 Spacer 之间，左侧胶囊比右侧按钮宽，标题只会被推到偏右。改用 ZStack 居中 + 宽度按净空限死 170pt（超长居中截断）。为腾出净空，左侧胶囊瘦身：「问 Neko」→ 只留猫形图标（文案进无障碍标签）、「MIDI 已连接」→「MIDI」+ 琥珀点。
+  2. **设备名不再写死「特伦斯 V70」**：`MIDIDeviceLabel` 原先真机分支硬编码型号，换任何一台电钢都会显示 V70（也违反红线 2 的「不许编造设备」）。现一律取 CoreMIDI 上报的端点名，取不到回落「电钢琴」；模拟源恒为「模拟输入」。`TodayView.midiStatusText` 同步改用同一回落规则。测试重写并新增护栏 `testNoPathInventsTerranceV70WithoutDeviceReporting`：设备未上报时，任何标签路径都不得出现「特伦斯」。
 - 2026-11-16（车尔尼599 接入 + 练习室谱面布局修复，926/0）：真机实测反馈驱动的一批修复。
   1. **599 第 1 首接入**：`Resources/BundledScores/c599_01.musicxml`（MuseScore 导出，公版 Czerny）+ `BundledScore.czerny599BundledNumbers: Set<Int> = [1]`——只有真落盘的编号才报可用，未配谱条目继续诚实 `nil`。新增不变量测试 `testEveryDeclaredCzerny599NumberExistsInBundle`（声明了却没文件会立刻红）。配套 `Scripts/import_bundled_scores.py`（.mxl 解包 / 编号推断 / 结构校验）与 `docs/bundled-scores.md`。
   2. **顶栏改两行**：原来一行塞 7 个元素（Neko + MIDI + 循环/等待 2 胶囊 + 双手/右手/左手 3 胶囊 + 标题 + 录像 + 关闭），390pt 宽装不下 → 胶囊被压成空壳、标题截成「Cz…」。现主行只放身份/标题/动作，模式与分手下沉第二行。

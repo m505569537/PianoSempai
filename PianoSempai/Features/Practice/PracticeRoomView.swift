@@ -334,16 +334,20 @@ struct PracticeRoomView: View {
         // 两行：主行只放「身份 + 标题 + 动作」，模式/分手胶囊下沉到第二行。
         // 单行塞 7 个元素时 iPhone 竖屏装不下——实测胶囊被压成空壳、标题截成「Cz…」。
         VStack(spacing: 7) {
-            HStack(spacing: 8) {
-                nekoPill
-                midiPill
-                Spacer(minLength: 8)
+            // 标题用 ZStack 真正居中（而不是夹在两个 Spacer 之间——左侧胶囊更宽，
+            // 那样只会把标题推到偏右）。两侧控件浮在上层，标题宽度按剩余净空限死。
+            ZStack {
                 headerTitle
-                    .layoutPriority(1)
-                Spacer(minLength: 8)
-                // TODO: equalizer (mix) — pending product
-                recordingButton
-                closeButton
+                    .frame(maxWidth: 170)
+                    .multilineTextAlignment(.center)
+                HStack(spacing: 8) {
+                    nekoPill
+                    midiPill
+                    Spacer(minLength: 0)
+                    // TODO: equalizer (mix) — pending product
+                    recordingButton
+                    closeButton
+                }
             }
             HStack(alignment: .top, spacing: 10) {
                 practiceModePicker
@@ -370,21 +374,22 @@ struct PracticeRoomView: View {
         Button {
             showNekoChat = true
         } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "cat")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.amber)
-                Text("问 Neko")
-                    .font(.system(size: 11, design: .serif))
-                    .foregroundStyle(Color.textPrimary.opacity(0.9))
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            // 只留猫形图标：顶部主行要留给居中的曲名，胶囊越窄标题越宽。
+            // 文案退到无障碍标签，VoiceOver 仍读「问 Neko」。
+            Image(systemName: "cat")
+                .font(.system(size: 14))
+                .foregroundStyle(Color.amber)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
             .background(Color.white.opacity(0.05), in: Capsule())
             .overlay(Capsule().strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
+            // 标题很长（导入曲的 title 是整串曲名）时，胶囊必须先保住自己的固有宽度，
+            // 让标题去截断；否则文字被压成 0 宽后换行，胶囊会被撑成一根竖条。
+            .fixedSize(horizontal: true, vertical: false)
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("问 Neko")
     }
 
     /// MIDI 已连接 pill：纯状态展示（是否进 S24 诊断待产品确认，故不做成按钮、不留死按钮）。
@@ -393,14 +398,18 @@ struct PracticeRoomView: View {
             Circle()
                 .fill(Color.amber)
                 .frame(width: 6, height: 6)
-            Text("MIDI 已连接")
+            Text("MIDI")
                 .font(.system(size: 10.5, weight: .medium))
                 .foregroundStyle(Color.amber.opacity(0.9))
+                .lineLimit(1)
+                .fixedSize()
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(Color.card, in: Capsule())
         .overlay(Capsule().strokeBorder(Color.amber.opacity(0.25), lineWidth: 1))
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityLabel("MIDI 已连接")
     }
 
     /// G10 模式胶囊：循环 / 等待（ADR-0013 决策一/五）。
@@ -635,11 +644,11 @@ struct PracticeRoomView: View {
     }
 
     /// 已进入练习室后的「等待重连」文案（谱纸卡遮罩居中卡用）。
-    /// 红线 2：模拟源永不冒充真机 V70。`MIDIDeviceLabel.waitingText(.disconnected)` 恒返回 V70，
-    /// 故这里按当前 mode 分派到对应标签态，仍整套复用 MIDIDeviceLabel 的文案来源（不硬编码设备名）。
+    /// 红线 2：模拟源永不冒充真机。文案整套来自 MIDIDeviceLabel，
+    /// 真机名取 CoreMIDI 上报的端点名（拿不到回落「电钢琴」），任何路径都不写死型号。
     private var waitingText: String {
         let state: MIDIDeviceLabel.State = hub.mode == .simulated ? .simulatedConnected : .disconnected
-        return MIDIDeviceLabel.waitingText(for: state)
+        return MIDIDeviceLabel.waitingText(for: state, deviceName: hub.connectedDeviceName)
     }
 
     /// 断连三段式顶栏（真值 §3）：左返回｜中 serif 标题（真实数据）＋ Take 副行｜

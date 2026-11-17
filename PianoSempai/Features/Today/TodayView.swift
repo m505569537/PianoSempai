@@ -289,11 +289,12 @@ struct TodayView: View {
         }
     }
 
-    /// 真值文案顺序为「已连接 · 特伦斯 V70」；`MIDIDeviceLabel.label(for:)` 是反序，
-    /// 故只复用它的**状态判定**（同一诚实来源），本地组句。
+    /// 真值文案顺序为「已连接 · 设备名」；`MIDIDeviceLabel.label(for:)` 是反序，
+    /// 故只复用它的**状态判定**与**设备名回落规则**（同一诚实来源），本地组句。
+    /// 设备名取 CoreMIDI 上报的真实端点名，不写死型号。
     private var midiStatusText: String {
         switch MIDIDeviceLabel.state(isConnected: midi.isConnected, mode: midi.mode) {
-        case .realConnected: "已连接 · 特伦斯 V70"
+        case .realConnected: "已连接 · \(MIDIDeviceLabel.realDeviceName(midi.connectedDeviceName))"
         case .simulatedConnected: "已连接 · 模拟输入"
         case .disconnected: "未连接"
         }
@@ -1256,7 +1257,9 @@ private struct S07bEmptyState: View {
                 .fill(tint)
                 .frame(width: 6, height: 6)
                 .opacity(dotPulse ? 0.45 : 1)
-            Text(midi.isConnected ? MIDIDeviceLabel.label(for: state) : MIDIDeviceLabel.waitingText(for: state))
+            Text(midi.isConnected
+                 ? MIDIDeviceLabel.label(for: state, deviceName: midi.connectedDeviceName)
+                 : MIDIDeviceLabel.waitingText(for: state, deviceName: midi.connectedDeviceName))
                 .font(.system(size: 11, weight: .medium))
                 .tracking(0.3)
                 .foregroundStyle(tint)
