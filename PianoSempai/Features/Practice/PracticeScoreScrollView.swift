@@ -131,8 +131,9 @@ struct PracticeScoreScrollView: View {
                 }
                 // 纸内页脚同上去掉：「共 N 行」属于噪音且会压最后一行谱。
             }
-            // 无纸内页脚了，上下只留一点点呼吸，把高度也让给谱面
+            // 卡片内侧留白：谱号/小节号不要贴死纸边（外侧 12pt 由练习室给）
             .padding(.vertical, 6)
+            .padding(.horizontal, 6)
         } else {
             ProgressView().frame(maxWidth: .infinity, minHeight: 160)
         }
@@ -147,6 +148,8 @@ struct PracticeScoreScrollView: View {
         // break 徽章关掉：换行是 App 层注入的显示偏好，不是原稿标记，画 ↩ 提示标是噪音。
         var options = ScoreViewOptions(staffSize: staffSize, wrapToViewWidth: true, breakPolicy: .honor)
         options.breakIndicatorVisibility = .none
+        // 引擎默认 systemGap 40pt，手机竖屏下显得空；28 更紧凑但仍能一眼分开两行
+        options.systemGap = 28
         return options
     }
 

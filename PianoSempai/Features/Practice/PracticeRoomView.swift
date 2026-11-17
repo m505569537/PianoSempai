@@ -957,10 +957,16 @@ struct PracticeRoomView: View {
                     .frame(maxWidth: .infinity, minHeight: 120)
             }
         }
-        // 2026-11-17：去掉纸卡外框（圆角/描边/阴影/12pt 内边距）。
-        // 手机竖屏本来就窄，再套一圈 12+20pt 边框等于白扔约 64pt 宽度；
-        // 谱面直接吃满屏宽。引擎自己画白色纸底，不需要我们再垫一层。
-        .padding(.vertical, 6)
+        // 纸面留白（2026-11-17 二改）：贴边到底会变成一块硬白板——左右各留 12pt、
+        // 上下各 8pt 呼吸，圆角 12 + 极轻描边，读起来才像“谱纸”而不是贴图。
+        // 相比原来 12(内)+20(列)=32pt/侧，仍多省下 20pt/侧给谱面。
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.s11Paper, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.s11PaperBorder, lineWidth: 1)
+        )
         // S11b：断连时只把遮罩盖在这张纸卡上（真值 §5.3），不动顶栏/控件/诊断卡的热区。
         // Fix：遮罩是「谱」的 overlay——无谱时（ProgressView / 真实 loadError）绝不盖住。
         .overlay {
