@@ -79,9 +79,9 @@ struct PracticeScoreScrollView: View {
                 // iOS 26 ScrollView 默认会给滚动边缘加自动渐隐效果（内容淡入深色底层），
                 // 在纸卡内表现为谱面上下两道灰色阴影带——练习室谱面不需要，全部关掉。
                 .modifier(ScrollEdgeEffectHiddenAll())
-                .onAppear { rebuild(width: proxy.size.width) }
-                .onChange(of: proxy.size.width) { _, w in rebuild(width: w) }
-                .onChange(of: measuresPerLine) { _, _ in rebuild(width: proxy.size.width) }
+                .onAppear { rebuild(width: layoutWidth(proxy.size.width)) }
+                .onChange(of: proxy.size.width) { _, w in rebuild(width: layoutWidth(w)) }
+                .onChange(of: measuresPerLine) { _, _ in rebuild(width: layoutWidth(proxy.size.width)) }
                 // 简谱/指法开关已移到纸卡上方的工具条（见 PracticeRoomView.scoreToolbar）：
                 // 贴在谱面内部必然盖住小节内容，实测会挡住第 3–4 小节的音符。
             }
@@ -139,6 +139,16 @@ struct PracticeScoreScrollView: View {
         } else {
             ProgressView().frame(maxWidth: .infinity, minHeight: 160)
         }
+    }
+
+    /// 引擎在每行左端为小节号（1/5/9…）留了一道 gutter，右侧没有对应物，
+    /// 实测内容整体偏右约 12pt（卡片内左留白 29px / 右 9px）。把布局宽度收窄同样的量，
+    /// 让谱面在卡片里视觉居中。注意不能用 padding 补——文档宽度是固定值，
+    /// padding 只会在外围加空白，动不了谱面本身的位置。
+    private static let measureNumberGutter: CGFloat = 12
+
+    private func layoutWidth(_ containerWidth: CGFloat) -> CGFloat {
+        max(containerWidth - Self.measureNumberGutter, options.staffSize * 4)
     }
 
     private var options: ScoreViewOptions {

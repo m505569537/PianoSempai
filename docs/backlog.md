@@ -58,13 +58,14 @@
 | P1 | 连续循环遍数机制（3/5 遍、8 小节格、「目标 5 遍全绿通关」面板） | S11 §5 | done | LoopConfig.targetLoopCount + completedLoopCount + auto-finish；S12 卡4「目标遍数」chip（不限/3/5）；练习室顶栏副行「X/Y 遍」+ 循环格 badge；面板纯展示不碰过关判定。+11 测试，755/0。2026-10-30 增补：目标遍数新增 10 遍档、5 分钟档目标（达标后完整收尾遍）a77cdad + 03156b1。 |
 || P2 | 已弹音符琥珀着色（逐音符命中态） | S11 §4.3 | done | Stage A（App 层接线）+ Stage B（cursor-driven referenceNotes 过滤）双落地：PracticeScoreScrollView 内部维护 referenceNotes/playedNoteIDs；cursor 变化时过滤 referenceNotes 计算 playedNoteIDs；ScoreView 传入 selectionForPlayedNotes() + voiceColorsForPlayedNotes()（amber）。真实演奏时 cursor 基于 .beat(measureIndex, tickInMeasure)，近似标记已过音符；精确命中后续接 NoteAligner 实时结果。e59ba5a，2026-10-15 完成。 |
 | P3 | 分手能力（双手 / 右手 / 左手） | S11 §6.1 | done | 练习室顶栏新增 hand mode chip group（双手 / 右手 / 左手）；PracticeScoreScrollView 接收 HandMode 并按 voice→hand 映射着色：非激活 hand 整组变灰（gray/30%），激活 hand 内已弹音符琥珀（P2 复用）。HandMode 枚举落地 ScoringModels.swift；设计坞「分手」格可接入。75a1a3b，2026-10-15 完成。 |
-| P4 | 纸内谱头 / 页脚（No.45、速度术语、「双手协同」chip、左手提示、Op. 标记、版权/来源） | S11 §4.2/4.4 | done | Layer 1（App 层叠加）已落地：header 显示编号/速度术语/双手 chip/Op. tag/左手提示；footer 显示页码+版权/来源 chip（copyrightNotice）+ 曲目引用。Piece 新增 opusTag/leftHandNote/copyrightNotice；CatalogEntry/ensurePiece 接通；BuiltinCatalog.json 已填入 Op.101/Op.1 + Public Domain。左手提示真实数据留待产品录入。双手协同真实判分等 P3。0ec8749 + 2c83174 + 20d6358 + 9e1eb21 + 0f448a8 + 9f7089c，2026-10-15。 |
+| P4 | 纸内谱头 / 页脚（No.45、速度术语、「双手协同」chip、左手提示、Op. 标记、版权/来源） | S11 §4.2/4.4 | done | Layer 1（App 层叠加）已落地：header 显示编号/速度术语/双手 chip/Op. tag/左手提示；footer 显示页码+版权/来源 chip（copyrightNotice）+ 曲目引用。Piece 新增 opusTag/leftHandNote/copyrightNotice；CatalogEntry/ensurePiece 接通；BuiltinCatalog.json 已填入 Op.101/Op.1 + Public Domain。左手提示真实数据留待产品录入。双手协同真实判分等 P3。0ec8749 + 2c83174 + 20d6358 + 9e1eb21 + 0f448a8 + 9f7089c，2026-10-15。**2026-11-17 撤回**：真机实测这些叠加会压住第一行/最后一行音符，且曲目编号与速度在顶栏副行已有；纸内谱头与页脚已整段删除，信息位让给谱面。 |
 | P5 | 预备拍控件格（hourglass，档显 1 小节） | S11b §6.1 | done | count-in 逻辑已有（LoopConfig.countIn + MetronomeService.countInBars），本次补坞内第 2 格「预备拍」控件（ON 显琥珀高亮，OFF 置灰）。0fca3d4，2026-10-12 完成。 |
 | P8 | S11b 断点坐标细节（「21▾」下拉、「断点已缓存」字样） | S11b §5 | done | 产品确认：维持现状，只显遮罩文案，不做坐标下拉/缓存字样。2026-10-12 确认。 |
 | P12 | S12 错误热点数据源（解锁「错误热点」chip + 小节条热点标记） | S12 §5.2/5.3 | done | 数据源已接：`TakeAnalysis.hotspotMeasures` 单条最新分析不跨 take 聚合；详情页「只练错误热点」chip + C5「针对问题小节发起专项循环」CTA 启用，进房锁定循环区间（同 G3 矫正进房 `CorrectionEngine.initialLoopRange`）。+4 测试，759/0。 |
 | P13 | S12 sheet 传入曲目名（卡1 右注「曲目：xx」） | S12 §5 | done | sheet 加 pieceTitle，右注「曲目：xx · 共 N 小节」，抽出可测 rightCaption；空曲名只显小节，占位「练习」映射回空串。+2 测试，744/0。 |
 | P14 | S12 全屏 sheet vs 底部抽屉形态裁定 | S12 §1 | done | 产品确认：改为 390×844 整屏 sheet（与真值对齐）。2026-10-12 确认。 |
 | P11 | 速度长按连改、速度自适应 toast、时间到自动保存底部条 | S11 §8 | done | 产品确认：维持现状，等真值画出后再做。2026-10-12 确认。 |
+| P16 | 深色谱面（黑底浅色符头，与深色界面完全融合） | 2026-11-17 真机反馈 | pending | 反馈"整个框架都是黑色，但谱面却又是相对的亮色，不够协调"。本轮先以**降低纸色亮度**（#FBF8F2 → #EEE7D8）缓解，未做反色。技术路径：引擎画布是固定"白底黑墨"，可用 `colorInvert()` 把白→黑、黑→白，再用 `colorMultiply` 叠暖色得到"深底浅符头"；需评估反色对视谱习惯的影响，建议做成「我的 → 显示」开关而非默认。产品明确：**暂不做**，记录备查。 |
 | P15 | 练习室 MetronomeService 直接触发 SineBeep（把 Timer 每拍改走 `SineBeepAudioUnit.triggerNote`，与示范 click 统一到同一合成实现） | 2026-10-09 Stage B | done | MetronomeService 走 SineBeepAudioUnit.triggerNote + async preload + sineBuffer fallback；TakeAnalysisService 新增 formatTakeTime；S13bMarkSheet 显式 init 暴露 takeTime；PracticeRoomView/TakeReportView 接线。P15 commit + M4 commit 双绿，766/0。2026-10-15 完成。 |
 
 已完成（从原 backlog 移除）：暂停语义 pause/继续、识别中状态指示、纸张卡视觉（纸色/圆角/边框/阴影）；S11b 红色重连横幅、谱卡遮罩、诊断卡（接 MidiDiagnosticsView）、坞禁用态、断点 m.xx 文案（P6/P7/P9/P10）。
@@ -215,6 +216,15 @@
 ---
 
 ## 变更记录
+- 2026-11-17（谱面对齐 + 居中 + 纸色，931/0）：
+  1. **三行谱表对齐**：引擎 `firstSystemIndent=4sp` / `continuationSystemIndent=2sp` 让首行比后续行各向内缩一截（真机表现为「第一行和下面几行对不齐」）。两者归零后逐像素实测三行 L=48 / R=621 完全一致。
+  2. **左右居中**：每行左端要为小节号（1/5/9…）留一道 gutter，右侧没有对应物，实测卡片内左留白 29px / 右 9px（偏右约 12pt）。注意**不能用 padding 补**——文档宽度是固定值，padding 只在外围加空白，动不了谱面位置；改为把传给 `rebuild` 的布局宽度收窄 12pt。修后左 29 / 右 28。
+  3. **纸色与深色框架协调**：`#FBF8F2` 近纯白，在黑色界面里像发光板，调成偏暖的 `#EEE7D8`，描边同步到 `#D8CEB8`。
+  4. **修掉配色改动暴露的接缝**：`PracticeScoreScrollView.paper`（用于 `colorMultiply` 叠染引擎白底）与 `PracticeRoomView.s11Paper` 是两个独立字面量，只改卡片会露出「暖色卡 + 纯白谱面」的接缝。现两处对齐，实测像素一致（237,231,216）。
+  5. **循环/等待点了不刷新**：`PracticeSession.mode` 漏标 `@Published`，改值不触发 `objectWillChange`，胶囊选中态要等别的状态变化才跟着更新。
+  6. **分手灰太浅**：非激活手原用 `Color.gray.opacity(0.3)`，白底上约 85% 亮度，等于让音符消失；改为不透明 `Color(white: 0.58)`。
+  7. **分手真正生效**：引擎 `ScoreLayerBuilder` 只在 `newSelection.selectedIDs` 上着色，`voiceColors` 只决定「选中项用什么色」。原实现只选已弹音符，未弹音符不参与着色，所以切右手/左手毫无变化。改为把非激活手全部音符放入选中集；并给第 N 个谱表逐小节补 N 个空声部，解决单 part 双谱表 voiceIndex 冲突。
+  另有待办 **P16 深色谱面** 已登记（本轮不做）。
 - 2026-11-14?（分手真正生效 + 谱面留白回调，931/0）：
   1. **分手（右手/左手）此前点了没反应，根因在引擎语义**：`ScoreLayerBuilder` 的上色只作用于
      `newSelection.selectedIDs`，`voiceColors` 只是「选中项用什么色」。原实现只把已弹音符放进
