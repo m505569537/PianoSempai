@@ -54,6 +54,9 @@ struct PracticeScoreScrollView: View {
     @Binding var showNumbered: Bool
     /// G11 指法叠加开关（ADR-0014 Stage B）：同上。
     @Binding var showFingerings: Bool
+    /// 当前这份谱是否带指法标注。无指法的谱（如 599 的 MuseScore 导出）开着等于空开关，
+    /// 由练习室据此禁用「指法」chip 并说明，避免"点了没反应"。
+    @Binding var hasFingerings: Bool
 
     /// 纸张 #FBF8F2（S11 真值 §4，与 PracticeRoomView.s11Paper 同值；那边 fileprivate）。
     /// 引擎把页面背景写死为纯白且不许改包源码，故用 multiply 叠染（白×纸色=纸色，
@@ -251,6 +254,13 @@ struct PracticeScoreScrollView: View {
         // 换行/档位改变后 system 索引整体重算，强制下一次光标变化重新定位。
         lastScrolledSystem = -1
         rebuildReferenceNotes()
+        // 指法可用性：只在这里算一次并回报，练习室据此禁用空开关
+        if let document {
+            let has = !FingeringAnnotationBuilder.build(score: laid, document: document).isEmpty
+            if has != hasFingerings {
+                hasFingerings = has
+            }
+        }
     }
 
     private func rebuildReferenceNotes() {

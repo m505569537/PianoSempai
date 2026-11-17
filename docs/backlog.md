@@ -65,6 +65,7 @@
 | P13 | S12 sheet 传入曲目名（卡1 右注「曲目：xx」） | S12 §5 | done | sheet 加 pieceTitle，右注「曲目：xx · 共 N 小节」，抽出可测 rightCaption；空曲名只显小节，占位「练习」映射回空串。+2 测试，744/0。 |
 | P14 | S12 全屏 sheet vs 底部抽屉形态裁定 | S12 §1 | done | 产品确认：改为 390×844 整屏 sheet（与真值对齐）。2026-10-12 确认。 |
 | P11 | 速度长按连改、速度自适应 toast、时间到自动保存底部条 | S11 §8 | done | 产品确认：维持现状，等真值画出后再做。2026-10-12 确认。 |
+| P17 | 指法数据源缺失（随包谱画不出指法） | 2026-11-17 真机反馈 | pending | 反馈「指法按钮看着并没有用」。排查结论：**功能代码没问题，是没有数据源**——`swift-sheet-music` 的 MusicXML 导入器完全不解析 `<fingering>` / `<technical>`（全包只有 `SheetMusicMSCX` 解码器支持），而随包谱 14 份全是 MusicXML，`.musicxml` 里的 `<fingering>` 被静默丢弃。本轮改为诚实禁用：无指法的谱把「指法」chip 置灰 + 显示「这条谱没有指法标注」，换谱时自动复位。真要做：需在 App 层自建 MusicXML 指法解析，按 `<staff>/<measure>/<voice>/<element>/<note>` 顺序还原成引擎的 `NoteID` 与 `FingeringAnnotations` 对齐，或改用 MSCX 母版。 |
 | P16 | 深色谱面（黑底浅色符头，与深色界面完全融合） | 2026-11-17 真机反馈 | pending | 反馈"整个框架都是黑色，但谱面却又是相对的亮色，不够协调"。本轮先以**降低纸色亮度**（#FBF8F2 → #EEE7D8）缓解，未做反色。技术路径：引擎画布是固定"白底黑墨"，可用 `colorInvert()` 把白→黑、黑→白，再用 `colorMultiply` 叠暖色得到"深底浅符头"；需评估反色对视谱习惯的影响，建议做成「我的 → 显示」开关而非默认。产品明确：**暂不做**，记录备查。 |
 | P15 | 练习室 MetronomeService 直接触发 SineBeep（把 Timer 每拍改走 `SineBeepAudioUnit.triggerNote`，与示范 click 统一到同一合成实现） | 2026-10-09 Stage B | done | MetronomeService 走 SineBeepAudioUnit.triggerNote + async preload + sineBuffer fallback；TakeAnalysisService 新增 formatTakeTime；S13bMarkSheet 显式 init 暴露 takeTime；PracticeRoomView/TakeReportView 接线。P15 commit + M4 commit 双绿，766/0。2026-10-15 完成。 |
 
@@ -216,6 +217,13 @@
 ---
 
 ## 变更记录
+- 2026-11-17（指法诚实禁用 + 已 push，931/0）：
+  1. **「指法」按钮点了没反应，根因是没有数据源**：`swift-sheet-music` 的 MusicXML 导入器
+     不解析 `<fingering>`/`<technical>`（全包只有 MSCX 解码器支持），而随包 14 份谱全是 MusicXML。
+     `c599_01` 里 `<fingering>` 数量为 0，拜厄虽然 XML 里写了 4–16 个，同样被导入器丢弃。
+     现由谱面滚动视图在 `rebuild()` 里用 `FingeringAnnotationBuilder` 实测有无标注并回报，
+     练习室据此禁用 chip + 显示「这条谱没有指法标注」，换谱时自动复位开关。
+  2. 待办 **P17 指法数据源** 已登记（需自建 MusicXML 指法解析或改 MSCX 母版）。
 - 2026-11-17（谱面对齐 + 居中 + 纸色，931/0）：
   1. **三行谱表对齐**：引擎 `firstSystemIndent=4sp` / `continuationSystemIndent=2sp` 让首行比后续行各向内缩一截（真机表现为「第一行和下面几行对不齐」）。两者归零后逐像素实测三行 L=48 / R=621 完全一致。
   2. **左右居中**：每行左端要为小节号（1/5/9…）留一道 gutter，右侧没有对应物，实测卡片内左留白 29px / 右 9px（偏右约 12pt）。注意**不能用 padding 补**——文档宽度是固定值，padding 只在外围加空白，动不了谱面位置；改为把传给 `rebuild` 的布局宽度收窄 12pt。修后左 29 / 右 28。

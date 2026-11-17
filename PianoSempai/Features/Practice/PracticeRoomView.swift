@@ -62,6 +62,8 @@ struct PracticeRoomView: View {
     @State private var showNumbered = false
     /// G11 指法叠加（同上）
     @State private var showFingerings = false
+    /// 当前谱是否带指法标注（由谱面滚动视图算好后回报）
+    @State private var hasFingerings = false
     @State private var metronomeOn = false
     @State private var showLoopSheet = false
     @State private var finishedSummary: TakeSummary?
@@ -240,6 +242,10 @@ struct PracticeRoomView: View {
             guard let last = hub.events.last, last.id != lastHandledEventID else { return }
             lastHandledEventID = last.id
             session.handle(last)
+        }
+        // 换到一条没有指法的谱时，别把上一次打开的指法开关留在"开"上（画面上什么都没有）
+        .onChange(of: hasFingerings) { _, has in
+            if !has { showFingerings = false }
         }
         .onChange(of: hub.isConnected) { _, connected in
             session.setConnected(connected)
@@ -950,7 +956,8 @@ struct PracticeRoomView: View {
                     isDemoPlaying: demo.state == .playing,
                     // 简谱/指法开关状态在纸外工具条上，谱面只负责渲染
                     showNumbered: $showNumbered,
-                    showFingerings: $showFingerings
+                    showFingerings: $showFingerings,
+                    hasFingerings: $hasFingerings
                 )
                 // 弹性高度：谱区填满底部控件以上的全部可用空间（问题5），
                 // 不再写死屏高 0.42；外层 VStack 的 Spacer 让位给这里。
@@ -988,14 +995,28 @@ struct PracticeRoomView: View {
     /// 纸外工具条：每行小节数 + 简谱 + 指法。
     /// 放在谱卡上方而不是叠在纸内——叠上去必然压住某几小节的音符（实测盖掉了第 3–4 小节）。
     private var scoreToolbar: some View {
-        HStack(spacing: 8) {
-            if loadedScore != nil {
-                layoutMenu
+        VStack(alignment: .trailing, spacing: 3) {
+            HStack(spacing: 8) {
+                if loadedScore != nil {
+                    layoutMenu
+                }
+                Spacer(minLength: 8)
+                if loadedScore != nil {
+                    NocturneChip(title: "简谱", isSelected: showNumbered) { showNumbered.toggle() }
+                    // 无指法数据时禁用：开了也不会有任何标注，等于骗用户
+                    NocturneChip(title: "指法", isSelected: showFingerings) { showFingerings.toggle() }
+                        .disabled(!hasFingerings)
+                        .opacity(hasFingerings ? 1 : 0.4)
+                        .accessibilityHint(hasFingerings ? "" : "这条谱没有指法标注")
+                }
             }
-            Spacer(minLength: 8)
-            if loadedScore != nil {
-                NocturneChip(title: "简谱", isSelected: showNumbered) { showNumbered.toggle() }
-                NocturneChip(title: "指法", isSelected: showFingerings) { showFingerings.toggle() }
+            // 诚实说明：随包谱都是 MusicXML，而引擎的 MusicXML 导入不解析 <fingering>
+            // （只有 MSCX 解码器支持），所以目前没有任何一份谱能画出指法。
+            if loadedScore != nil, !hasFingerings {
+                Text("这条谱没有指法标注")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.textMuted)
+                    .lineLimit(1)
             }
         }
         .disabled(!hub.isConnected)
