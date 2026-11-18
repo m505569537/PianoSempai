@@ -217,6 +217,21 @@
 ---
 
 ## 变更记录
+- 2026-11-18（导入乐谱后曲库闪退，修复）：
+  **现象**：真机导入乐谱后进曲库直接闪退。
+  **定位**：从设备取 `systemCrashLogs` → `Retired/PianoSempai-2026-11-18-115911.ips`，
+  `EXC_BREAKPOINT / SIGTRAP`；用 archive 里的 dSYM + `atos` 还原符号，栈顶为
+  `_NativeDictionary.merge(trappingOnDuplicates:)` ← `LibraryView.catalogLayout` ← `segmentContent`。
+  **根因**：`LibraryView` 两处（原 302 / 362 行）用
+  `Dictionary(uniqueKeysWithValues: allPieces.map { ("\($0.book)-\($0.number)", $0.status) })`
+  汇总状态。而**导入曲的 book 固定「导入」、number 恒为 0**——导入第二首时两个 key 完全相同，
+  构造字典直接触发运行时断言。控制台看不到原因，因为它是 Swift 运行时 trap 而非崩溃日志常规栈。
+  **修复**：抽出可测的 `LibraryView.pieceStatusMap(from:)`，重复键取「进度更靠前」的状态
+  （locked < notStarted < practicing < passed），与数组顺序无关，避免后导入的未开始项盖掉已有进度。
+  新增 4 条回归测试（重复键不崩 / 保留最靠前状态 / 不同键互不影响 / 未知状态不覆盖已知）。
+  **顺手加固**同样写法的 5 处（S17ZFImportView、SightReadSession、ScoringOrchestrator、
+  TakeScorer×2、ProviderChainConfig），统一改 `uniquingKeysWith:` 取首值——键唯一时行为不变，
+  键重复时从「崩溃」降为「可预测」。
 - 2026-11-17（练习室谱面/控制器一批修正 + 文档同步，926→931/0）：真机逐条反馈驱动。
   1. **分手点了没反应（根因在引擎语义）**：`ScoreLayerBuilder` 的上色只作用于
      `newSelection.selectedIDs`，`voiceColors` 只决定「选中项用什么色」。原实现只把**已弹**音符

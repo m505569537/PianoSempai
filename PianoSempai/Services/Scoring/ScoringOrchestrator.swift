@@ -403,7 +403,9 @@ enum ScoringOrchestrator {
             .filter { $0.pieceId == pieceId && !$0.isRecordingSession && !$0.isWaitSession }
             .sorted { $0.startedAt < $1.startedAt }
         let analyses = (try? context.fetch(FetchDescriptor<TakeAnalysis>())) ?? []
-        let analysisByTake = Dictionary(uniqueKeysWithValues: analyses.map { ($0.entityId, $0) })
+        // 同一 take 理论上只有一条分析；万一历史数据残留重复，取先出现的而不是崩掉
+        let analysisByTake = Dictionary(analyses.map { ($0.entityId, $0) },
+                                        uniquingKeysWith: { first, _ in first })
         return takes.compactMap { take in
             guard let a = take.analysisId.flatMap({ analysisByTake[$0] }) else { return nil }
             return (eligible: a.canEvaluate, passed: a.passesHardMetrics)

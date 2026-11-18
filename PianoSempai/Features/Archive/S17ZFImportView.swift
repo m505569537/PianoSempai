@@ -1288,10 +1288,13 @@ struct S17ZFImportView: View {
     private func startImport() {
         guard model.canImport else { return }
         let candidates = model.selectedCandidates
+        // 用 uniquing 版本：行 id 理论上唯一，但批量导入时重复行会把
+        // uniqueKeysWithValues 变成一次必崩的断言（同 LibraryView 2026-11-18 那次）。
         let sourceURLs = Dictionary(
-            uniqueKeysWithValues: model.selectedRows.compactMap { row in
+            model.selectedRows.compactMap { row in
                 row.tempURL.map { (row.id, $0) }
-            }
+            },
+            uniquingKeysWith: { first, _ in first }
         )
         Task {
             if let count = await model.importCandidates(

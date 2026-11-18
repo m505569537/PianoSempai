@@ -488,9 +488,10 @@ enum CorrectionPrescriptionStore {
     /// 命中类练习法快照（rawValue 键编码；编码失败 → "{}"，不阻断落库）
     private static func remedySnapshotJSON(types: Set<CorrectionErrorType>) -> String {
         let table = CorrectionEngine.remedyTable()
-        let raw: [String: Remedy] = Dictionary(uniqueKeysWithValues: types.compactMap { type in
-            table[type].map { (type.rawValue, $0) }
-        })
+        let raw: [String: Remedy] = Dictionary(
+            types.compactMap { type in table[type].map { (type.rawValue, $0) } },
+            uniquingKeysWith: { first, _ in first }
+        )
         guard let data = try? JSONEncoder().encode(raw),
               let text = String(data: data, encoding: .utf8) else { return "{}" }
         return text

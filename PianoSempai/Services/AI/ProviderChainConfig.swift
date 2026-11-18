@@ -183,7 +183,9 @@ enum ProviderChainLogic {
 
     /// 落位后密集重排：sortOrder = 下标（0..<n），不残留同值
     static func sortOrderAssignments(_ orderedIds: [String]) -> [String: Int] {
-        Dictionary(uniqueKeysWithValues: orderedIds.enumerated().map { ($0.element, $0.offset) })
+        // 取「首次出现」的下标：同一 provider 被重复摆进链里时不应崩溃
+        Dictionary(orderedIds.enumerated().map { ($0.element, $0.offset) },
+                   uniquingKeysWith: { first, _ in first })
     }
 
     // MARK: 模型 id

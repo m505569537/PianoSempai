@@ -226,6 +226,33 @@ struct LibraryView: View {
         .padding(.bottom, 12)
     }
 
+    // MARK: 曲目状态汇总
+
+    /// 把内存里的 `Piece` 汇总成 `"book-number"` → status。
+    ///
+    /// 不能直接用 `Dictionary(uniqueKeysWithValues:)`：**导入曲的 book 固定为「导入」、
+    /// number 恒为 0**，同一本书导入第二首时两个 key 完全相同，构造字典会命中
+    /// `_NativeDictionary.merge(trappingOnDuplicates:)` 直接崩溃
+    /// （2026-11-18 真机复现：导入乐谱后进曲库闪退）。
+    ///
+    /// 重复键取「进度更靠前」的那个状态，避免同书后导入的条目把已练过的进度盖回未开始。
+    static func pieceStatusMap(from pieces: [Piece]) -> [String: String] {
+        Dictionary(
+            pieces.map { ("\($0.book)-\($0.number)", $0.status) },
+            uniquingKeysWith: { lhs, rhs in statusRank(lhs) >= statusRank(rhs) ? lhs : rhs }
+        )
+    }
+
+    /// 状态推进程度：locked < notStarted < practicing < passed；未知值按最低处理。
+    private static func statusRank(_ status: String) -> Int {
+        switch status {
+        case "passed": return 3
+        case "practicing": return 2
+        case "notStarted": return 1
+        default: return 0
+        }
+    }
+
     // MARK: 内容
 
     @ViewBuilder
@@ -299,7 +326,7 @@ struct LibraryView: View {
         var n = 0
         let path = pathState ?? CoursePathState()
         // L1「已拿下」筛选：优先读 Piece 实际状态，而非 number/current 推断。
-        let pieceStatusMap = Dictionary(uniqueKeysWithValues: allPieces.map { ("\($0.book)-\($0.number)", $0.status) })
+        let pieceStatusMap = Self.pieceStatusMap(from: allPieces)
         let catalogIds = Set(catalog.map(\.id))
         for entry in catalog {
             guard !entry.isSample else { continue }
@@ -359,7 +386,7 @@ struct LibraryView: View {
     private func catalogRow(_ entry: CatalogEntry, index: Int, isFocus: Bool, hasPredecessor: Bool) -> some View {
         let path = pathState ?? CoursePathState()
         // L1「已拿下」筛选：优先读 Piece 实际状态，而非 number/current 推断。
-        let pieceStatusMap = Dictionary(uniqueKeysWithValues: allPieces.map { ("\($0.book)-\($0.number)", $0.status) })
+        let pieceStatusMap = Self.pieceStatusMap(from: allPieces)
         let status = CourseEngine.catalogStatus(
             book: entry.book, number: entry.number,
             pathState: path, pieceStatus: pieceStatusMap[entry.id]

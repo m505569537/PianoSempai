@@ -59,7 +59,9 @@ enum TakeScorer {
         standards: ScoringStandards,
         segmentStartSecs: [Double] = []
     ) -> Scored {
-        let refByID = Dictionary(uniqueKeysWithValues: references.map { ($0.id, $0) })
+        // 参考音符 id 应唯一；重复时取先出现的，避免断言崩溃拖垮整次判分
+        let refByID = Dictionary(references.map { ($0.id, $0) },
+                                 uniquingKeysWith: { first, _ in first })
         let pitch = pitchDimension(result: result, references: references)
         let rhythm = rhythmDimension(result: result, tolerance: standards.tolerance)
         let tempo = tempoDimension(
@@ -154,7 +156,9 @@ enum TakeScorer {
         referenceTempo: Int,
         targetTempoRatio: Double
     ) -> DimensionResult {
-        let refByID = Dictionary(uniqueKeysWithValues: references.map { ($0.id, $0) })
+        // 参考音符 id 应唯一；重复时取先出现的，避免断言崩溃拖垮整次判分
+        let refByID = Dictionary(references.map { ($0.id, $0) },
+                                 uniquingKeysWith: { first, _ in first })
         let timed = result.aligned
             .filter { $0.cls == .correct || $0.cls == .wrongPitch }
             .compactMap { note -> (beat: Double, playedOnset: Double)? in
