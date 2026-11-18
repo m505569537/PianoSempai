@@ -55,11 +55,27 @@ swiftc -swift-version 5 -warnings-as-errors $(find PianoSempai -name '*.swift') 
 > 1+2 也可直接跑 `Scripts/build.sh`（自动选第一台已 boot 的 iPhone，或用 `SIM_ID=` 覆盖）。
 > 部署目标仍是 iOS 17.0，模拟器版本不影响构建口径；只有 3) 完全不依赖模拟器。
 
-### 构建卡住时（实测过两次）
+### 构建卡住时（已定位根因）
 
-`xcodebuild` 长时间停在 `PruneExplicitPrecompiledModules` / `diskimagesiod` 占满 CPU，
-或测试报 `The test runner hung before establishing connection`——这不是代码问题，
-是本机模拟器子系统卡死。依次执行：
+2026-11-18 用 `sample` 采样卡住的 `xcodebuild` 才定位清楚，**不是代码问题，是 Xcode 26 构建引擎**：
+
+- 主线程停在 `waitForBuildWithBuildLog`，唯一子进程 `SWBBuildService` **0% CPU**，
+  且没有任何 `swift-frontend` —— 说明它不是在编译，而是死锁在
+  `PruneExplicitPrecompiledModules`（显式模块裁剪）阶段。
+- **规避**：加 `SWIFT_ENABLE_EXPLICIT_MODULES=NO`。实测同一构建从「卡 30 分钟无进展」
+  变成「150 秒完成」。`Scripts/build.sh` 与 `Scripts/test.sh` 已内置该参数。
+- **放大因素**：磁盘可用 <20GB 时该阶段显著变慢（实测 460GB 盘只剩 17GB、使用率 96%）。
+  先 `df -h /System/Volumes/Data` 看一眼，清理见下。
+
+另有两个独立的假故障：
+
+- `Unable to find a device matching the provided destination specifier`：
+  `simctl` 里设备明明是 Booted，但 `xcodebuild` 那一次解析不到——CoreSimulator 收尾竞态。
+  等 `simctl bootstatus <UDID> -b` 之后再 `sleep 3` 可稳定复现成功（`Scripts/test.sh` 已内置）。
+- `The test runner hung before establishing connection`：模拟器子系统状态坏了，
+  `xcrun simctl shutdown all` 后重新 boot 即可。
+
+仍无效时再重启模拟器服务（**不要当常规手段**，会打乱 destination 解析）：
 
 ```bash
 pkill -9 -f xcodebuild
@@ -68,8 +84,11 @@ killall -9 com.apple.CoreSimulator.CoreSimulatorService
 sleep 10 && xcrun simctl boot <SIM_ID> && sleep 20
 ```
 
-再用 `uptime` 确认负载回落（正常 < 20；曾出现 load 283 是残留 app 在模拟器里空转）。
+再用 `uptime` 确认负载回落（8 核机器正常 < 20；实测出现过 load 283，是残留 app 在模拟器里空转）。
 `timeout` 在 macOS 上不存在（`exit 127`），别用它包 xcodebuild。
+
+> 日常直接跑 `Scripts/test.sh`：它会先检查磁盘/负载/模拟器，再带正确参数跑测试，
+> 失败时打印对应诊断，不用每次靠人猜。
 
 ## 目录
 

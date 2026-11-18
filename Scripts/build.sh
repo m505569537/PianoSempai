@@ -16,5 +16,8 @@ SIM_ID="${SIM_ID:-$(xcrun simctl list devices booted available | awk -F '[()]' '
 echo "使用模拟器 UDID: $SIM_ID"
 
 xcodegen generate
-xcodebuild -skipMacroValidation -scheme PianoSempai -destination "platform=iOS Simulator,id=$SIM_ID" build
-xcodebuild -skipMacroValidation -scheme PianoSempai -destination "platform=iOS Simulator,id=$SIM_ID" test
+# SWIFT_ENABLE_EXPLICIT_MODULES=NO：Xcode 26 的显式模块裁剪阶段
+# （PruneExplicitPrecompiledModules）会偶发死锁在 SWBBuildService 里，
+# 表现为构建无限期卡住且 CPU 为 0。关掉后同样的构建 150s 内完成（2026-11-18 实测）。
+xcodebuild -skipMacroValidation -scheme PianoSempai -destination "platform=iOS Simulator,id=$SIM_ID" SWIFT_ENABLE_EXPLICIT_MODULES=NO build
+xcodebuild -skipMacroValidation -scheme PianoSempai -destination "platform=iOS Simulator,id=$SIM_ID" SWIFT_ENABLE_EXPLICIT_MODULES=NO test
