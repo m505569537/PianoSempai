@@ -80,6 +80,42 @@ PATCH /v1/appStoreVersions/{versionId}/relationships/build
 （返回 204 空 body 属正常成功。）构建处理完成后 `processingState` 才会从 `PROCESSING` 变 `VALID`，
 端到端约 5 分钟。
 
+## 三条通道别混：内测 / 外测 / 上架
+
+同一次上传的构建，在三个通道里的要求完全不同。**内测不需要任何元数据**，
+截图和描述是「上架」才要的——2026-11-17 曾因为只查 App Store 那条线，
+把「外部测试已提交」误判成「提交没登记」，实际是查错了对象。
+
+| 通道 | 需要什么 | 查询对象 |
+|---|---|---|
+| 内部测试（Internal） | 构建处理完即可，无需审核、无需元数据 | `buildBetaDetail.internalBuildState` |
+| 外部测试（External） | Beta App Review + Beta 描述 + **隐私政策网址** + 反馈邮箱 | `buildBetaDetail.externalBuildState`、`betaAppLocalizations` |
+| App Store 上架 | 完整元数据 + 截图 + 正式审核 | `appStoreVersions.appStoreState` |
+
+当前实测（2026-11-18）：
+
+- 构建 `1.0.0 (2)`：`internalBuildState = IN_BETA_TESTING`（**内测可直接装**）、
+  `externalBuildState = IN_BETA_REVIEW`（外测审核中）
+- 内部组 `xuuu`（100 人上限，自动通知 `autoNotifyEnabled = true`）
+- 外部组 `redbook`（公开链接可用）
+- Beta 描述 ✓、反馈邮箱 `505569537@qq.com` ✓、What to Test「更新一些东西」（较随意）
+- 隐私政策网址已于 2026-11-18 填入 `https://m505569537.github.io/pianosempai-privacy/`
+
+### 填 Beta 本地化字段
+
+```http
+PATCH /v1/betaAppLocalizations/{locId}
+{"data":{"type":"betaAppLocalizations","id":"{locId}","attributes":{"privacyPolicyUrl":"https://..."}}}
+```
+
+`locId` 从 `GET /v1/apps/{appId}/betaAppLocalizations` 取（zh-Hans 那条）。
+
+### 内测装机步骤
+
+1. App Store 装 **TestFlight**
+2. 用开发者账号同一 Apple ID 登录
+3. 列表里选 PianoSempai → 安装
+
 ## 上架前还缺什么（查询用）
 
 ```http
