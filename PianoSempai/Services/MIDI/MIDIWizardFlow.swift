@@ -29,8 +29,12 @@ enum MIDIWizardFlow {
         guard !names.isEmpty else { return nil }
         if let current, names.contains(current) { return current }
         if names.count == 1 { return names[0] }
+        // 注意必须同时认中文「特伦斯」：本机设备名就是「特伦斯 V70」，
+        // 只匹配英文 TERENCE 会漏掉（2026-11-19 新增用例抓到的）。
         if let preferred = names.first(where: {
-            $0.localizedCaseInsensitiveContains("TERENCE") || $0.localizedCaseInsensitiveContains("钢琴")
+            $0.localizedCaseInsensitiveContains("TERENCE")
+                || $0.localizedCaseInsensitiveContains("特伦斯")
+                || $0.localizedCaseInsensitiveContains("钢琴")
         }) {
             return preferred
         }

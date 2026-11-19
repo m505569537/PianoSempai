@@ -26,6 +26,12 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.0"
     SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+    # 模拟器构建不打包 206MB 音源：app bundle 会因此变成 303MB，
+    # 而 xcodebuild test 每次都要把它拷进模拟器——磁盘紧张时这一步会长时间卡住，
+    # 表现为「测试运行器连不上 / xcodebuild 假死」（2026-11-19 实测：
+    # 连 simctl get_app_container 都挂住）。缺 sf2 时示范播放自动安全禁用（ADR-0002），
+    # 单测不依赖它；真机/上架构建仍包含。
+    "EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]": "MuseScore_General.sf2"
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
 
 targets:

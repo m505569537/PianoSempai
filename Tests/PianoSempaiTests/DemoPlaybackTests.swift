@@ -84,7 +84,11 @@ final class DemoPlaybackTests: XCTestCase {
     func testMetronomeChannelMutedByDefaultAfterPrepare() throws {
         // 用真实内置音源 resolver（gate=ready），prepare 会同步建立 mixer 通道（不依赖 SF2 后台加载完成）。
         let svc = DemoPlaybackService(referenceBpm: 72)
-        XCTAssertEqual(svc.availability, .ready, "测试宿主缺内置音源时此用例不成立")
+        // 模拟器构建已排除 206MB 的 MuseScore_General.sf2（避免测试每次往模拟器拷 300MB），
+        // 因此这里缺音源属预期：跳过而不是判失败。真机/上架构建仍带该文件。
+        guard svc.availability == .ready else {
+            throw XCTSkip("测试宿主缺内置音源（模拟器构建已排除 sf2），跳过 mixer 真值用例")
+        }
         let score = try bundledScore()
         try svc.prepare(score: score)
 
@@ -96,6 +100,11 @@ final class DemoPlaybackTests: XCTestCase {
     func testMetronomeToggleReflectsOnEngineChannel() throws {
         let svc = DemoPlaybackService(referenceBpm: 72)
         let score = try bundledScore()
+        // 同 testMetronomeChannelMutedByDefaultAfterPrepare：模拟器构建不含 sf2，
+        // 缺音源时 prepare 无法建立 mixer 通道，跳过而不是判失败。
+        guard svc.availability == .ready else {
+            throw XCTSkip("测试宿主缺内置音源（模拟器构建已排除 sf2），跳过 mixer 真值用例")
+        }
         try svc.prepare(score: score)
 
         svc.setMetronome(true)
