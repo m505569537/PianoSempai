@@ -409,7 +409,22 @@ struct S03MidiWizardView: View {
     /// 系统 MIDI 源卡片：已连接高亮勾选
     private func sourceCard(_ name: String) -> some View {
         let isSelected = selectedDevice == name && realConnected
-        return HStack(spacing: 12) {
+        // 可点选：多源时用户必须能自己指定是哪台琴（旧版是纯展示，点不了，
+        // 一旦自动启发式没命中就彻底无解）。
+        return Button {
+            guard realConnected else { return }
+            selectedDevice = name
+            connectFailed = false
+        } label: {
+            sourceCardBody(name, isSelected: isSelected)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(name)，MIDI 源")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+
+    private func sourceCardBody(_ name: String, isSelected: Bool) -> some View {
+        HStack(spacing: 12) {
             Image(systemName: "music.note")
                 .font(.system(size: 18))
                 .foregroundStyle(isSelected ? Color.amber : Color.textMuted)
@@ -453,15 +468,9 @@ struct S03MidiWizardView: View {
             }
             return
         }
-        // 单一源直接认；多个源选包含 TERENCE/钢琴 的，否则不猜
-        if systemDevices.count == 1 {
-            selectedDevice = systemDevices.first
-        } else {
-            selectedDevice = systemDevices.first {
-                $0.localizedCaseInsensitiveContains("TERENCE")
-                    || $0.localizedCaseInsensitiveContains("钢琴")
-            }
-        }
+        // 选中规则集中到 MIDIWizardFlow.preferredSource（可单测）。
+        // 旧实现在"多源 + 非特伦斯品牌"时给 nil，导致 CTA 永久禁用（2026-11-19 反馈的卡死）。
+        selectedDevice = MIDIWizardFlow.preferredSource(systemDevices, keeping: selectedDevice)
         connectFailed = false
     }
 

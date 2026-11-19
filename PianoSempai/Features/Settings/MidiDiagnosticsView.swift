@@ -53,6 +53,41 @@ struct MidiDiagnosticsView: View {
         hub.mode == .simulated ? "模拟" : "CoreMIDI"
     }
 
+    /// 模拟源 → 真机源的显式出口（否则用户被永久留在模拟态）
+    private var switchToRealCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("当前是模拟输入")
+                .font(.titleMd)
+                .foregroundStyle(Color.textPrimary)
+            Text("模拟输入只用于演示，接真琴要切回 CoreMIDI。切回后请确认琴已用 USB 线连接，\n或在下面「蓝牙 MIDI 设置」里完成配对。")
+                .font(.bodySm)
+                .foregroundStyle(Color.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                hub.switchSource(.real)
+            } label: {
+                Text("改用真实电钢琴（CoreMIDI）")
+                    .font(.bodyMd)
+                    .foregroundStyle(Color.amber)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.card, in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .strokeBorder(Color.amber.opacity(0.35), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Color.border, lineWidth: 1)
+        )
+    }
+
     private let readingColumns = [
         GridItem(.flexible(), spacing: 10),
         GridItem(.flexible(), spacing: 10)
@@ -63,6 +98,12 @@ struct MidiDiagnosticsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     header.padding(.top, 12)
+                    // 2026-11-19：一旦在向导里选过「使用模拟输入」，全仓没有任何入口
+                    // 把 mode 切回 .real（reconnect() 里那句只在已是 real 时执行），
+                    // 用户只能靠重启 App 才能重新接真琴。这里补一个显式切换入口。
+                    if hub.mode == .simulated {
+                        switchToRealCard.padding(.top, 14)
+                    }
                     connectionCard.padding(.top, 14)
                     signalCard.padding(.top, 14)
                     hintCard.padding(.top, 14)

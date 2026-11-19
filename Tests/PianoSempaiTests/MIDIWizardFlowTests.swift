@@ -82,4 +82,57 @@ final class MIDIWizardFlowTests: XCTestCase {
     func testDuplicateSamePitchTwiceDoesNotPass() {
         XCTAssertFalse(MIDIVerifyGate.passes(windowArmed: true, windowExpired: false, pitches: [60, 60]))
     }
+
+    // MARK: 源选择（2026-11-19 测试者反馈"电钢琴连不上"的回归）
+
+    /// 单一源：无论品牌都认（旧实现本来就对，锁住不被改坏）。
+    func testSingleSourceIsPickedRegardlessOfBrand() {
+        XCTAssertEqual(
+            MIDIWizardFlow.preferredSource(["Yamaha P-125"], keeping: nil),
+            "Yamaha P-125"
+        )
+    }
+
+    /// 核心回归：**多源 + 非特伦斯品牌**。
+    /// 旧实现给 nil → canAdvanceFromConnect 为 false → CTA 永久禁用 → 用户报"连不上"。
+    func testMultipleSourcesWithoutTerenceStillPicksOne() {
+        let sources = ["Yamaha P-125", "Network Session 1"]
+        let picked = MIDIWizardFlow.preferredSource(sources, keeping: nil)
+        XCTAssertNotNil(picked, "多源时不能返回 nil，否则用户被永久卡在连接步")
+        XCTAssertEqual(picked, "Yamaha P-125", "无偏好时取第一个源")
+        XCTAssertTrue(MIDIWizardFlow.canAdvanceFromConnect(
+            systemDevices: sources, selectedDevice: picked, mode: .real
+        ))
+    }
+
+    /// 多源里有特伦斯时优先它（锦上添花，不影响其它品牌）。
+    func testTerencePreferenceAmongMultipleSources() {
+        XCTAssertEqual(
+            MIDIWizardFlow.preferredSource(["Yamaha P-125", "特伦斯 V70"], keeping: nil),
+            "特伦斯 V70"
+        )
+    }
+
+    /// 用户手动选过的源要保留，不被自动启发式覆盖。
+    func testManualSelectionIsKept() {
+        let sources = ["Yamaha P-125", "Roland FP-30X"]
+        XCTAssertEqual(
+            MIDIWizardFlow.preferredSource(sources, keeping: "Roland FP-30X"),
+            "Roland FP-30X"
+        )
+    }
+
+    /// 手动选的设备拔掉后，回退到仍可用的源而不是 nil。
+    func testStaleSelectionFallsBackInsteadOfNil() {
+        XCTAssertEqual(
+            MIDIWizardFlow.preferredSource(["Yamaha P-125"], keeping: "已拔掉的琴"),
+            "Yamaha P-125"
+        )
+    }
+
+    /// 没有任何源时才返回 nil。
+    func testNoSourcesReturnsNil() {
+        XCTAssertNil(MIDIWizardFlow.preferredSource([], keeping: "旧设备"))
+    }
+
 }

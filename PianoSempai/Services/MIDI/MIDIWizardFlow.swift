@@ -10,6 +10,32 @@ enum MIDIWizardFlow {
     ) -> Bool {
         selectedDevice != nil || mode == .simulated
     }
+
+    /// 从系统暴露的 MIDI 源里挑一个作为"当前设备"。
+    ///
+    /// 历史实现的问题（2026-11-19 测试者反馈"电钢琴连不上"）：只有
+    ///   ① 恰好 1 个源 → 直接认；② 多源时**只认名字含 TERENCE / 钢琴 的**，否则给 nil。
+    /// 而 `canAdvanceFromConnect` 要求 `selectedDevice != nil`，于是**任何非特伦斯品牌、
+    /// 又恰好暴露了多个源的琴（BLE-MIDI 常见两个端点、同机还有网络会话源等）会被永久卡死**：
+    /// 设备明明连上了、列表里也看得见，但"下一步"永远是灰的，用户只能认为"连不上"。
+    ///
+    /// 现规则（顺序即优先级）：
+    ///   1. 用户手动选过且该源仍在 → 保留（手动优先，不覆盖用户意图）；
+    ///   2. 只有一个源 → 就是它；
+    ///   3. 名字命中 TERENCE / 钢琴 → 优先（本仓主力机型的好恶，仅作锦上添花）；
+    ///   4. 其余情况取第一个源——连接本身是真的（来电源已由 CoreMIDI 枚举得到），
+    ///      此时只是"给这次连接起个名字"，不该把用户挡在门外。
+    static func preferredSource(_ names: [String], keeping current: String?) -> String? {
+        guard !names.isEmpty else { return nil }
+        if let current, names.contains(current) { return current }
+        if names.count == 1 { return names[0] }
+        if let preferred = names.first(where: {
+            $0.localizedCaseInsensitiveContains("TERENCE") || $0.localizedCaseInsensitiveContains("钢琴")
+        }) {
+            return preferred
+        }
+        return names[0]
+    }
 }
 
 /// S03 验证步判定（PRD：首次连接向导「弹两音验证信号」——2 秒监听窗内收到 ≥2 个不同音名的有效 Note On）。
