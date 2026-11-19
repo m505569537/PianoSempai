@@ -5,7 +5,17 @@ import Foundation
 /// 枚举系统全部 MIDI 输入源（含已配对的 BLE MIDI、USB、网络会话），逐个连接收包。
 /// 模拟器无设备 → sources 为空、连接态 false；V70 真机验证项在 PRD"开工前实机验证"。
 final class CoreMIDISource: MIDIEventSource {
-    let name = "CoreMIDI（真机）"
+    /// 真机源的显示名 = 系统实际枚举到的端点名。
+    ///
+    /// 2026-11-19 真机反馈：连接后界面一直显示「CoreMIDI（真机）」，看不到琴名。
+    /// 原因就是这里写死了字符串，而 `MIDIHub.connectedDeviceName` 直接取它，
+    /// 于是"设备名不写死型号"那条修正被这个常量绕过了。
+    /// 取不到端点名时回落通用「电钢琴」，绝不编造型号。
+    var name: String {
+        let names = sourceNames
+        guard let first = names.first else { return "电钢琴" }
+        return names.count > 1 ? "\(first) 等 \(names.count) 个" : first
+    }
     let isSimulated = false
     var onEvent: ((MIDIEvent) -> Void)?
     var onConnectionChanged: ((Bool) -> Void)?

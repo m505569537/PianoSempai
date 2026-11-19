@@ -217,6 +217,26 @@
 ---
 
 ## 变更记录
+- 2026-11-19（真机连接后两个体验 bug + 测试环境查穿，939/0）：
+  1. **连接后显示「CoreMIDI（真机）」而非琴名**：`CoreMIDISource.name` 是写死的字符串常量，
+     而 `MIDIHub.connectedDeviceName` 直接取它——之前"设备名不写死型号"的修正只改了显示层，
+     被这个常量绕过。改为取系统实际枚举到的端点名（多源时「首个 等 N 个」），
+     取不到才回落「电钢琴」。
+  2. **验证步监听到信号但「完成，开始定级」点不动**：监听窗是固定 2 秒，
+     而判定要求两个不同音名都落在同一个窗内。用户读完屏幕再弹第二个音时窗已过期，
+     三格仍在刷新、按钮却永久禁用（原来只能靠「再听一次」重开，等于考手速）。
+     改为**滚动窗口**：每收到一个音就续 2 秒（`refreshVerifyWindow()` 换 token 但不清音名），
+     语义仍是"刚刚真的在弹"。
+  3. **测试环境终于查穿**（前一日所有"构建卡死"的真因）：
+     ① 模拟器设备数据损坏（`simctl bootstatus/install/launch` 全挂，`erase` 后 install 立刻返回 0）；
+     ② app bundle 303MB（含 206MB sf2），每次测试都要拷进模拟器 →
+        `EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]` 排除音源，降到 67MB；
+     ③ 磁盘长期 95%（460GB 只剩 17~22GB）；
+     ④ 8 核机器负载 110~234。
+     旧结论「PruneExplicitPrecompiledModules 死锁」是误判——采样到的 0% CPU 是在等 I/O。
+     另：`ExplicitPrecompiledModules` 目录**不能单独删**（会报 `Failed to query serialized
+     dependencies`），要恢复只能整目录重建 `rm -rf build/dd`。
+  新增 `Scripts/test.sh`：磁盘/负载/模拟器预检 + 残留进程清理 + 失败诊断。
 - 2026-11-18（导入乐谱后曲库闪退，修复）：
   **现象**：真机导入乐谱后进曲库直接闪退。
   **定位**：从设备取 `systemCrashLogs` → `Retired/PianoSempai-2026-11-18-115911.ips`，

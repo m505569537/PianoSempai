@@ -610,6 +610,11 @@ struct S03MidiWizardView: View {
         if !verifyPitches.contains(note) {
             verifyPitches.append(note)
         }
+        // 滚动窗口（2026-11-19 真机反馈）：原来要求两个音都落进同一个 2 秒窗，
+        // 用户读完屏幕再弹第二个音时窗早就过期了——结果三格明明在刷新、
+        // 「完成，开始定级」却始终点不动。现改为"每收到一个音就续 2 秒"：
+        // 语义仍是"刚刚真的在弹"，但不再要求手速，也不会把用户卡死。
+        refreshVerifyWindow()
         if MIDIVerifyGate.passes(
             windowArmed: verifyWindowToken != nil,
             windowExpired: verifyWindowExpired,
@@ -627,6 +632,13 @@ struct S03MidiWizardView: View {
         verifyTime = nil
         verifyPassed = false
         armVerifyWindow()
+    }
+
+    /// 续窗：换 token 让 2 秒计时重新开始，但**不清空已收到的音名**。
+    /// 用于"每收到一个音就续 2 秒"的滚动语义（见 recordVerify）。
+    private func refreshVerifyWindow() {
+        verifyWindowExpired = false
+        verifyWindowToken = UUID()
     }
 
     /// 武装监听窗（换 token → `.task(id:)` 取消上一个计时）；音名累计同步清空（新窗重新算两个音）
