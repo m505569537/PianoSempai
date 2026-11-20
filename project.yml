@@ -23,7 +23,7 @@ settings:
     # 版本号单一来源：Info.plist 由下方 info.properties 的 CFBundleShortVersionString 生成。
     # 改版本只改那一处（此处同步以免 project.yml 与产物漂移）。
     MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "1"
+    CURRENT_PROJECT_VERSION: "3"
     SWIFT_VERSION: "5.0"
     SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
     # 模拟器构建不打包 206MB 音源：app bundle 会因此变成 303MB，
@@ -67,7 +67,7 @@ targets:
       properties:
         CFBundleDisplayName: PianoSempai
         CFBundleShortVersionString: "1.0.0"
-        CFBundleVersion: "1"
+        CFBundleVersion: "3"
         # 出口合规：仅用 CryptoKit SHA256 做内容寻址哈希，不涉及加密通信
         # （HTTPS 属系统级豁免），App Store 提审免填出口合规问卷。
         ITSAppUsesNonExemptEncryption: false
